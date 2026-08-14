@@ -6,14 +6,15 @@
   const CARD_LIBRARY = Object.freeze({
     slash: Object.freeze({ id: 'slash', name: '斬る', discipline: 'sword', icon: '剣', cost: 1, damage: 7, description: '剣で素早く斬りつける' }),
     cleave: Object.freeze({ id: 'cleave', name: '薙ぐ', discipline: 'sword', icon: '刃', cost: 1, damage: 6, description: '大きく踏み込み薙ぎ払う' }),
-    spark: Object.freeze({ id: 'spark', name: '火花', discipline: 'magic', element: 'fire', icon: '炎', cost: 1, damage: 6, description: '小さな炎を放つ' }),
-    frost: Object.freeze({ id: 'frost', name: '霜結', discipline: 'magic', element: 'ice', icon: '氷', cost: 1, damage: 5, description: '冷気で敵の力を鈍らせる' }),
+    spark: Object.freeze({ id: 'spark', name: '火花', discipline: 'magic', element: 'fire', icon: '炎', cost: 1, mpCost: 2, damage: 6, description: 'MP2・小さな炎を放つ' }),
+    frost: Object.freeze({ id: 'frost', name: '霜結', discipline: 'magic', element: 'ice', icon: '氷', cost: 1, mpCost: 3, damage: 7, description: 'MP3・冷気で敵を貫く' }),
     guard: Object.freeze({ id: 'guard', name: '防ぐ', discipline: 'guard', icon: '盾', cost: 1, block: 7, description: '盾を構えて身を守る' }),
     parry: Object.freeze({ id: 'parry', name: '受流', discipline: 'guard', icon: '受', cost: 1, block: 5, damage: 2, description: '受け流しながら反撃する' }),
-    focus: Object.freeze({ id: 'focus', name: '集中', discipline: 'technique', icon: '眼', cost: 1, draw: 1, description: '次の一手を見定める' }),
+    focus: Object.freeze({ id: 'focus', name: '集中', discipline: 'technique', icon: '眼', cost: 1, draw: 1, mpRestore: 2, description: '予兆を見抜きMPを2回復' }),
     feint: Object.freeze({ id: 'feint', name: '陽動', discipline: 'technique', icon: '技', cost: 1, damage: 3, weaken: 2, description: '敵を惑わせ攻撃を弱める' }),
     'flame-edge': Object.freeze({ id: 'flame-edge', name: '炎刃', discipline: 'sword', element: 'fire', icon: '焔', cost: 1, damage: 9, description: '炎をまとわせて斬りつける' }),
-    fortress: Object.freeze({ id: 'fortress', name: '城壁', discipline: 'guard', icon: '城', cost: 1, block: 10, description: '堅牢な魔法壁で身を守る' })
+    fortress: Object.freeze({ id: 'fortress', name: '城壁', discipline: 'guard', icon: '城', cost: 1, block: 10, description: '堅牢な壁で身を守る' }),
+    mend: Object.freeze({ id: 'mend', name: '癒光', discipline: 'magic', icon: '癒', cost: 1, mpCost: 3, heal: 14, description: 'MP3・HPを14回復する' })
   });
 
   const ENEMY_LIBRARY = Object.freeze({
@@ -21,7 +22,7 @@
     'gutter-goblin': Object.freeze({ id: 'gutter-goblin', name: '石路のゴブリン', maxHp: 34, attack: 11, gold: 12, xp: 18, intent: '錆びた短剣', weakness: 'ice' }),
     'rune-wolf': Object.freeze({ id: 'rune-wolf', name: '刻印の魔狼', maxHp: 42, attack: 13, gold: 18, xp: 24, intent: '飛びかかる', weakness: 'ice' }),
     'mist-watcher': Object.freeze({
-      id: 'mist-watcher', name: '紫霧の番人', maxHp: 116, attack: 15, gold: 120, xp: 80,
+      id: 'mist-watcher', name: '紫霧の番人', maxHp: 84, attack: 12, gold: 120, xp: 80,
       intent: '紫霧の爪', weakness: 'fire', boss: true,
       intentPattern: Object.freeze(['ward', 'grand-spell', 'assault', 'renew'])
     })
@@ -64,7 +65,7 @@
   });
 
   function defaultDeck() {
-    return ['slash', 'cleave', 'spark', 'frost', 'guard', 'parry', 'focus', 'feint'];
+    return ['slash', 'focus', 'guard'];
   }
 
   function shuffled(items, random = Math.random) {
@@ -99,14 +100,20 @@
     const opening = drawCards(shuffled(battleDeck, random), [], 5, random);
     const maxHp = Math.max(1, Math.floor(Number(profile.maxHp) || 42));
     const hp = Math.max(1, Math.min(maxHp, Math.floor(Number(profile.hp) || maxHp)));
+    const energy = Math.max(1, Math.min(4, Math.floor(Number(profile.energy) || 1)));
+    const maxMp = Math.max(0, Math.floor(Number(profile.maxMp) || 6));
+    const parsedMp = Number(profile.mp);
+    const mp = Number.isFinite(parsedMp) ? Math.max(0, Math.min(maxMp, Math.floor(parsedMp))) : maxMp;
     const intentPattern = enemyDefinition.intentPattern || INTENT_PATTERN;
     return {
       status: 'active',
       turn: 1,
-      energy: 3,
+      energy,
       player: {
         hp,
         maxHp,
+        mp,
+        maxMp,
         block: 0,
         attackBonus: Math.max(0, Math.floor(Number(profile.attackBonus) || 0)),
         defenseBonus: Math.max(0, Math.floor(Number(profile.defenseBonus) || 0))
@@ -124,6 +131,7 @@
       hand: opening.cards,
       selected: [],
       selectedCost: 0,
+      selectedMp: 0,
       readyToResolve: false,
       intentRevealed: false,
       effects: [],
@@ -136,18 +144,24 @@
     return selected.reduce((sum, cardId) => sum + (CARD_LIBRARY[cardId]?.cost || 0), 0);
   }
 
+  function totalMpCost(selected) {
+    return selected.reduce((sum, cardId) => sum + (CARD_LIBRARY[cardId]?.mpCost || 0), 0);
+  }
+
   function toggleCard(battle, cardId) {
     if (battle.status !== 'active' || !battle.hand.includes(cardId)) return battle;
     if (battle.selected.includes(cardId)) {
       const index = battle.selected.indexOf(cardId);
       const selected = battle.selected.filter((_, cardIndex) => cardIndex !== index);
       const selectedCost = totalCost(selected);
-      return { ...battle, selected, selectedCost, readyToResolve: selectedCost === battle.energy };
+      const selectedMp = totalMpCost(selected);
+      return { ...battle, selected, selectedCost, selectedMp, readyToResolve: selectedCost === battle.energy };
     }
     const selected = [...battle.selected, cardId];
     const selectedCost = totalCost(selected);
-    if (battle.selected.length >= 3 || selectedCost > battle.energy) return battle;
-    return { ...battle, selected, selectedCost, readyToResolve: selectedCost === battle.energy };
+    const selectedMp = totalMpCost(selected);
+    if (battle.selected.length >= 4 || selectedCost > battle.energy || selectedMp > battle.player.mp) return battle;
+    return { ...battle, selected, selectedCost, selectedMp, readyToResolve: selectedCost === battle.energy };
   }
 
   function combinationFor(selected) {
@@ -158,14 +172,20 @@
 
   function previewAction(selected) {
     const cards = selected.map(cardId => CARD_LIBRARY[cardId]).filter(Boolean);
-    if (!cards.length) return { name: 'カードを選択', damage: 0, block: 0, weaken: 0, draw: 0, elements: [], disciplines: [], revealIntent: false };
+    if (!cards.length) return {
+      name: 'カードを選択', damage: 0, block: 0, heal: 0, weaken: 0, draw: 0,
+      mpCost: 0, mpRestore: 0, elements: [], disciplines: [], revealIntent: false
+    };
     const combo = combinationFor(selected);
     return {
       name: combo?.name || cards.map(card => card.name).join(' → '),
       damage: cards.reduce((sum, card) => sum + (card.damage || 0), 0) + (combo?.bonusDamage || 0),
       block: cards.reduce((sum, card) => sum + (card.block || 0), 0) + (combo?.bonusBlock || 0),
+      heal: cards.reduce((sum, card) => sum + (card.heal || 0), 0),
       weaken: cards.reduce((sum, card) => sum + (card.weaken || 0), 0),
       draw: cards.reduce((sum, card) => sum + (card.draw || 0), 0) + (combo?.draw || 0),
+      mpCost: cards.reduce((sum, card) => sum + (card.mpCost || 0), 0),
+      mpRestore: cards.reduce((sum, card) => sum + (card.mpRestore || 0), 0),
       elements: [...new Set(cards.map(card => card.element).filter(Boolean))],
       disciplines: [...new Set(cards.map(card => card.discipline))],
       revealIntent: cards.some(card => card.id === 'focus')
@@ -184,16 +204,25 @@
   function resolveTurn(battle, random = Math.random) {
     if (battle.status !== 'active' || !battle.selected.length) return battle;
     const action = previewAction(battle.selected);
+    if (action.mpCost > battle.player.mp) return battle;
     const intent = ENEMY_INTENTS[battle.enemy.intentId] || ENEMY_INTENTS.assault;
     const countered = battle.intentRevealed && action.disciplines.includes(intent.counteredBy);
     const weaknessElement = action.elements.find(element => element === battle.enemy.weakness);
     const weaknessHit = Boolean(weaknessElement && action.damage > 0);
     const amplifiedDamage = weaknessHit ? Math.round(action.damage * WEAKNESS_MULTIPLIER) : action.damage;
     const intentBlock = countered ? 0 : (intent.block || 0);
-    const damage = Math.max(0, amplifiedDamage + (battle.player.attackBonus || 0) - (battle.enemy.block || 0) - intentBlock);
+    const attackBonus = action.damage > 0 ? (battle.player.attackBonus || 0) : 0;
+    const damage = Math.max(0, amplifiedDamage + attackBonus - (battle.enemy.block || 0) - intentBlock);
     const enemyHp = Math.max(0, battle.enemy.hp - damage);
     const spent = [...battle.selected];
     const effects = [];
+    const mpAfterCost = battle.player.mp - action.mpCost;
+    const playerMp = Math.min(battle.player.maxMp, mpAfterCost + action.mpRestore);
+    const restoredMp = playerMp - mpAfterCost;
+    const healedPlayerHp = Math.min(battle.player.maxHp, battle.player.hp + action.heal);
+    const healedPlayerAmount = healedPlayerHp - battle.player.hp;
+    if (healedPlayerAmount > 0) effects.push({ type: 'heal', target: 'player', amount: healedPlayerAmount });
+    if (restoredMp > 0) effects.push({ type: 'mp', target: 'player', amount: restoredMp });
     if (countered) {
       effects.push({
         type: 'counter',
@@ -213,16 +242,19 @@
       });
     }
     if (damage > 0) effects.push({ type: 'damage', target: 'enemy', amount: damage });
+    const recoveryLog = `${healedPlayerAmount ? ` HPが${healedPlayerAmount}回復。` : ''}${restoredMp ? ` MPが${restoredMp}回復。` : ''}`;
     const log = [
-      `${action.name}！ ${countered ? `看破成功！ ${intent.name}を崩した。 ` : ''}${weaknessHit ? '弱点を突いた！ ' : ''}${damage}のダメージ。`
+      `${action.name}！ ${countered ? `看破成功！ ${intent.name}を崩した。 ` : ''}${weaknessHit ? '弱点を突いた！ ' : ''}${damage}のダメージ。${recoveryLog}`
     ];
     if (enemyHp === 0) {
       return {
         ...battle,
         status: 'victory',
+        player: { ...battle.player, hp: healedPlayerHp, mp: playerMp },
         enemy: { ...battle.enemy, hp: 0 },
         selected: [],
         selectedCost: 0,
+        selectedMp: 0,
         readyToResolve: false,
         effects,
         log: [...battle.log, ...log, `${battle.enemy.name}を倒した。`],
@@ -233,17 +265,18 @@
     const scaledAttack = Math.round(battle.enemy.attack * (intent.attackScale ?? 1)) + (intent.attackBonus || 0);
     const intentAttack = countered && intent.cancelAttackOnCounter ? 0 : scaledAttack;
     const enemyDamage = Math.max(0, intentAttack - action.weaken - action.block - (battle.player.defenseBonus || 0));
-    const playerHp = Math.max(0, battle.player.hp - enemyDamage);
+    const playerHp = Math.max(0, healedPlayerHp - enemyDamage);
     if (enemyDamage > 0) effects.push({ type: 'damage', target: 'player', amount: enemyDamage });
     log.push(`${countered && intent.cancelAttackOnCounter ? `${intent.name}を阻止した。` : intent.name} ${enemyDamage}のダメージ。`);
     if (playerHp === 0) {
       return {
         ...battle,
         status: 'defeat',
-        player: { ...battle.player, hp: 0 },
+        player: { ...battle.player, hp: 0, mp: playerMp },
         enemy: { ...battle.enemy, hp: enemyHp },
         selected: [],
         selectedCost: 0,
+        selectedMp: 0,
         readyToResolve: false,
         effects,
         log: [...battle.log, ...log, '力尽きた……。'],
@@ -262,8 +295,7 @@
     return {
       ...battle,
       turn: battle.turn + 1,
-      energy: 3,
-      player: { ...battle.player, hp: playerHp, block: 0 },
+      player: { ...battle.player, hp: playerHp, mp: playerMp, block: 0 },
       enemy: {
         ...battle.enemy,
         hp: recoveredHp,
@@ -276,6 +308,7 @@
       hand: [...remainingHand, ...nextDraw.cards].slice(0, 7),
       selected: [],
       selectedCost: 0,
+      selectedMp: 0,
       readyToResolve: false,
       intentRevealed: action.revealIntent,
       effects,

@@ -2,14 +2,19 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  MAIN_STORY_PACING,
   LEVEL_TABLE,
   SHOP_CATALOG,
   applyBattleVictory,
   battleProfile,
   buyProduct,
   canChallengeWatchtower,
+  canDiscoverCard,
+  canLearnFirstMagic,
   campaignObjective,
   createPastCampaign,
+  discoverCard,
+  learnFirstMagic,
   resolveDefeat,
   restAtInn,
   useItem
@@ -46,6 +51,57 @@ test('card purchases are unique and extend the battle deck', () => {
   assert.equal(repeated.ok, false);
 });
 
+test('level progression spans fifteen levels and action points rise at major milestones', () => {
+  assert.equal(LEVEL_TABLE.length, 15);
+  assert.deepEqual(LEVEL_TABLE.map(level => level.exp), [0, 40, 110, 220, 380, 600, 880, 1230, 1650, 2150, 2730, 3390, 4130, 4950, 5850]);
+  assert.deepEqual(LEVEL_TABLE.map(level => level.energy), [1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4]);
+  assert.ok(LEVEL_TABLE.every((level, index) => index === 0 || level.maxMp >= LEVEL_TABLE[index - 1].maxMp));
+  const levelOne = battleProfile(createPastCampaign());
+  assert.equal(levelOne.energy, 1);
+  assert.equal(levelOne.maxMp, 6);
+  assert.deepEqual(levelOne.deck, ['slash', 'focus', 'guard']);
+});
+
+test('seventy normal battles plus bosses reach the level fifteen cap', () => {
+  const normalBattles = MAIN_STORY_PACING.reduce((sum, chapter) => sum + chapter.normalBattles, 0);
+  const plannedXp = MAIN_STORY_PACING.reduce((sum, chapter) => sum + chapter.normalXp + chapter.bossXp, 0);
+  const completed = applyBattleVictory(createPastCampaign(), { xp: plannedXp }).state;
+  assert.equal(normalBattles, 70);
+  assert.equal(completed.level, 15);
+  assert.ok(plannedXp >= LEVEL_TABLE.at(-1).exp);
+});
+
+test('the first magic requires one victory and grants spark plus one magic drop exactly once', () => {
+  const start = createPastCampaign();
+  const afterVictory = applyBattleVictory(start, { xp: 12, encounterId: 'road-first' }).state;
+  assert.equal(canLearnFirstMagic(start), false);
+  assert.equal(canLearnFirstMagic(afterVictory), true);
+  const learned = learnFirstMagic(afterVictory);
+  const repeated = learnFirstMagic(learned.state);
+  assert.equal(learned.ok, true);
+  assert.equal(learned.state.ownedCards.includes('spark'), true);
+  assert.equal(learned.state.inventory['magic-water'], 1);
+  assert.equal(repeated.ok, false);
+  assert.equal(repeated.state.inventory['magic-water'], 1);
+});
+
+test('legacy saves retain the formerly built-in spark card while new games do not', () => {
+  const legacy = createPastCampaign({ ownedCards: [], exp: 0 });
+  const fresh = createPastCampaign();
+  assert.equal(legacy.ownedCards.includes('spark'), true);
+  assert.equal(fresh.ownedCards.includes('spark'), false);
+});
+
+test('later magic discoveries remain hidden until the first boss is defeated', () => {
+  const campaign = createPastCampaign();
+  assert.equal(canDiscoverCard(campaign, 'frost'), false);
+  const found = discoverCard(createPastCampaign({ bossDefeated: true }), 'frost');
+  const repeated = discoverCard(found.state, 'frost');
+  assert.equal(found.ok, true);
+  assert.equal(battleProfile(found.state).deck.includes('frost'), true);
+  assert.equal(repeated.ok, false);
+});
+
 test('herbs heal outside battle and are consumed', () => {
   const campaign = createPastCampaign({ currentHp: 12, inventory: { herb: 2 } });
   const used = useItem(campaign, 'herb');
@@ -54,15 +110,16 @@ test('herbs heal outside battle and are consumed', () => {
   assert.equal(used.state.inventory.herb, 1);
 });
 
-test('the inn costs 12G and restores all HP', () => {
-  const campaign = createPastCampaign({ currentHp: 5 });
+test('the inn costs 12G and restores all HP and MP', () => {
+  const campaign = createPastCampaign({ currentHp: 5, currentMp: 1 });
   const rested = restAtInn(campaign, 50);
   assert.equal(rested.ok, true);
   assert.equal(rested.gold, 38);
   assert.equal(rested.state.currentHp, battleProfile(campaign).maxHp);
+  assert.equal(rested.state.currentMp, battleProfile(campaign).maxMp);
 });
 
-test('four unique western-road victories naturally reach the recommended boss level', () => {
+test('four western-road victories reach level two and the boss reward reaches level three', () => {
   let campaign = createPastCampaign();
   for (const encounter of PAST_ENCOUNTERS) {
     campaign = applyBattleVictory(campaign, {
@@ -71,14 +128,18 @@ test('four unique western-road victories naturally reach the recommended boss le
       encounterId: encounter.id
     }).state;
   }
-  assert.equal(campaign.level, 3);
-  assert.ok(campaign.exp >= LEVEL_TABLE[2].exp);
+  assert.equal(campaign.level, 2);
   assert.equal(campaign.roadVictories, 4);
+  campaign = learnFirstMagic(campaign).state;
+  campaign = applyBattleVictory(campaign, { xp: ENEMY_LIBRARY['mist-watcher'].xp, encounterId: 'watchtower-boss' }).state;
+  assert.equal(campaign.level, 3);
+  assert.equal(campaign.exp, 146);
+  assert.equal(battleProfile(campaign).energy, 1);
 });
 
-test('the mid-boss durability targets roughly six strong player turns', () => {
-  const expectedTurns = Math.ceil(ENEMY_LIBRARY['mist-watcher'].maxHp / 20);
-  assert.ok(expectedTurns >= 5 && expectedTurns <= 7);
+test('the mid-boss durability targets roughly eight action-one turns', () => {
+  const expectedTurns = Math.ceil(ENEMY_LIBRARY['mist-watcher'].maxHp / 11);
+  assert.ok(expectedTurns >= 7 && expectedTurns <= 9);
 });
 
 test('repeat farming gives experience but does not duplicate watchtower seal progress', () => {
@@ -91,35 +152,56 @@ test('repeat farming gives experience but does not duplicate watchtower seal pro
 
 test('the watchtower opens after four different road enemies are defeated', () => {
   const locked = createPastCampaign({ defeatedRoadEnemies: ['road-a', 'road-b', 'road-c'] });
-  const open = createPastCampaign({ defeatedRoadEnemies: ['road-a', 'road-b', 'road-c', 'road-d'] });
+  const sealed = createPastCampaign({ defeatedRoadEnemies: ['road-a', 'road-b', 'road-c', 'road-d'] });
+  const open = learnFirstMagic(sealed).state;
   assert.equal(canChallengeWatchtower(locked), false);
+  assert.equal(canChallengeWatchtower(sealed), false);
   assert.equal(canChallengeWatchtower(open), true);
 });
 
 test('campaign objectives count seal fragments and then point to the mid-boss', () => {
-  assert.match(campaignObjective(createPastCampaign({ defeatedRoadEnemies: ['road-a', 'road-b'] })), /2\/4/);
-  assert.match(campaignObjective(createPastCampaign({ defeatedRoadEnemies: ['road-a', 'road-b', 'road-c', 'road-d'] })), /見張り台/);
+  assert.match(campaignObjective(createPastCampaign({ defeatedRoadEnemies: ['road-a'] })), /魔導士/);
+  const underway = learnFirstMagic(createPastCampaign({ defeatedRoadEnemies: ['road-a', 'road-b'] })).state;
+  assert.match(campaignObjective(underway), /2\/4/);
+  const ready = learnFirstMagic(createPastCampaign({ defeatedRoadEnemies: ['road-a', 'road-b', 'road-c', 'road-d'] })).state;
+  assert.match(campaignObjective(ready), /見張り台/);
   assert.match(campaignObjective(createPastCampaign({ bossDefeated: true })), /調査完了/);
 });
 
 test('defeat halves gold and returns the hero fully healed', () => {
-  const defeated = resolveDefeat(createPastCampaign({ currentHp: 1 }), 301);
+  const defeated = resolveDefeat(createPastCampaign({ currentHp: 1, currentMp: 0 }), 301);
   assert.equal(defeated.gold, 150);
   assert.equal(defeated.state.currentHp, battleProfile(defeated.state).maxHp);
+  assert.equal(defeated.state.currentMp, battleProfile(defeated.state).maxMp);
 });
 
 test('equipment and levels feed attack defense HP and the customized deck into battle', () => {
   const campaign = createPastCampaign({
     level: 3,
-    exp: 55,
+    exp: 110,
     currentHp: 49,
+    currentMp: 7,
     equipment: { weapon: 'bronze-sword', armor: 'leather-armor' },
     ownedCards: ['flame-edge']
   });
   const profile = battleProfile(campaign);
-  assert.equal(profile.maxHp, 58);
-  assert.equal(profile.attackBonus, 5);
+  assert.equal(profile.maxHp, 52);
+  assert.equal(profile.attackBonus, 4);
   assert.equal(profile.defenseBonus, 4);
   assert.equal(profile.hp, 49);
+  assert.equal(profile.mp, 7);
+  assert.equal(profile.maxMp, 8);
+  assert.equal(profile.energy, 1);
   assert.equal(profile.deck.includes('flame-edge'), true);
+});
+
+test('battle victory carries remaining MP and level-up refills both resources', () => {
+  const levelOne = createPastCampaign({ exp: 0, currentHp: 20, currentMp: 1 });
+  const ordinary = applyBattleVictory(levelOne, { xp: 5, playerHp: 17, playerMp: 0 }).state;
+  assert.equal(ordinary.currentMp, 0);
+
+  const leveled = applyBattleVictory(ordinary, { xp: 40, playerHp: 5, playerMp: 0 }).state;
+  assert.equal(leveled.level, 2);
+  assert.equal(leveled.currentHp, LEVEL_TABLE[1].maxHp);
+  assert.equal(leveled.currentMp, LEVEL_TABLE[1].maxMp);
 });

@@ -22,6 +22,8 @@
   const storyGold = document.querySelector('#v2-story-gold');
   const storyLevel = document.querySelector('#v2-story-level');
   const storyHp = document.querySelector('#v2-story-hp');
+  const storyMp = document.querySelector('#v2-story-mp');
+  const storyEnergy = document.querySelector('#v2-story-energy');
   const storyExp = document.querySelector('#v2-story-exp');
   const openBagButton = document.querySelector('#v2-open-bag');
   const storyObjectiveLabel = document.querySelector('#v2-story-objective');
@@ -63,7 +65,11 @@
     buyProduct,
     campaignObjective,
     canChallengeWatchtower,
+    canDiscoverCard,
+    canLearnFirstMagic,
     createPastCampaign,
+    discoverCard,
+    learnFirstMagic,
     resolveDefeat,
     restAtInn,
     useItem
@@ -147,8 +153,8 @@
   const player = {
     x: roppongiCrossing.point[0] * maskScale,
     y: roppongiCrossing.point[1] * maskScale,
-    footRadius: 12,
-    speed: 380,
+    footRadius: 6,
+    speed: 190,
     step: 0,
     facing: 'down'
   };
@@ -335,12 +341,15 @@
     storyGold.textContent = `${storyState.gold.toLocaleString('ja-JP')} G`;
     storyLevel.textContent = `Lv ${campaignState.level}`;
     storyHp.textContent = `HP ${campaignState.currentHp} / ${profile.maxHp}`;
+    storyMp.textContent = `MP ${campaignState.currentMp} / ${profile.maxMp}`;
+    storyEnergy.textContent = `AP ${profile.energy}`;
     storyExp.textContent = `EXP ${campaignState.exp}`;
     storyObjectiveLabel.textContent = storyState.phase === 'first-mission'
       ? campaignObjective(campaignState)
       : storyObjective(storyState);
     storyStatus.dataset.phase = storyState.phase;
     storyStatus.dataset.level = String(campaignState.level);
+    storyStatus.dataset.energy = String(profile.energy);
     storyStatus.dataset.roadVictories = String(campaignState.roadVictories);
     storyStatus.dataset.bossDefeated = String(campaignState.bossDefeated);
   }
@@ -420,7 +429,9 @@
     activeStoryDialogue = null;
     storyDialogueIndex = 0;
     dialogueOverlay.setAttribute('aria-hidden', 'true');
-    if (complete && eventId) commitStoryEvent(eventId);
+    if (complete && eventId === 'watchtower-return-to-king') {
+      transitionStoryArea({ state: { ...storyState, area: 'castle' }, spawn: [500, 430] });
+    } else if (complete && eventId) commitStoryEvent(eventId);
   }
 
   function serviceTitle(serviceId) {
@@ -474,29 +485,39 @@
       const profile = battleProfile(campaignState);
       entries.push(createServiceButton({
         name: `装備　${weapon} / ${armor}`,
-        detail: `攻撃補正＋${profile.attackBonus}　守備補正＋${profile.defenseBonus}`,
+        detail: `攻撃＋${profile.attackBonus}　守備＋${profile.defenseBonus}　行動力${profile.energy}`,
         disabled: true
       }));
-      const herb = campaignProducts.get('herb');
+      const deckNames = profile.deck.map(cardId => CARD_LIBRARY[cardId]?.name).filter(Boolean);
       entries.push(createServiceButton({
-        name: herb.name,
-        detail: `${herb.description}　所持 ${campaignState.inventory.herb}`,
-        badge: campaignState.currentHp >= profile.maxHp ? 'HP満タン' : '',
-        disabled: campaignState.inventory.herb <= 0,
-        onClick: () => {
-          const result = useItem(campaignState, 'herb');
-          campaignState = result.state;
-          if (result.ok) savePastCampaign();
-          shopMessage.textContent = result.message;
-          updateStoryStatus();
-          renderService();
-        }
+        name: `カード　${deckNames.length}枚 / ${new Set(profile.deck).size}種類`,
+        detail: deckNames.join('・'),
+        disabled: true
       }));
+      for (const item of SHOP_CATALOG.item) {
+        const full = item.heal
+          ? campaignState.currentHp >= profile.maxHp
+          : campaignState.currentMp >= profile.maxMp;
+        entries.push(createServiceButton({
+          name: item.name,
+          detail: `${item.description}　所持 ${campaignState.inventory[item.id]}`,
+          badge: full ? `${item.heal ? 'HP' : 'MP'}満タン` : '',
+          disabled: campaignState.inventory[item.id] <= 0,
+          onClick: () => {
+            const result = useItem(campaignState, item.id);
+            campaignState = result.state;
+            if (result.ok) savePastCampaign();
+            shopMessage.textContent = result.message;
+            updateStoryStatus();
+            renderService();
+          }
+        }));
+      }
     } else if (activeServiceId === 'inn') {
       const profile = battleProfile(campaignState);
       entries.push(createServiceButton({
         name: '一晩泊まる',
-        detail: `HPを全回復する　現在 ${campaignState.currentHp}/${profile.maxHp}`,
+        detail: `HPとMPを全回復　HP ${campaignState.currentHp}/${profile.maxHp}・MP ${campaignState.currentMp}/${profile.maxMp}`,
         price: INN_PRICE,
         onClick: () => {
           const result = restAtInn(campaignState, storyState.gold);
@@ -563,10 +584,17 @@
     storyStatus.dataset.playerX = (player.x / coordinateScale).toFixed(1);
     storyStatus.dataset.playerY = (player.y / coordinateScale).toFixed(1);
     const visible = currentEdition === 'past' && Boolean(interaction) && !activeStoryDialogue && !activeBattle && !activeServiceId;
-    interactionPrompt.textContent = visible ? `E / Enter　${interaction.label}` : '';
+    const touchLayout = window.matchMedia('(pointer: coarse), (max-width: 700px)').matches;
+    interactionPrompt.textContent = visible ? `${touchLayout ? '' : 'E / Enter　'}${interaction.label}` : '';
     interactionPrompt.setAttribute('aria-hidden', String(!visible));
     interactButton.hidden = !visible;
     if (visible) interactButton.textContent = interaction.label.includes('話す') ? '話す' : '調べる';
+  }
+
+  function pastInteractionAvailable(interaction) {
+    if (interaction.actionId === 'learn-first-magic') return canLearnFirstMagic(campaignState);
+    if (interaction.cardId) return canDiscoverCard(campaignState, interaction.cardId);
+    return true;
   }
 
   function transitionStoryArea(result) {
@@ -605,6 +633,34 @@
       } else {
         openStoryDialogue(STORY_DIALOGUES['watchtower-locked']);
       }
+    }
+    if (result.actionId === 'learn-first-magic') {
+      const learned = learnFirstMagic(campaignState);
+      campaignState = learned.state;
+      if (learned.ok) savePastCampaign();
+      updateStoryStatus();
+      updateInteractionPrompt(null);
+      openStoryDialogue(learned.ok ? STORY_DIALOGUES['first-magic'] : {
+        id: 'first-magic-unavailable',
+        lines: [{ speaker: '旅の魔導士リゼ', text: learned.message }]
+      });
+    }
+    if (result.actionId?.startsWith('discover-card:')) {
+      const cardId = result.actionId.split(':')[1];
+      const discovery = discoverCard(campaignState, cardId);
+      campaignState = discovery.state;
+      if (discovery.ok) savePastCampaign();
+      updateStoryStatus();
+      updateInteractionPrompt(null);
+      openStoryDialogue({
+        id: `card-discovery-${cardId}`,
+        lines: [{
+          speaker: '地の文',
+          text: discovery.ok
+            ? `${discovery.message} ${discovery.card.description}。`
+            : discovery.message
+        }]
+      });
     }
   }
 
@@ -765,13 +821,16 @@
         }
         return advancePatrol(enemy, dt);
       });
-      const encounter = pastEnemies.find(enemy => shouldStartEncounter(player, enemy, 46 * maskScale, now));
+      const encounter = pastEnemies.find(enemy => shouldStartEncounter(player, enemy, 23 * maskScale, now));
       if (encounter) openBattle(encounter);
     }
 
-    const interaction = currentEdition === 'past'
-      ? nearbyPastInteraction(activeAreaId(), player, maskScale)
+    const nearbyInteraction = currentEdition === 'past'
+      ? nearbyPastInteraction(activeAreaId(), player, maskScale, pastInteractionAvailable)
       : null;
+    const interaction = nearbyInteraction?.cardId && campaignState.ownedCards.includes(nearbyInteraction.cardId)
+      ? null
+      : nearbyInteraction;
     updateInteractionPrompt(interaction);
 
     const activeWorld = activeWorldSize();
@@ -786,14 +845,14 @@
   function drawPlayer() {
     const sprite = editionSprites.get(currentEdition)[player.facing];
     if (!sprite.complete || !sprite.naturalWidth) return;
-    const displayHeight = 96;
+    const displayHeight = 48;
     const displayWidth = displayHeight * sprite.naturalWidth / sprite.naturalHeight;
     const bob = Math.sin(player.step) * 2;
     ctx.save();
     ctx.translate(Math.round(player.x), Math.round(player.y));
     ctx.fillStyle = '#0007';
     ctx.beginPath();
-    ctx.ellipse(0, 1, 18, 7, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 1, 9, 4, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(sprite, -displayWidth / 2, -displayHeight + 3 + bob, displayWidth, displayHeight);
@@ -1133,6 +1192,81 @@
     ctx.restore();
   }
 
+  function drawPastCardDiscoveries() {
+    if (currentEdition !== 'past' || activeAreaId() !== 'overworld') return;
+    const discoveries = pastStoryApi.PAST_INTERACTIONS.filter(interaction =>
+      interaction.cardId && canDiscoverCard(campaignState, interaction.cardId));
+    const pulse = 0.7 + Math.sin(performance.now() / 320) * 0.18;
+    for (const discovery of discoveries) {
+      const x = discovery.point[0] * maskScale;
+      const y = discovery.point[1] * maskScale;
+      const healing = discovery.cardId === 'mend';
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = '#05040a88';
+      ctx.beginPath();
+      ctx.ellipse(0, 9, 40, 13, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = pulse;
+      ctx.fillStyle = healing ? '#fff3c9' : '#79d8ff';
+      ctx.beginPath();
+      ctx.arc(0, -23, 34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = healing ? '#ddd2b0' : '#416b87';
+      ctx.strokeStyle = healing ? '#fff2b1' : '#a4efff';
+      ctx.lineWidth = 4;
+      roundedRectanglePath(ctx, -30, -30, 60, 42, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#231720';
+      ctx.fillRect(-5, -17, 10, 18);
+      ctx.fillStyle = '#fff5cf';
+      ctx.font = '700 14px Georgia, "Yu Mincho", serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(healing ? '癒光の気配' : '氷晶の気配', 0, 34);
+      ctx.restore();
+    }
+  }
+
+  function drawPastMagicTutor() {
+    if (currentEdition !== 'past' || activeAreaId() !== 'overworld' || !canLearnFirstMagic(campaignState)) return;
+    const tutor = pastStoryApi.PAST_INTERACTIONS.find(interaction => interaction.actionId === 'learn-first-magic');
+    if (!tutor) return;
+    const x = tutor.point[0] * maskScale;
+    const y = tutor.point[1] * maskScale;
+    const pulse = 0.75 + Math.sin(performance.now() / 360) * 0.15;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = '#0008';
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 12, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f0c7a1';
+    ctx.beginPath();
+    ctx.arc(0, -35, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#6d3b91';
+    ctx.beginPath();
+    ctx.moveTo(-13, -26);
+    ctx.lineTo(13, -26);
+    ctx.lineTo(18, 0);
+    ctx.lineTo(-18, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ffb253';
+    ctx.beginPath();
+    ctx.arc(15, -30, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff0c7';
+    ctx.font = '700 12px Georgia, "Yu Mincho", serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('旅の魔導士', 0, 18);
+    ctx.restore();
+  }
+
   function roundedRectanglePath(context, x, y, width, height, radius) {
     const r = Math.min(radius, width / 2, height / 2);
     context.beginPath();
@@ -1289,15 +1423,16 @@
       if (!enemy.active) continue;
       const image = pastEnemyImages.get(enemy.enemyId);
       if (!image?.complete || !image.naturalWidth) continue;
-      const height = 100 + Math.sin(now * 3 + enemy.x) * 3;
+      const height = 50;
+      const bob = Math.sin(now * 3 + enemy.x) * 1.5;
       const width = height * image.naturalWidth / image.naturalHeight;
       ctx.save();
       ctx.translate(enemy.x, enemy.y);
       ctx.fillStyle = '#0008';
       ctx.beginPath();
-      ctx.ellipse(0, 2, 23, 8, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 2, 12, 4, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.drawImage(image, -width / 2, -height + 4, width, height);
+      ctx.drawImage(image, -width / 2, -height + 4 + bob, width, height);
       ctx.restore();
     }
   }
@@ -1412,6 +1547,8 @@
         drawCollisionDebug();
         drawMapLabels();
         drawPastWatchtower();
+        drawPastMagicTutor();
+        drawPastCardDiscoveries();
         drawDepthSortedEntities();
         drawPastCapitalGate();
         drawPastEnemies();
@@ -1453,11 +1590,19 @@
     enemyImage.alt = enemy.name;
     document.querySelector('#v2-battle-enemy-hp').style.width = `${enemy.hp / enemy.maxHp * 100}%`;
     document.querySelector('#v2-battle-player-hp').textContent = `${activeBattle.player.hp} / ${activeBattle.player.maxHp}`;
+    document.querySelector('#v2-battle-player-mp').textContent = `${activeBattle.player.mp} / ${activeBattle.player.maxMp}`;
     document.querySelector('#v2-battle-player-level').textContent = `Lv ${campaignState.level}`;
     const spentEnergy = activeBattle.selectedCost || 0;
     document.querySelector('#v2-battle-energy').textContent = `${'◆'.repeat(activeBattle.energy - spentEnergy)}${'◇'.repeat(spentEnergy)}`;
     const action = previewAction(activeBattle.selected);
-    document.querySelector('#v2-battle-preview').textContent = `${action.name}${action.damage ? ` · 威力${action.damage}` : ''}${action.block ? ` · 防御${action.block}` : ''}`;
+    const actionDetails = [
+      action.damage ? `威力${action.damage}` : '',
+      action.block ? `防御${action.block}` : '',
+      action.heal ? `回復${action.heal}` : '',
+      action.mpCost ? `MP-${action.mpCost}` : '',
+      action.mpRestore ? `MP+${action.mpRestore}` : ''
+    ].filter(Boolean).join(' · ');
+    document.querySelector('#v2-battle-preview').textContent = `${action.name}${actionDetails ? ` · ${actionDetails}` : ''}`;
     document.querySelector('#v2-battle-log').textContent = activeBattle.log.slice(-2).join('　');
     battleResolve.disabled = activeBattle.status === 'active' && !activeBattle.selected.length;
     battleResolve.textContent = activeBattle.status === 'victory'
@@ -1474,9 +1619,18 @@
       button.dataset.discipline = card.discipline;
       if (card.element) button.dataset.element = card.element;
       button.setAttribute('aria-pressed', String(selectedOccurrence));
+      const remainingMp = activeBattle.player.mp - action.mpCost;
+      const remainingEnergy = activeBattle.energy - spentEnergy;
+      const canAffordMp = selectedOccurrence || (card.mpCost || 0) <= remainingMp;
+      const canAffordEnergy = selectedOccurrence || card.cost <= remainingEnergy;
+      button.disabled = activeBattle.status !== 'active' || !canAffordMp || !canAffordEnergy;
+      const mpCost = card.mpCost
+        ? `<span class="v2-card-mp-cost" aria-label="消費MP ${card.mpCost}">MP${card.mpCost}</span>`
+        : '';
       button.innerHTML = `
         <span class="v2-card-frame" aria-hidden="true"></span>
         <span class="v2-card-cost" aria-label="消費行動力 ${card.cost}">◆${card.cost}</span>
+        ${mpCost}
         <span class="v2-card-art" aria-hidden="true"><i>${card.icon}</i></span>
         <span class="v2-card-copy"><strong>${card.name}</strong><small>${card.description}</small></span>`;
       button.addEventListener('click', () => {
@@ -1505,6 +1659,8 @@
     const counter = effects.find(effect => effect.type === 'counter');
     const enemyDamage = effects.find(effect => effect.type === 'damage' && effect.target === 'enemy');
     const playerDamage = effects.find(effect => effect.type === 'damage' && effect.target === 'player');
+    const playerHeal = effects.find(effect => effect.type === 'heal' && effect.target === 'player');
+    const playerMp = effects.find(effect => effect.type === 'mp' && effect.target === 'player');
     resetBattleEffects();
     void enemyPanel.offsetWidth;
 
@@ -1541,6 +1697,20 @@
       label.textContent = `-${playerDamage.amount} HP`;
       battleEffects.append(label);
       announcements.push(`主人公に${playerDamage.amount}ダメージ`);
+    }
+    if (playerHeal) {
+      const label = document.createElement('strong');
+      label.className = 'v2-combat-effect v2-combat-effect--player-heal';
+      label.textContent = `+${playerHeal.amount} HP`;
+      battleEffects.append(label);
+      announcements.push(`HPが${playerHeal.amount}回復`);
+    }
+    if (playerMp) {
+      const label = document.createElement('strong');
+      label.className = 'v2-combat-effect v2-combat-effect--player-mp';
+      label.textContent = `+${playerMp.amount} MP`;
+      battleEffects.append(label);
+      announcements.push(`MPが${playerMp.amount}回復`);
     }
     battleEffects.setAttribute('aria-label', announcements.join('。'));
     battleEffectTimer = window.setTimeout(resetBattleEffects, 1050);
@@ -1596,6 +1766,7 @@
       const outcome = applyBattleVictory(campaignState, {
         xp: activeBattle.reward.xp,
         playerHp: activeBattle.player.hp,
+        playerMp: activeBattle.player.mp,
         encounterId: encounter.id
       });
       campaignState = outcome.state;
@@ -1608,16 +1779,17 @@
       if (bossVictory) {
         commitStoryEvent('watchtower-boss-defeated');
         const levelLines = outcome.leveledUp
-          ? [{ speaker: '地の文', text: `レベルが${campaignState.level}に上がった！ HPが全回復した。` }]
+          ? [{ speaker: '地の文', text: `レベルが${campaignState.level}に上がった！ HPとMPが全回復し、行動力は${battleProfile(campaignState).energy}になった。` }]
           : [];
         followUpDialogue = {
           id: 'watchtower-victory-result',
+          onComplete: 'watchtower-return-to-king',
           lines: [...levelLines, ...STORY_DIALOGUES['watchtower-cleared'].lines]
         };
       } else if (outcome.leveledUp) {
         followUpDialogue = {
           id: 'level-up',
-          lines: [{ speaker: '地の文', text: `レベルが${campaignState.level}に上がった！ HPが全回復した。` }]
+          lines: [{ speaker: '地の文', text: `レベルが${campaignState.level}に上がった！ HPとMPが全回復し、行動力は${battleProfile(campaignState).energy}になった。` }]
         };
       }
     } else if (result === 'defeat' && !practice) {
@@ -1634,7 +1806,11 @@
         lines: [{ speaker: '宿屋の女将', text: `王都の兵士が運んできてくれたよ。所持金は${storyState.gold}Gになったが、命があって何よりさ。` }]
       };
     } else if (result === 'fled' && !practice) {
-      campaignState = { ...campaignState, currentHp: Math.max(1, activeBattle.player.hp) };
+      campaignState = {
+        ...campaignState,
+        currentHp: Math.max(1, activeBattle.player.hp),
+        currentMp: Math.max(0, activeBattle.player.mp)
+      };
       savePastCampaign();
       if (encounter) {
         const now = performance.now();

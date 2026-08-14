@@ -42,8 +42,9 @@
       id: 'arrival',
       onComplete: 'arrival-complete',
       lines: Object.freeze([
-        Object.freeze({ speaker: '地の文', text: '長い航海の末、船は新大陸の西の港へたどり着いた。' }),
-        Object.freeze({ speaker: '地の文', text: '港の先には、巨大な城を中心に築かれた王都ロプンギアが見える。まずは王都へ向かおう。' })
+        Object.freeze({ speaker: '地の文', text: '父である地図師エルドは、夕映えの新大陸へ旅立ったまま消息を絶った。' }),
+        Object.freeze({ speaker: '地の文', text: '数年後、父が残した星の羅針盤が突然この海を指した。主人公はその足跡を追い、長い航海へ出た。' }),
+        Object.freeze({ speaker: '地の文', text: '船は新大陸の西の港へたどり着いた。港の先に見える王都ロプンギアで、まず父の手掛かりを探そう。' })
       ])
     }),
     'king-audience': Object.freeze({
@@ -51,9 +52,10 @@
       onComplete: 'king-audience-complete',
       lines: Object.freeze([
         Object.freeze({ speaker: '王城兵', text: '旅人よ、王の御前である。無礼のないように。' }),
-        Object.freeze({ speaker: 'アルディオン王', text: 'よくぞ新大陸へ来てくれた。今、この国には見過ごせぬ異変が起きている。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: 'その星の羅針盤……。かつて我が国の地図を作った地図師エルドのものだな。おぬしは、あの者の子か。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: '父の行方について話したい。だが今、この国には見過ごせぬ異変が起きている。' }),
         Object.freeze({ speaker: 'アルディオン王', text: '西の港街道に魔物が集まり、夜ごと紫の光が海岸の古い見張り台から立ちのぼるのだ。' }),
-        Object.freeze({ speaker: 'アルディオン王', text: 'まずは西の港街道を調べ、異変の原因を突き止めてほしい。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: '西の港街道を調べ、異変の原因を突き止めてほしい。見張り台は、エルドも調べていた場所だ。' }),
         Object.freeze({ speaker: 'アルディオン王', text: '支度金として300Gを授けよう。城下町で武器や防具、カードを整えてから向かうがよい。' })
       ])
     }),
@@ -65,9 +67,25 @@
     }),
     'king-mission-complete': Object.freeze({
       id: 'king-mission-complete',
+      onComplete: 'first-mission-report-complete',
       lines: Object.freeze([
         Object.freeze({ speaker: 'アルディオン王', text: '紫霧の番人を退けたか。西の港街道にも、ようやく人の往来が戻るだろう。' }),
-        Object.freeze({ speaker: 'アルディオン王', text: '見張り台に残された紋章についてはこちらでも調べよう。まずはよく休むがよい。' })
+        Object.freeze({ speaker: 'アルディオン王', text: 'その紋章は、地図師エルドが調査地に残していた印に相違ない。父は確かに、あの見張り台へ立ち寄っている。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: '城の記録を調べておこう。今日はよく休むがよい。最初の任務、見事であった。' })
+      ])
+    }),
+    'king-after-first-mission': Object.freeze({
+      id: 'king-after-first-mission',
+      lines: Object.freeze([
+        Object.freeze({ speaker: 'アルディオン王', text: '父の足跡について記録を調べている。次の手掛かりが見つかるまで、王都で旅支度を整えておくがよい。' })
+      ])
+    }),
+    'first-magic': Object.freeze({
+      id: 'first-magic',
+      lines: Object.freeze([
+        Object.freeze({ speaker: '旅の魔導士リゼ', text: 'ひとりで魔物に立ち向かったの？ なかなかやるじゃない。けれど、あの紫の結界は剣だけでは破れないわ。' }),
+        Object.freeze({ speaker: '旅の魔導士リゼ', text: 'この火花の札をあげる。魔法は力任せに使うものじゃない。心を静めて、誰かを信じたときに応えてくれるの。' }),
+        Object.freeze({ speaker: '地の文', text: '初めての魔法カード「火花」と、MPを回復する「まほうの雫」を手に入れた。' })
       ])
     }),
     'soldier-greeting': Object.freeze({
@@ -79,15 +97,16 @@
     'watchtower-locked': Object.freeze({
       id: 'watchtower-locked',
       lines: Object.freeze([
-        Object.freeze({ speaker: '地の文', text: '古い見張り台は紫の結界に閉ざされている。結界には四つのくぼみがある。' }),
-        Object.freeze({ speaker: '地の文', text: '西の港街道を徘徊する魔物が、結界を解く封印片を持っているようだ。' })
+        Object.freeze({ speaker: '地の文', text: '古い見張り台は紫の結界に閉ざされている。結界には四つのくぼみと、中央に魔法を注ぐための紋章がある。' }),
+        Object.freeze({ speaker: '地の文', text: '西の港街道を徘徊する魔物から四つの封印片を集め、魔法の力を得る必要がありそうだ。' })
       ])
     }),
     'watchtower-cleared': Object.freeze({
       id: 'watchtower-cleared',
       lines: Object.freeze([
         Object.freeze({ speaker: '地の文', text: '紫霧の番人が崩れ落ち、見張り台を覆っていた霧が晴れていく。' }),
-        Object.freeze({ speaker: '地の文', text: '床には見覚えのない紋章が刻まれていた。異変の調査結果を王へ報告しよう。' })
+        Object.freeze({ speaker: '地の文', text: '床の金属箱には、父の羅針盤と同じ星の紋章が刻まれていた。父は確かにここへ来ていた。' }),
+        Object.freeze({ speaker: '王都兵', text: '見張り台の霧が晴れたのを見て迎えに来た。王がお待ちだ。報告のため王城へ戻ろう。' })
       ])
     })
   });
@@ -95,6 +114,9 @@
   const PAST_INTERACTIONS = Object.freeze([
     Object.freeze({ id: 'capital-gate', area: 'overworld', point: PAST_START.capitalGatePoint, radius: 46, label: '王都ロプンギアへ入る', targetArea: 'castle-town', spawn: PAST_AREAS['castle-town'].spawn }),
     Object.freeze({ id: 'old-watchtower', area: 'overworld', point: Object.freeze([145, 515]), radius: 46, label: '古い見張り台を調べる', actionId: 'watchtower' }),
+    Object.freeze({ id: 'road-mage', area: 'overworld', point: Object.freeze([262, 480]), radius: 34, label: '旅の魔導士と話す', actionId: 'learn-first-magic' }),
+    Object.freeze({ id: 'frost-card-chest', area: 'overworld', point: Object.freeze([245, 500]), radius: 28, label: '青い宝箱を開ける', actionId: 'discover-card:frost', cardId: 'frost', unlockAfter: 'watchtower-boss' }),
+    Object.freeze({ id: 'mend-card-chest', area: 'overworld', point: Object.freeze([90, 570]), radius: 28, label: '白い宝箱を開ける', actionId: 'discover-card:mend', cardId: 'mend', unlockAfter: 'watchtower-boss' }),
     Object.freeze({ id: 'castle-door', area: 'castle-town', point: Object.freeze([700, 360]), radius: 60, label: '王城へ入る', targetArea: 'castle', spawn: PAST_AREAS.castle.spawn }),
     Object.freeze({ id: 'capital-exit', area: 'castle-town', point: Object.freeze([700, 950]), radius: 55, label: '新大陸の街道へ戻る', targetArea: 'overworld', spawn: PAST_START.capitalGatePoint }),
     Object.freeze({ id: 'castle-exit', area: 'castle', point: Object.freeze([500, 720]), radius: 52, label: '城下町へ戻る', targetArea: 'castle-town', spawn: Object.freeze([700, 425]) }),
@@ -110,14 +132,14 @@
 
   function createPastStory(saved = {}) {
     const area = Object.hasOwn(PAST_AREAS, saved.area) ? saved.area : 'overworld';
-    const phase = ['arrival', 'seek-king', 'first-mission', 'first-mission-complete'].includes(saved.phase) ? saved.phase : 'arrival';
+    const phase = ['arrival', 'seek-king', 'first-mission', 'first-mission-report', 'first-mission-complete'].includes(saved.phase) ? saved.phase : 'arrival';
     const parsedGold = Number(saved.gold);
     return {
       area,
       phase,
       gold: Number.isFinite(parsedGold) && parsedGold >= 0 ? Math.floor(parsedGold) : 0,
       arrivalSeen: Boolean(saved.arrivalSeen || phase !== 'arrival'),
-      royalRewardClaimed: Boolean(saved.royalRewardClaimed || phase === 'first-mission' || phase === 'first-mission-complete')
+      royalRewardClaimed: Boolean(saved.royalRewardClaimed || phase === 'first-mission' || phase === 'first-mission-report' || phase === 'first-mission-complete')
     };
   }
 
@@ -139,6 +161,9 @@
       };
     }
     if (eventId === 'watchtower-boss-defeated' && state.phase === 'first-mission') {
+      return { ...state, phase: 'first-mission-report' };
+    }
+    if (eventId === 'first-mission-report-complete' && state.phase === 'first-mission-report') {
       return { ...state, phase: 'first-mission-complete' };
     }
     return state;
@@ -148,11 +173,12 @@
     if (state.phase === 'arrival') return '西の港から王都ロプンギアへ向かう';
     if (state.phase === 'seek-king') return '蜘蛛守の王城で王に謁見する';
     if (state.phase === 'first-mission') return '西の港街道で起きている異変を調べる';
-    return '古い見張り台の調査結果を王に報告する';
+    if (state.phase === 'first-mission-report') return '古い見張り台の調査結果を王に報告する';
+    return '父の足跡について王城の調査を待つ';
   }
 
   function storyAllowsEncounters(state) {
-    return state.phase === 'first-mission' || state.phase === 'first-mission-complete';
+    return state.phase === 'first-mission' || state.phase === 'first-mission-report' || state.phase === 'first-mission-complete';
   }
 
   function activatePastInteraction(state, interactionId) {
@@ -167,8 +193,10 @@
         actionId: null
       };
     }
-    const dialogueId = interaction.id === 'king' && state.phase === 'first-mission-complete'
+    const dialogueId = interaction.id === 'king' && state.phase === 'first-mission-report'
       ? 'king-mission-complete'
+      : interaction.id === 'king' && state.phase === 'first-mission-complete'
+        ? 'king-after-first-mission'
       : interaction.id === 'king' && state.royalRewardClaimed
         ? 'king-reminder'
         : interaction.dialogueId;
@@ -181,11 +209,11 @@
     };
   }
 
-  function nearbyPastInteraction(area, position, scale = 1) {
+  function nearbyPastInteraction(area, position, scale = 1, isAvailable = () => true) {
     let closest = null;
     let closestDistance = Number.POSITIVE_INFINITY;
     for (const interaction of PAST_INTERACTIONS) {
-      if (interaction.area !== area) continue;
+      if (interaction.area !== area || !isAvailable(interaction)) continue;
       const coordinateScale = area === 'overworld' ? scale : 1;
       const x = interaction.point[0] * coordinateScale;
       const y = interaction.point[1] * coordinateScale;

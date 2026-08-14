@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 
 const {
   PAST_ENCOUNTERS,
@@ -20,6 +21,16 @@ test('past enemies have visible road patrol routes away from the starting point'
 test('the opening encounters form one west-road route between the capital and old watchtower', () => {
   assert.equal(PAST_ENCOUNTERS.filter(enemy => enemy.chapter === 'west-road').length, 4);
   assert.ok(PAST_ENCOUNTERS.filter(enemy => enemy.chapter === 'west-road').every(enemy => enemy.patrol[0][0] < 310));
+});
+
+test('overworld actors and movement are reduced to half scale', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  assert.deepEqual(PAST_ENCOUNTERS.map(enemy => enemy.speed), [15, 16, 18, 20]);
+  assert.match(runtime, /footRadius:\s*6/);
+  assert.match(runtime, /speed:\s*190/);
+  assert.match(runtime, /const displayHeight = 48/);
+  assert.match(runtime, /const height = 50/);
+  assert.match(runtime, /shouldStartEncounter\(player, enemy, 23 \* maskScale/);
 });
 
 test('patrol movement stays on the configured segment', () => {
