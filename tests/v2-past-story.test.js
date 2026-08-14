@@ -1,0 +1,168 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+
+const {
+  CASTLE_NPCS,
+  PAST_AREAS,
+  PAST_START,
+  STORY_DIALOGUES,
+  TOWN_BUILDINGS,
+  activatePastInteraction,
+  addStoryGold,
+  canStandInPastArea,
+  completeStoryEvent,
+  createPastStory,
+  nearestWalkablePoint,
+  nearbyPastInteraction,
+  storyAllowsEncounters,
+  storyObjective
+} = require('../v2-past-story.js');
+
+test('Past Evening starts at the western harbor beside Roppongi Hills', () => {
+  assert.equal(PAST_START.area, 'overworld');
+  assert.ok(PAST_START.point[0] < 100);
+  assert.ok(PAST_START.point[1] > 500 && PAST_START.point[1] < 600);
+  assert.ok(PAST_START.capitalGatePoint[0] > PAST_START.point[0]);
+});
+
+test('the castle town contains a castle and all five requested shops', () => {
+  assert.deepEqual(
+    new Set(TOWN_BUILDINGS.map(building => building.type)),
+    new Set(['castle', 'weapon', 'armor', 'item', 'inn', 'card'])
+  );
+  assert.ok(TOWN_BUILDINGS.every(building => building.label && building.rect.length === 4));
+});
+
+test('the castle contains a king and multiple soldiers', () => {
+  assert.equal(CASTLE_NPCS.filter(npc => npc.role === 'king').length, 1);
+  assert.ok(CASTLE_NPCS.filter(npc => npc.role === 'soldier').length >= 2);
+});
+
+test('capital and castle entrances form a reversible area route', () => {
+  let story = createPastStory();
+  let result = activatePastInteraction(story, 'capital-gate');
+  assert.equal(result.state.area, 'castle-town');
+  assert.deepEqual(result.spawn, PAST_AREAS['castle-town'].spawn);
+
+  result = activatePastInteraction(result.state, 'castle-door');
+  assert.equal(result.state.area, 'castle');
+  assert.deepEqual(result.spawn, PAST_AREAS.castle.spawn);
+
+  result = activatePastInteraction(result.state, 'castle-exit');
+  assert.equal(result.state.area, 'castle-town');
+
+  result = activatePastInteraction(result.state, 'capital-exit');
+  assert.equal(result.state.area, 'overworld');
+});
+
+test('the first royal audience grants preparation gold exactly once', () => {
+  const before = createPastStory({ phase: 'seek-king', gold: 20 });
+  const rewarded = completeStoryEvent(before, 'king-audience-complete');
+  const repeated = completeStoryEvent(rewarded, 'king-audience-complete');
+
+  assert.equal(rewarded.gold, 320);
+  assert.equal(rewarded.phase, 'first-mission');
+  assert.equal(repeated.gold, 320);
+});
+
+test('battle rewards add to the same story gold purse', () => {
+  const story = addStoryGold(createPastStory({ gold: 300 }), 18);
+  assert.equal(story.gold, 318);
+});
+
+test('the arrival route stays safe until the king assigns the first mission', () => {
+  const arrival = createPastStory();
+  const audience = completeStoryEvent(arrival, 'arrival-complete');
+  const mission = completeStoryEvent(audience, 'king-audience-complete');
+  assert.equal(storyAllowsEncounters(arrival), false);
+  assert.equal(storyAllowsEncounters(audience), false);
+  assert.equal(storyAllowsEncounters(mission), true);
+});
+
+test('the king explains the anomaly and assigns the first investigation', () => {
+  const speech = STORY_DIALOGUES['king-audience'].lines.map(line => line.text).join('');
+  assert.match(speech, /異変/);
+  assert.match(speech, /西の港街道/);
+  assert.match(speech, /300G/);
+});
+
+test('the objective advances from arrival to the king and then the first mission', () => {
+  const arrival = createPastStory();
+  const audience = completeStoryEvent(arrival, 'arrival-complete');
+  const mission = completeStoryEvent(audience, 'king-audience-complete');
+
+  assert.match(storyObjective(arrival), /王都/);
+  assert.match(storyObjective(audience), /王に謁見/);
+  assert.match(storyObjective(mission), /西の港街道/);
+});
+
+test('defeating the watchtower boss completes the first investigation', () => {
+  const mission = createPastStory({ phase: 'first-mission', royalRewardClaimed: true });
+  const complete = completeStoryEvent(mission, 'watchtower-boss-defeated');
+  assert.equal(complete.phase, 'first-mission-complete');
+  assert.match(storyObjective(complete), /王に報告/);
+  assert.equal(storyAllowsEncounters(complete), true);
+});
+
+test('town collision keeps the player outside buildings while leaving streets walkable', () => {
+  const weaponShop = TOWN_BUILDINGS.find(building => building.type === 'weapon');
+  assert.equal(canStandInPastArea('castle-town', weaponShop.rect[0] + 20, weaponShop.rect[1] + 20, 12), false);
+  assert.equal(canStandInPastArea('castle-town', 700, 620, 12), true);
+});
+
+test('overworld interactions scale with the high-resolution world', () => {
+  const interaction = nearbyPastInteraction('overworld', {
+    x: PAST_START.capitalGatePoint[0] * 4,
+    y: PAST_START.capitalGatePoint[1] * 4
+  }, 4);
+  assert.equal(interaction.id, 'capital-gate');
+});
+
+test('an area transition can recover from a spawn point on the edge of the road mask', () => {
+  const point = nearestWalkablePoint([0, 0], (x, y) => x === 16 && y === 0, 32, 8);
+  assert.deepEqual(point, [16, 0]);
+});
+
+test('the shared page exposes touch dialogue and interaction controls', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  assert.match(html, /id="v2-dialogue"/);
+  assert.match(html, /id="v2-interact"/);
+  assert.match(html, /v2-past-story\.js/);
+  assert.match(html, /v2-past-campaign\.js/);
+  assert.match(html, /id="v2-shop"/);
+  assert.match(html, /id="v2-open-bag"/);
+  assert.match(runtime, /drawCastleTown/);
+  assert.match(runtime, /drawCastleInterior/);
+  assert.match(runtime, /activatePastInteraction/);
+});
+
+test('all town businesses open their implemented service instead of a placeholder dialogue', () => {
+  const businessIds = ['weapon-shop', 'armor-shop', 'item-shop', 'inn', 'card-shop'];
+  const interactions = businessIds.map(id => activatePastInteraction(
+    createPastStory({ area: 'castle-town', phase: 'first-mission' }), id
+  ));
+  assert.deepEqual(interactions.map(result => result.serviceId), ['weapon', 'armor', 'item', 'inn', 'card']);
+  assert.ok(interactions.every(result => result.dialogue === null));
+});
+
+test('the old watchtower interaction is part of the western overworld investigation', () => {
+  const story = createPastStory({ area: 'overworld', phase: 'first-mission' });
+  const result = activatePastInteraction(story, 'old-watchtower');
+  assert.equal(result.actionId, 'watchtower');
+});
+
+test('the capital marker stays visible while enemies wait for the royal mission', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const gateRenderer = runtime.slice(runtime.indexOf('function drawPastCapitalGate'), runtime.indexOf('function drawPastEnemies'));
+  const enemyRenderer = runtime.slice(runtime.indexOf('function drawPastEnemies'), runtime.indexOf('function drawDepthSortedEntities'));
+  assert.doesNotMatch(gateRenderer, /storyAllowsEncounters/);
+  assert.match(enemyRenderer, /storyAllowsEncounters/);
+});
+
+test('defeated route enemies stay clear long enough to reach the watchtower', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  assert.match(runtime, /defeatedRoadEnemies\.includes\(enemy\.id\)/);
+  assert.match(runtime, /respawnAt: now \+ 300000/);
+});

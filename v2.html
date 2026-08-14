@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#071017" />
+    <title>ROPPONGI CHRONICLES · 現代編-昼間 / 過去編-夕方</title>
+    <link rel="stylesheet" href="v2.css" />
+  </head>
+  <body>
+    <main id="v2-shell">
+      <canvas id="v2-game" tabindex="0" aria-label="六本木クロニクル。WASDまたは矢印キーで道路上を移動"></canvas>
+      <div id="v2-encounter-transition" class="v2-encounter-transition" aria-hidden="true">
+        <div class="v2-encounter-vortex" aria-hidden="true"></div>
+        <strong>ENCOUNTER</strong>
+      </div>
+      <header class="v2-hud">
+        <div><small id="v2-edition-subtitle">MODERN · DAY</small><strong id="v2-edition-title">現代編-昼間</strong></div>
+        <div class="v2-hud-actions">
+          <div class="v2-edition-switch" role="group" aria-label="時代を切り替える">
+            <button type="button" data-edition="modern" aria-pressed="true">現代編-昼間</button>
+            <button type="button" data-edition="past" aria-pressed="false">過去編-夕方</button>
+          </div>
+          <button id="v2-toggle-collision" type="button" aria-pressed="false">道路判定を表示</button>
+          <a href="index.html">編選択へ</a>
+        </div>
+      </header>
+      <aside class="v2-help"><b>WASD / 矢印キー</b>で移動<br><b>E / Enter</b> 調べる・話す<br><b>M</b> 道路判定: <span id="v2-collision-status">非表示</span></aside>
+      <aside id="v2-story-status" class="v2-story-status" aria-label="過去編の進行状況">
+        <small>PAST QUEST</small>
+        <strong id="v2-story-area">新大陸・西岸</strong>
+        <span id="v2-story-gold">0 G</span>
+        <div class="v2-story-vitals">
+          <b id="v2-story-level">Lv 1</b>
+          <span id="v2-story-hp">HP 42 / 42</span>
+          <span id="v2-story-exp">EXP 0</span>
+          <button id="v2-open-bag" type="button">もちもの</button>
+        </div>
+        <p id="v2-story-objective">西の港から王都ロプンギアへ向かう</p>
+      </aside>
+      <aside class="v2-map"><canvas id="v2-mini" width="210" height="145"></canvas><span>↑ N</span></aside>
+      <aside class="v2-landmark-info v2-landmarks-modern">
+        <small>LANDMARKS · 05</small>
+        <ul>
+          <li><strong>六本木ヒルズ</strong><span>森タワー / MAMAN</span></li>
+          <li><strong>東京ミッドタウン</strong><span>ミッドタウン・タワー</span></li>
+          <li><strong>麻布台ヒルズ</strong><span>森JPタワー / ガーデンプラザ</span></li>
+          <li><strong>東京タワー</strong><span>メインデッキ</span></li>
+          <li><strong>増上寺</strong><span>大殿 / 三解脱門</span></li>
+        </ul>
+      </aside>
+      <aside class="v2-landmark-info v2-landmarks-past">
+        <small>FANTASY LANDMARKS · 05</small>
+        <ul>
+          <li><strong>蜘蛛守の王城</strong><span>大天守 / 魔導守護像</span></li>
+          <li data-memory-site="midtown"><strong data-site-title>霧に閉ざされた地</strong><span data-site-detail>強い魔力に阻まれている</span></li>
+          <li data-memory-site="azabudai"><strong data-site-title>霧に閉ざされた地</strong><span data-site-detail>強い魔力に阻まれている</span></li>
+          <li><strong>緋晶の魔導塔</strong><span>王都の灯火</span></li>
+          <li><strong>増上大聖堂</strong><span>祈りの回廊</span></li>
+        </ul>
+      </aside>
+      <div id="v2-interaction-prompt" class="v2-interaction-prompt" aria-live="polite" aria-hidden="true"></div>
+      <button id="v2-interact" class="v2-interact" type="button" hidden>調べる</button>
+      <section id="v2-dialogue" class="v2-dialogue" aria-hidden="true" aria-label="会話">
+        <small id="v2-dialogue-speaker">地の文</small>
+        <p id="v2-dialogue-text"></p>
+        <button id="v2-dialogue-next" type="button">次へ</button>
+      </section>
+      <section id="v2-shop" class="v2-shop" aria-hidden="true" aria-label="店ともちもの">
+        <div class="v2-shop-panel">
+          <header>
+            <div><small>ROYAL CAPITAL SERVICE</small><strong id="v2-shop-title">武器屋</strong></div>
+            <span id="v2-shop-gold">0 G</span>
+          </header>
+          <p id="v2-shop-message" aria-live="polite">何を買いますか？</p>
+          <div id="v2-shop-list" class="v2-shop-list"></div>
+          <button id="v2-shop-close" class="v2-shop-close" type="button">とじる</button>
+        </div>
+      </section>
+      <section id="v2-battle" class="v2-battle" aria-hidden="true" aria-label="カード戦闘">
+        <div id="v2-battle-damage-flash" class="v2-battle-damage-flash" aria-hidden="true"></div>
+        <div class="v2-battle-stage">
+          <header class="v2-battle-enemy-header">
+            <div><small>ENCOUNTER</small><strong id="v2-battle-enemy-name">敵</strong></div>
+            <div class="v2-enemy-intent-card" data-intent="assault">
+              <span id="v2-battle-intent-icon" class="v2-enemy-intent-icon" aria-hidden="true">⚔</span>
+              <div><small>敵の予兆</small><b id="v2-battle-intent">猛攻</b><em id="v2-battle-intent-detail">強力な一撃を放つ</em></div>
+              <span class="v2-enemy-intent-counter"><small>看破</small><strong id="v2-battle-intent-hint">防御</strong></span>
+            </div>
+          </header>
+          <div class="v2-battle-enemy">
+            <img id="v2-battle-enemy-image" alt="" />
+            <div class="v2-battle-hp enemy"><span id="v2-battle-enemy-hp"></span></div>
+          </div>
+          <div id="v2-battle-effects" class="v2-battle-effects" aria-live="assertive" aria-atomic="true"></div>
+          <div id="v2-battle-log" class="v2-battle-log" aria-live="polite"></div>
+        </div>
+        <div class="v2-battle-command">
+          <div class="v2-battle-player-row">
+            <div><small>主人公 <span id="v2-battle-player-level">Lv 1</span></small><strong id="v2-battle-player-hp">42 / 42</strong></div>
+            <div><small>行動力</small><strong id="v2-battle-energy">◆◆◆</strong></div>
+            <div><small>選択中</small><strong id="v2-battle-preview">カードを選択</strong></div>
+          </div>
+          <div id="v2-battle-hand" class="v2-battle-hand" role="group" aria-label="手札"></div>
+          <div class="v2-battle-actions">
+            <button id="v2-battle-flee" type="button">逃げる</button>
+            <button id="v2-battle-resolve" type="button" disabled>行動する</button>
+          </div>
+        </div>
+      </section>
+      <button id="v2-battle-practice" type="button">戦闘テスト</button>
+      <nav class="v2-controls" aria-label="タッチ操作">
+        <button data-dir="up">▲</button><button data-dir="left">◀</button><button data-dir="down">▼</button><button data-dir="right">▶</button>
+      </nav>
+      <footer class="v2-attribution">Road data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · ODbL</footer>
+      <div id="v2-loading">MAP LOADING…</div>
+    </main>
+    <script src="assets/v2/road-collision-data.js?edition=1"></script>
+    <script src="assets/v2/road-collision-past-data.js?edition=1"></script>
+    <script src="assets/v2/map-layout-data.js?edition=1"></script>
+    <script src="v2-editions.js?edition=1"></script>
+    <script src="v2-landmarks.js?edition=1"></script>
+    <script src="v2-battle.js?edition=1"></script>
+    <script src="v2-past-world.js?edition=1"></script>
+    <script src="v2-past-campaign.js?edition=1"></script>
+    <script src="v2-past-story.js?edition=1"></script>
+    <script src="v2.js?edition=1"></script>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "roppongi-rpg-prototype",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "test:coverage": "node --experimental-test-coverage --test"
+  }
+}
