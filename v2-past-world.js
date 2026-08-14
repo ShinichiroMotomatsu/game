@@ -5,19 +5,19 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
   const PAST_ENCOUNTERS = Object.freeze([
     Object.freeze({
-      id: 'road-mist-east', chapter: 'west-road', enemyId: 'mist-slime', sprite: 'mist-slime.png', speed: 30,
+      id: 'road-mist-east', chapter: 'west-road', enemyId: 'mist-slime', sprite: 'mist-slime.png', speed: 15,
       patrol: Object.freeze([[286, 497], [271, 491], [258, 493]])
     }),
     Object.freeze({
-      id: 'road-mist-west', chapter: 'west-road', enemyId: 'mist-slime', sprite: 'mist-slime.png', speed: 32,
+      id: 'road-mist-west', chapter: 'west-road', enemyId: 'mist-slime', sprite: 'mist-slime.png', speed: 16,
       patrol: Object.freeze([[244, 493], [231, 497], [220, 502]])
     }),
     Object.freeze({
-      id: 'road-goblin', chapter: 'west-road', enemyId: 'gutter-goblin', sprite: 'gutter-goblin.png', speed: 36,
+      id: 'road-goblin', chapter: 'west-road', enemyId: 'gutter-goblin', sprite: 'gutter-goblin.png', speed: 18,
       patrol: Object.freeze([[205, 504], [194, 509], [184, 512]])
     }),
     Object.freeze({
-      id: 'road-wolf', chapter: 'west-road', enemyId: 'rune-wolf', sprite: 'rune-wolf.png', speed: 40,
+      id: 'road-wolf', chapter: 'west-road', enemyId: 'rune-wolf', sprite: 'rune-wolf.png', speed: 20,
       patrol: Object.freeze([[173, 509], [164, 513], [155, 516]])
     })
   ]);

@@ -83,6 +83,7 @@ test('the arrival route stays safe until the king assigns the first mission', ()
 
 test('the king explains the anomaly and assigns the first investigation', () => {
   const speech = STORY_DIALOGUES['king-audience'].lines.map(line => line.text).join('');
+  assert.match(speech, /父|地図師|羅針盤/);
   assert.match(speech, /異変/);
   assert.match(speech, /西の港街道/);
   assert.match(speech, /300G/);
@@ -100,9 +101,12 @@ test('the objective advances from arrival to the king and then the first mission
 
 test('defeating the watchtower boss completes the first investigation', () => {
   const mission = createPastStory({ phase: 'first-mission', royalRewardClaimed: true });
-  const complete = completeStoryEvent(mission, 'watchtower-boss-defeated');
+  const report = completeStoryEvent(mission, 'watchtower-boss-defeated');
+  const complete = completeStoryEvent(report, 'first-mission-report-complete');
+  assert.equal(report.phase, 'first-mission-report');
+  assert.match(storyObjective(report), /王に報告/);
   assert.equal(complete.phase, 'first-mission-complete');
-  assert.match(storyObjective(complete), /王に報告/);
+  assert.match(storyObjective(complete), /父の足跡/);
   assert.equal(storyAllowsEncounters(complete), true);
 });
 
@@ -161,6 +165,8 @@ test('the western road contains two visible card discoveries', () => {
     'discover-card:mend'
   ]);
   assert.ok(discoveries.every(interaction => interaction.area === 'overworld'));
+  assert.ok(discoveries.every(interaction => interaction.unlockAfter === 'watchtower-boss'));
+  assert.equal(PAST_INTERACTIONS.some(interaction => interaction.actionId === 'learn-first-magic'), true);
 });
 
 test('the capital marker stays visible while enemies wait for the royal mission', () => {

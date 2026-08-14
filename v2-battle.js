@@ -22,7 +22,7 @@
     'gutter-goblin': Object.freeze({ id: 'gutter-goblin', name: '石路のゴブリン', maxHp: 34, attack: 11, gold: 12, xp: 18, intent: '錆びた短剣', weakness: 'ice' }),
     'rune-wolf': Object.freeze({ id: 'rune-wolf', name: '刻印の魔狼', maxHp: 42, attack: 13, gold: 18, xp: 24, intent: '飛びかかる', weakness: 'ice' }),
     'mist-watcher': Object.freeze({
-      id: 'mist-watcher', name: '紫霧の番人', maxHp: 116, attack: 15, gold: 120, xp: 80,
+      id: 'mist-watcher', name: '紫霧の番人', maxHp: 84, attack: 12, gold: 120, xp: 80,
       intent: '紫霧の爪', weakness: 'fire', boss: true,
       intentPattern: Object.freeze(['ward', 'grand-spell', 'assault', 'renew'])
     })
@@ -65,7 +65,7 @@
   });
 
   function defaultDeck() {
-    return ['slash', 'spark', 'guard', 'focus'];
+    return ['slash', 'focus', 'guard'];
   }
 
   function shuffled(items, random = Math.random) {
@@ -100,7 +100,7 @@
     const opening = drawCards(shuffled(battleDeck, random), [], 5, random);
     const maxHp = Math.max(1, Math.floor(Number(profile.maxHp) || 42));
     const hp = Math.max(1, Math.min(maxHp, Math.floor(Number(profile.hp) || maxHp)));
-    const energy = Math.max(1, Math.min(3, Math.floor(Number(profile.energy) || 1)));
+    const energy = Math.max(1, Math.min(4, Math.floor(Number(profile.energy) || 1)));
     const maxMp = Math.max(0, Math.floor(Number(profile.maxMp) || 6));
     const parsedMp = Number(profile.mp);
     const mp = Number.isFinite(parsedMp) ? Math.max(0, Math.min(maxMp, Math.floor(parsedMp))) : maxMp;
@@ -160,7 +160,7 @@
     const selected = [...battle.selected, cardId];
     const selectedCost = totalCost(selected);
     const selectedMp = totalMpCost(selected);
-    if (battle.selected.length >= 3 || selectedCost > battle.energy || selectedMp > battle.player.mp) return battle;
+    if (battle.selected.length >= 4 || selectedCost > battle.energy || selectedMp > battle.player.mp) return battle;
     return { ...battle, selected, selectedCost, selectedMp, readyToResolve: selectedCost === battle.energy };
   }
 

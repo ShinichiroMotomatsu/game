@@ -65,8 +65,11 @@
     buyProduct,
     campaignObjective,
     canChallengeWatchtower,
+    canDiscoverCard,
+    canLearnFirstMagic,
     createPastCampaign,
     discoverCard,
+    learnFirstMagic,
     resolveDefeat,
     restAtInn,
     useItem
@@ -150,8 +153,8 @@
   const player = {
     x: roppongiCrossing.point[0] * maskScale,
     y: roppongiCrossing.point[1] * maskScale,
-    footRadius: 12,
-    speed: 380,
+    footRadius: 6,
+    speed: 190,
     step: 0,
     facing: 'down'
   };
@@ -426,7 +429,9 @@
     activeStoryDialogue = null;
     storyDialogueIndex = 0;
     dialogueOverlay.setAttribute('aria-hidden', 'true');
-    if (complete && eventId) commitStoryEvent(eventId);
+    if (complete && eventId === 'watchtower-return-to-king') {
+      transitionStoryArea({ state: { ...storyState, area: 'castle' }, spawn: [500, 430] });
+    } else if (complete && eventId) commitStoryEvent(eventId);
   }
 
   function serviceTitle(serviceId) {
@@ -586,6 +591,12 @@
     if (visible) interactButton.textContent = interaction.label.includes('話す') ? '話す' : '調べる';
   }
 
+  function pastInteractionAvailable(interaction) {
+    if (interaction.actionId === 'learn-first-magic') return canLearnFirstMagic(campaignState);
+    if (interaction.cardId) return canDiscoverCard(campaignState, interaction.cardId);
+    return true;
+  }
+
   function transitionStoryArea(result) {
     locationPositions.set(activeLocationKey, [player.x, player.y]);
     storyState = result.state;
@@ -622,6 +633,17 @@
       } else {
         openStoryDialogue(STORY_DIALOGUES['watchtower-locked']);
       }
+    }
+    if (result.actionId === 'learn-first-magic') {
+      const learned = learnFirstMagic(campaignState);
+      campaignState = learned.state;
+      if (learned.ok) savePastCampaign();
+      updateStoryStatus();
+      updateInteractionPrompt(null);
+      openStoryDialogue(learned.ok ? STORY_DIALOGUES['first-magic'] : {
+        id: 'first-magic-unavailable',
+        lines: [{ speaker: '旅の魔導士リゼ', text: learned.message }]
+      });
     }
     if (result.actionId?.startsWith('discover-card:')) {
       const cardId = result.actionId.split(':')[1];
@@ -799,12 +821,12 @@
         }
         return advancePatrol(enemy, dt);
       });
-      const encounter = pastEnemies.find(enemy => shouldStartEncounter(player, enemy, 46 * maskScale, now));
+      const encounter = pastEnemies.find(enemy => shouldStartEncounter(player, enemy, 23 * maskScale, now));
       if (encounter) openBattle(encounter);
     }
 
     const nearbyInteraction = currentEdition === 'past'
-      ? nearbyPastInteraction(activeAreaId(), player, maskScale)
+      ? nearbyPastInteraction(activeAreaId(), player, maskScale, pastInteractionAvailable)
       : null;
     const interaction = nearbyInteraction?.cardId && campaignState.ownedCards.includes(nearbyInteraction.cardId)
       ? null
@@ -823,14 +845,14 @@
   function drawPlayer() {
     const sprite = editionSprites.get(currentEdition)[player.facing];
     if (!sprite.complete || !sprite.naturalWidth) return;
-    const displayHeight = 96;
+    const displayHeight = 48;
     const displayWidth = displayHeight * sprite.naturalWidth / sprite.naturalHeight;
     const bob = Math.sin(player.step) * 2;
     ctx.save();
     ctx.translate(Math.round(player.x), Math.round(player.y));
     ctx.fillStyle = '#0007';
     ctx.beginPath();
-    ctx.ellipse(0, 1, 18, 7, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 1, 9, 4, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(sprite, -displayWidth / 2, -displayHeight + 3 + bob, displayWidth, displayHeight);
@@ -1173,7 +1195,7 @@
   function drawPastCardDiscoveries() {
     if (currentEdition !== 'past' || activeAreaId() !== 'overworld') return;
     const discoveries = pastStoryApi.PAST_INTERACTIONS.filter(interaction =>
-      interaction.cardId && !campaignState.ownedCards.includes(interaction.cardId));
+      interaction.cardId && canDiscoverCard(campaignState, interaction.cardId));
     const pulse = 0.7 + Math.sin(performance.now() / 320) * 0.18;
     for (const discovery of discoveries) {
       const x = discovery.point[0] * maskScale;
@@ -1205,6 +1227,44 @@
       ctx.fillText(healing ? '癒光の気配' : '氷晶の気配', 0, 34);
       ctx.restore();
     }
+  }
+
+  function drawPastMagicTutor() {
+    if (currentEdition !== 'past' || activeAreaId() !== 'overworld' || !canLearnFirstMagic(campaignState)) return;
+    const tutor = pastStoryApi.PAST_INTERACTIONS.find(interaction => interaction.actionId === 'learn-first-magic');
+    if (!tutor) return;
+    const x = tutor.point[0] * maskScale;
+    const y = tutor.point[1] * maskScale;
+    const pulse = 0.75 + Math.sin(performance.now() / 360) * 0.15;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = '#0008';
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 12, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f0c7a1';
+    ctx.beginPath();
+    ctx.arc(0, -35, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#6d3b91';
+    ctx.beginPath();
+    ctx.moveTo(-13, -26);
+    ctx.lineTo(13, -26);
+    ctx.lineTo(18, 0);
+    ctx.lineTo(-18, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ffb253';
+    ctx.beginPath();
+    ctx.arc(15, -30, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff0c7';
+    ctx.font = '700 12px Georgia, "Yu Mincho", serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('旅の魔導士', 0, 18);
+    ctx.restore();
   }
 
   function roundedRectanglePath(context, x, y, width, height, radius) {
@@ -1363,15 +1423,16 @@
       if (!enemy.active) continue;
       const image = pastEnemyImages.get(enemy.enemyId);
       if (!image?.complete || !image.naturalWidth) continue;
-      const height = 100 + Math.sin(now * 3 + enemy.x) * 3;
+      const height = 50;
+      const bob = Math.sin(now * 3 + enemy.x) * 1.5;
       const width = height * image.naturalWidth / image.naturalHeight;
       ctx.save();
       ctx.translate(enemy.x, enemy.y);
       ctx.fillStyle = '#0008';
       ctx.beginPath();
-      ctx.ellipse(0, 2, 23, 8, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 2, 12, 4, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.drawImage(image, -width / 2, -height + 4, width, height);
+      ctx.drawImage(image, -width / 2, -height + 4 + bob, width, height);
       ctx.restore();
     }
   }
@@ -1486,6 +1547,7 @@
         drawCollisionDebug();
         drawMapLabels();
         drawPastWatchtower();
+        drawPastMagicTutor();
         drawPastCardDiscoveries();
         drawDepthSortedEntities();
         drawPastCapitalGate();
@@ -1721,6 +1783,7 @@
           : [];
         followUpDialogue = {
           id: 'watchtower-victory-result',
+          onComplete: 'watchtower-return-to-king',
           lines: [...levelLines, ...STORY_DIALOGUES['watchtower-cleared'].lines]
         };
       } else if (outcome.leveledUp) {
