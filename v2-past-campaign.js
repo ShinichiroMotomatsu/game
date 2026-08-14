@@ -3,16 +3,20 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.V2_PAST_CAMPAIGN = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
-  const STARTER_DECK = Object.freeze(['slash', 'cleave', 'spark', 'frost', 'guard', 'parry', 'focus', 'feint']);
+  const STARTER_DECK = Object.freeze(['slash', 'spark', 'guard', 'focus']);
+  const DISCOVERABLE_CARDS = Object.freeze({
+    frost: Object.freeze({ id: 'frost', name: '霜結の札', description: 'MP3で氷属性の一撃を放つカード' }),
+    mend: Object.freeze({ id: 'mend', name: '癒光の札', description: 'MP3でHPを14回復するカード' })
+  });
   const INN_PRICE = 12;
   const WATCHTOWER_SEALS = 4;
 
   const LEVEL_TABLE = Object.freeze([
-    Object.freeze({ level: 1, exp: 0, maxHp: 42, attack: 0, defense: 0 }),
-    Object.freeze({ level: 2, exp: 20, maxHp: 50, attack: 1, defense: 0 }),
-    Object.freeze({ level: 3, exp: 55, maxHp: 58, attack: 2, defense: 1 }),
-    Object.freeze({ level: 4, exp: 110, maxHp: 68, attack: 3, defense: 2 }),
-    Object.freeze({ level: 5, exp: 190, maxHp: 80, attack: 5, defense: 3 })
+    Object.freeze({ level: 1, exp: 0, maxHp: 42, maxMp: 6, energy: 1, attack: 0, defense: 0 }),
+    Object.freeze({ level: 2, exp: 20, maxHp: 50, maxMp: 8, energy: 2, attack: 1, defense: 0 }),
+    Object.freeze({ level: 3, exp: 55, maxHp: 58, maxMp: 11, energy: 2, attack: 2, defense: 1 }),
+    Object.freeze({ level: 4, exp: 110, maxHp: 68, maxMp: 14, energy: 3, attack: 3, defense: 2 }),
+    Object.freeze({ level: 5, exp: 190, maxHp: 80, maxMp: 18, energy: 3, attack: 5, defense: 3 })
   ]);
 
   const SHOP_CATALOG = Object.freeze({
@@ -27,15 +31,23 @@
       Object.freeze({ id: 'chain-mail', type: 'armor', name: '鎖かたびら', price: 280, defense: 5, description: '細い鎖で編まれた鎧。守備力＋5' })
     ]),
     item: Object.freeze([
-      Object.freeze({ id: 'herb', type: 'item', name: 'やくそう', price: 15, heal: 20, maxQuantity: 9, description: '戦闘の外でHPを20回復する' })
+      Object.freeze({ id: 'herb', type: 'item', name: 'やくそう', price: 15, heal: 20, maxQuantity: 9, description: '戦闘の外でHPを20回復する' }),
+      Object.freeze({ id: 'magic-water', type: 'item', name: 'まほうの雫', price: 25, restoreMp: 6, maxQuantity: 9, description: '戦闘の外でMPを6回復する' })
     ]),
     card: Object.freeze([
+      Object.freeze({ id: 'cleave', type: 'card', name: '薙ぎ払いの札', price: 60, description: '二連斬りへつながる剣カードをデッキに加える' }),
+      Object.freeze({ id: 'parry', type: 'card', name: '受け流しの札', price: 70, description: '守りながら反撃する防御カードを加える' }),
+      Object.freeze({ id: 'feint', type: 'card', name: '陽動の札', price: 80, description: '敵の攻撃を弱める技カードを加える' }),
       Object.freeze({ id: 'flame-edge', type: 'card', name: '炎刃の札', price: 120, description: '炎属性の強力な斬撃カードをデッキに加える' }),
       Object.freeze({ id: 'fortress', type: 'card', name: '城壁の札', price: 120, description: '大きく身を守る防御カードをデッキに加える' })
     ])
   });
 
   const PRODUCTS = new Map(Object.values(SHOP_CATALOG).flat().map(product => [product.id, product]));
+  const UNLOCKABLE_CARD_IDS = new Set([
+    ...Object.keys(DISCOVERABLE_CARDS),
+    ...SHOP_CATALOG.card.map(card => card.id)
+  ]);
 
   function levelDefinition(level) {
     return LEVEL_TABLE[Math.max(0, Math.min(LEVEL_TABLE.length - 1, level - 1))];
@@ -68,20 +80,28 @@
     const currentHp = Number.isFinite(parsedHp)
       ? Math.max(1, Math.min(definition.maxHp, Math.floor(parsedHp)))
       : definition.maxHp;
+    const parsedMp = Number(saved.currentMp);
+    const currentMp = Number.isFinite(parsedMp)
+      ? Math.max(0, Math.min(definition.maxMp, Math.floor(parsedMp)))
+      : definition.maxMp;
     const equipment = saved.equipment || {};
     const inventory = saved.inventory || {};
-    const herbCount = Math.max(0, Math.min(9, Math.floor(Number(inventory.herb) || 0)));
+    const itemInventory = {};
+    for (const product of SHOP_CATALOG.item) {
+      itemInventory[product.id] = Math.max(0, Math.min(product.maxQuantity, Math.floor(Number(inventory[product.id]) || 0)));
+    }
     const defeatedRoadEnemies = sanitizeIds(saved.defeatedRoadEnemies, value => typeof value === 'string' && value.startsWith('road-'));
     return {
       level,
       exp,
       currentHp,
+      currentMp,
       equipment: {
         weapon: PRODUCTS.get(equipment.weapon)?.type === 'weapon' ? equipment.weapon : null,
         armor: PRODUCTS.get(equipment.armor)?.type === 'armor' ? equipment.armor : null
       },
-      inventory: { herb: herbCount },
-      ownedCards: sanitizeIds(saved.ownedCards, value => PRODUCTS.get(value)?.type === 'card'),
+      inventory: itemInventory,
+      ownedCards: sanitizeIds(saved.ownedCards, value => UNLOCKABLE_CARD_IDS.has(value)),
       defeatedRoadEnemies,
       roadVictories: defeatedRoadEnemies.length,
       bossDefeated: Boolean(saved.bossDefeated)
@@ -96,6 +116,9 @@
       level: state.level,
       hp: Math.min(state.currentHp, definition.maxHp),
       maxHp: definition.maxHp,
+      mp: Math.min(state.currentMp, definition.maxMp),
+      maxMp: definition.maxMp,
+      energy: definition.energy,
       attackBonus: definition.attack + (weapon?.attack || 0),
       defenseBonus: definition.defense + (armor?.defense || 0),
       deck: [...STARTER_DECK, ...state.ownedCards]
@@ -127,37 +150,60 @@
     return { ok: true, state: next, gold: gold - product.price, product, message: `${product.name}を手に入れた。` };
   }
 
+  function discoverCard(state, cardId) {
+    const card = DISCOVERABLE_CARDS[cardId];
+    if (!card) return { ok: false, state, message: 'ここにはカードはない。' };
+    if (state.ownedCards.includes(cardId)) return { ok: false, state, card, message: `${card.name}はすでに持っている。` };
+    return {
+      ok: true,
+      state: { ...state, ownedCards: [...state.ownedCards, cardId] },
+      card,
+      message: `${card.name}を見つけ、デッキに加えた。`
+    };
+  }
+
   function useItem(state, itemId) {
     const product = PRODUCTS.get(itemId);
     if (product?.type !== 'item' || !state.inventory[itemId]) {
       return { ok: false, state, message: 'その道具は持っていない。' };
     }
-    const maxHp = levelDefinition(state.level).maxHp;
-    if (state.currentHp >= maxHp) return { ok: false, state, message: 'HPは満タンだ。' };
-    const currentHp = Math.min(maxHp, state.currentHp + product.heal);
+    const definition = levelDefinition(state.level);
+    const restoresHp = Boolean(product.heal);
+    const restoresMp = Boolean(product.restoreMp);
+    if (restoresHp && state.currentHp >= definition.maxHp) return { ok: false, state, message: 'HPは満タンだ。' };
+    if (restoresMp && state.currentMp >= definition.maxMp) return { ok: false, state, message: 'MPは満タンだ。' };
+    const currentHp = restoresHp ? Math.min(definition.maxHp, state.currentHp + product.heal) : state.currentHp;
+    const currentMp = restoresMp ? Math.min(definition.maxMp, state.currentMp + product.restoreMp) : state.currentMp;
+    const restored = restoresHp ? `HPが${currentHp - state.currentHp}` : `MPが${currentMp - state.currentMp}`;
     return {
       ok: true,
       state: {
         ...state,
         currentHp,
+        currentMp,
         inventory: { ...state.inventory, [itemId]: state.inventory[itemId] - 1 }
       },
-      message: `${product.name}を使い、HPが${currentHp - state.currentHp}回復した。`
+      message: `${product.name}を使い、${restored}回復した。`
     };
   }
 
   function restAtInn(state, gold) {
     if (gold < INN_PRICE) return { ok: false, state, gold, message: '宿代が足りない。' };
-    const maxHp = levelDefinition(state.level).maxHp;
+    const definition = levelDefinition(state.level);
     return {
       ok: true,
-      state: { ...state, currentHp: maxHp },
+      state: { ...state, currentHp: definition.maxHp, currentMp: definition.maxMp },
       gold: gold - INN_PRICE,
-      message: 'ぐっすり休み、HPが全回復した。'
+      message: 'ぐっすり休み、HPとMPが全回復した。'
     };
   }
 
-  function applyBattleVictory(state, { xp = 0, playerHp = state.currentHp, encounterId = '' } = {}) {
+  function applyBattleVictory(state, {
+    xp = 0,
+    playerHp = state.currentHp,
+    playerMp = state.currentMp,
+    encounterId = ''
+  } = {}) {
     const gainedXp = Math.max(0, Math.floor(Number(xp) || 0));
     const exp = state.exp + gainedXp;
     const previousLevel = state.level;
@@ -166,12 +212,13 @@
     const defeatedRoadEnemies = encounterId.startsWith('road-')
       ? [...new Set([...state.defeatedRoadEnemies, encounterId])]
       : state.defeatedRoadEnemies;
-    const maxHp = levelDefinition(level).maxHp;
+    const definition = levelDefinition(level);
     const next = {
       ...state,
       level,
       exp,
-      currentHp: leveledUp ? maxHp : Math.max(1, Math.min(maxHp, Math.floor(playerHp))),
+      currentHp: leveledUp ? definition.maxHp : Math.max(1, Math.min(definition.maxHp, Math.floor(playerHp))),
+      currentMp: leveledUp ? definition.maxMp : Math.max(0, Math.min(definition.maxMp, Math.floor(playerMp))),
       defeatedRoadEnemies,
       roadVictories: defeatedRoadEnemies.length,
       bossDefeated: state.bossDefeated || encounterId === 'watchtower-boss'
@@ -190,9 +237,9 @@
   }
 
   function resolveDefeat(state, gold) {
-    const maxHp = levelDefinition(state.level).maxHp;
+    const definition = levelDefinition(state.level);
     return {
-      state: { ...state, currentHp: maxHp },
+      state: { ...state, currentHp: definition.maxHp, currentMp: definition.maxMp },
       gold: Math.floor(Math.max(0, gold) / 2),
       message: '王都へ運ばれた。所持金が半分になった。'
     };
@@ -200,6 +247,7 @@
 
   return {
     INN_PRICE,
+    DISCOVERABLE_CARDS,
     LEVEL_TABLE,
     SHOP_CATALOG,
     WATCHTOWER_SEALS,
@@ -209,6 +257,7 @@
     campaignObjective,
     canChallengeWatchtower,
     createPastCampaign,
+    discoverCard,
     resolveDefeat,
     restAtInn,
     useItem

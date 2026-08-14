@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const {
   CASTLE_NPCS,
   PAST_AREAS,
+  PAST_INTERACTIONS,
   PAST_START,
   STORY_DIALOGUES,
   TOWN_BUILDINGS,
@@ -151,6 +152,15 @@ test('the old watchtower interaction is part of the western overworld investigat
   const story = createPastStory({ area: 'overworld', phase: 'first-mission' });
   const result = activatePastInteraction(story, 'old-watchtower');
   assert.equal(result.actionId, 'watchtower');
+});
+
+test('the western road contains two visible card discoveries', () => {
+  const discoveries = PAST_INTERACTIONS.filter(interaction => interaction.actionId?.startsWith('discover-card:'));
+  assert.deepEqual(discoveries.map(interaction => interaction.actionId), [
+    'discover-card:frost',
+    'discover-card:mend'
+  ]);
+  assert.ok(discoveries.every(interaction => interaction.area === 'overworld'));
 });
 
 test('the capital marker stays visible while enemies wait for the royal mission', () => {

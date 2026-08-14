@@ -12,15 +12,24 @@ const {
   toggleCard
 } = require('../v2-battle.js');
 
-test('the starter deck contains eight touch-friendly cards across four disciplines', () => {
+test('the starter deck begins with four distinct cards across four disciplines', () => {
   const deck = defaultDeck();
-  assert.equal(deck.length, 8);
+  assert.equal(deck.length, 4);
+  assert.equal(new Set(deck).size, 4);
   assert.deepEqual(new Set(deck.map(id => CARD_LIBRARY[id].discipline)),
     new Set(['sword', 'magic', 'guard', 'technique']));
 });
 
-test('three one-energy cards exactly consume the turn energy', () => {
-  let battle = createBattle('mist-slime', () => 0);
+test('a level-one profile starts with one action point and resolves after one card', () => {
+  let battle = createBattle('mist-slime', () => 0, { energy: 1 });
+  assert.equal(battle.energy, 1);
+  battle = toggleCard(battle, battle.hand[0]);
+  assert.equal(battle.selectedCost, battle.energy);
+  assert.equal(battle.readyToResolve, true);
+});
+
+test('a later profile can spend three action points on three cards', () => {
+  let battle = createBattle('mist-slime', () => 0, { energy: 3 });
   const firstFour = battle.hand.slice(0, 4);
   for (const cardId of firstFour.slice(0, 3)) battle = toggleCard(battle, cardId);
   assert.equal(battle.selectedCost, battle.energy);
@@ -124,7 +133,7 @@ test('a ward blocks an ordinary sword card when it is not read', () => {
 });
 
 test('selection reports the remaining energy for immediate turn resolution', () => {
-  let battle = createBattle('mist-slime', () => 0);
+  let battle = createBattle('mist-slime', () => 0, { energy: 3, mp: 12, maxMp: 12 });
   battle = { ...battle, hand: ['slash', 'spark', 'guard', 'focus', 'frost'] };
   battle = toggleCard(battle, 'slash');
   assert.equal(battle.selectedCost, 1);
@@ -177,7 +186,7 @@ test('ordinary attacks still emit enemy and player damage effects', () => {
 });
 
 test('fully blocked attacks do not emit a player damage effect', () => {
-  let battle = createBattle('mist-slime', () => 0);
+  let battle = createBattle('mist-slime', () => 0, { energy: 2 });
   battle = {
     ...battle,
     hand: ['guard', 'parry', 'slash', 'spark', 'focus'],
@@ -210,12 +219,75 @@ test('campaign equipment and current HP are applied when battle begins', () => {
   const battle = createBattle('gutter-goblin', () => 0, {
     hp: 31,
     maxHp: 58,
+    mp: 7,
+    maxMp: 11,
+    energy: 2,
     attackBonus: 5,
     defenseBonus: 4,
     deck: ['slash', 'spark', 'guard', 'focus', 'flame-edge']
   });
-  assert.deepEqual(battle.player, { hp: 31, maxHp: 58, block: 0, attackBonus: 5, defenseBonus: 4 });
+  assert.deepEqual(battle.player, {
+    hp: 31, maxHp: 58, mp: 7, maxMp: 11, block: 0, attackBonus: 5, defenseBonus: 4
+  });
+  assert.equal(battle.energy, 2);
   assert.equal([...battle.hand, ...battle.deck].includes('flame-edge'), true);
+});
+
+test('magic cards cannot be selected without enough MP', () => {
+  let battle = createBattle('mist-slime', () => 0, {
+    energy: 2,
+    mp: 1,
+    maxMp: 6,
+    deck: ['spark', 'slash', 'guard', 'focus']
+  });
+  battle = { ...battle, hand: ['spark', 'slash', 'guard', 'focus'] };
+  const unchanged = toggleCard(battle, 'spark');
+  assert.equal(CARD_LIBRARY.spark.mpCost, 2);
+  assert.equal(unchanged, battle);
+});
+
+test('casting magic spends MP and focus restores it', () => {
+  let battle = createBattle('mist-slime', () => 0, { energy: 1, mp: 4, maxMp: 6 });
+  battle = { ...battle, hand: ['spark', 'slash', 'guard', 'focus'], selected: ['spark'] };
+  const cast = resolveTurn(battle, () => 0);
+  assert.equal(cast.player.mp, 2);
+
+  const focused = resolveTurn({ ...cast, hand: ['focus'], selected: ['focus'] }, () => 0);
+  assert.equal(focused.player.mp, 4);
+});
+
+test('a healing card restores HP before the enemy acts', () => {
+  let battle = createBattle('mist-slime', () => 0, {
+    energy: 1,
+    hp: 18,
+    maxHp: 42,
+    mp: 6,
+    maxMp: 6,
+    deck: ['mend']
+  });
+  battle = { ...battle, hand: ['mend'], selected: ['mend'] };
+  const next = resolveTurn(battle, () => 0);
+  assert.equal(CARD_LIBRARY.mend.heal, 14);
+  assert.equal(next.player.hp, 20);
+  assert.equal(next.player.mp, 3);
+  assert.deepEqual(next.effects.find(effect => effect.type === 'heal' && effect.target === 'player'), {
+    type: 'heal', target: 'player', amount: 14
+  });
+});
+
+test('a defeat still records MP spent on the final action', () => {
+  let battle = createBattle('gutter-goblin', () => 0, {
+    energy: 1,
+    hp: 1,
+    maxHp: 42,
+    mp: 6,
+    maxMp: 6,
+    deck: ['spark']
+  });
+  battle = { ...battle, hand: ['spark'], selected: ['spark'] };
+  const defeated = resolveTurn(battle, () => 0);
+  assert.equal(defeated.status, 'defeat');
+  assert.equal(defeated.player.mp, 4);
 });
 
 test('equipment increases outgoing damage and reduces received damage', () => {

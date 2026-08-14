@@ -10,6 +10,7 @@ const {
   canChallengeWatchtower,
   campaignObjective,
   createPastCampaign,
+  discoverCard,
   resolveDefeat,
   restAtInn,
   useItem
@@ -46,6 +47,24 @@ test('card purchases are unique and extend the battle deck', () => {
   assert.equal(repeated.ok, false);
 });
 
+test('level progression starts at one action point and gradually reaches three', () => {
+  assert.deepEqual(LEVEL_TABLE.map(level => level.energy), [1, 2, 2, 3, 3]);
+  assert.ok(LEVEL_TABLE.every((level, index) => index === 0 || level.maxMp >= LEVEL_TABLE[index - 1].maxMp));
+  const levelOne = battleProfile(createPastCampaign());
+  assert.equal(levelOne.energy, 1);
+  assert.equal(levelOne.maxMp, 6);
+  assert.equal(levelOne.deck.length, 4);
+});
+
+test('exploration card discoveries are unique and join the battle deck', () => {
+  const campaign = createPastCampaign();
+  const found = discoverCard(campaign, 'frost');
+  const repeated = discoverCard(found.state, 'frost');
+  assert.equal(found.ok, true);
+  assert.equal(battleProfile(found.state).deck.includes('frost'), true);
+  assert.equal(repeated.ok, false);
+});
+
 test('herbs heal outside battle and are consumed', () => {
   const campaign = createPastCampaign({ currentHp: 12, inventory: { herb: 2 } });
   const used = useItem(campaign, 'herb');
@@ -54,12 +73,13 @@ test('herbs heal outside battle and are consumed', () => {
   assert.equal(used.state.inventory.herb, 1);
 });
 
-test('the inn costs 12G and restores all HP', () => {
-  const campaign = createPastCampaign({ currentHp: 5 });
+test('the inn costs 12G and restores all HP and MP', () => {
+  const campaign = createPastCampaign({ currentHp: 5, currentMp: 1 });
   const rested = restAtInn(campaign, 50);
   assert.equal(rested.ok, true);
   assert.equal(rested.gold, 38);
   assert.equal(rested.state.currentHp, battleProfile(campaign).maxHp);
+  assert.equal(rested.state.currentMp, battleProfile(campaign).maxMp);
 });
 
 test('four unique western-road victories naturally reach the recommended boss level', () => {
@@ -103,9 +123,10 @@ test('campaign objectives count seal fragments and then point to the mid-boss', 
 });
 
 test('defeat halves gold and returns the hero fully healed', () => {
-  const defeated = resolveDefeat(createPastCampaign({ currentHp: 1 }), 301);
+  const defeated = resolveDefeat(createPastCampaign({ currentHp: 1, currentMp: 0 }), 301);
   assert.equal(defeated.gold, 150);
   assert.equal(defeated.state.currentHp, battleProfile(defeated.state).maxHp);
+  assert.equal(defeated.state.currentMp, battleProfile(defeated.state).maxMp);
 });
 
 test('equipment and levels feed attack defense HP and the customized deck into battle', () => {
@@ -113,6 +134,7 @@ test('equipment and levels feed attack defense HP and the customized deck into b
     level: 3,
     exp: 55,
     currentHp: 49,
+    currentMp: 7,
     equipment: { weapon: 'bronze-sword', armor: 'leather-armor' },
     ownedCards: ['flame-edge']
   });
@@ -121,5 +143,19 @@ test('equipment and levels feed attack defense HP and the customized deck into b
   assert.equal(profile.attackBonus, 5);
   assert.equal(profile.defenseBonus, 4);
   assert.equal(profile.hp, 49);
+  assert.equal(profile.mp, 7);
+  assert.equal(profile.maxMp, 11);
+  assert.equal(profile.energy, 2);
   assert.equal(profile.deck.includes('flame-edge'), true);
+});
+
+test('battle victory carries remaining MP and level-up refills both resources', () => {
+  const levelOne = createPastCampaign({ exp: 0, currentHp: 20, currentMp: 1 });
+  const ordinary = applyBattleVictory(levelOne, { xp: 5, playerHp: 17, playerMp: 0 }).state;
+  assert.equal(ordinary.currentMp, 0);
+
+  const leveled = applyBattleVictory(ordinary, { xp: 20, playerHp: 5, playerMp: 0 }).state;
+  assert.equal(leveled.level, 2);
+  assert.equal(leveled.currentHp, LEVEL_TABLE[1].maxHp);
+  assert.equal(leveled.currentMp, LEVEL_TABLE[1].maxMp);
 });

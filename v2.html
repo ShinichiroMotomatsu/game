@@ -2,7 +2,7 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#071017" />
     <title>ROPPONGI CHRONICLES · 現代編-昼間 / 過去編-夕方</title>
     <link rel="stylesheet" href="v2.css" />
@@ -18,11 +18,11 @@
         <div><small id="v2-edition-subtitle">MODERN · DAY</small><strong id="v2-edition-title">現代編-昼間</strong></div>
         <div class="v2-hud-actions">
           <div class="v2-edition-switch" role="group" aria-label="時代を切り替える">
-            <button type="button" data-edition="modern" aria-pressed="true">現代編-昼間</button>
-            <button type="button" data-edition="past" aria-pressed="false">過去編-夕方</button>
+            <button type="button" data-edition="modern" aria-label="現代編-昼間" aria-pressed="true"><span class="v2-label-full">現代編-昼間</span><span class="v2-label-compact" aria-hidden="true">現代</span></button>
+            <button type="button" data-edition="past" aria-label="過去編-夕方" aria-pressed="false"><span class="v2-label-full">過去編-夕方</span><span class="v2-label-compact" aria-hidden="true">過去</span></button>
           </div>
           <button id="v2-toggle-collision" type="button" aria-pressed="false">道路判定を表示</button>
-          <a href="index.html">編選択へ</a>
+          <a href="index.html"><span class="v2-label-full">編選択へ</span><span class="v2-label-compact" aria-hidden="true">選択</span></a>
         </div>
       </header>
       <aside class="v2-help"><b>WASD / 矢印キー</b>で移動<br><b>E / Enter</b> 調べる・話す<br><b>M</b> 道路判定: <span id="v2-collision-status">非表示</span></aside>
@@ -33,6 +33,8 @@
         <div class="v2-story-vitals">
           <b id="v2-story-level">Lv 1</b>
           <span id="v2-story-hp">HP 42 / 42</span>
+          <span id="v2-story-mp">MP 6 / 6</span>
+          <span id="v2-story-energy">AP 1</span>
           <span id="v2-story-exp">EXP 0</span>
           <button id="v2-open-bag" type="button">もちもの</button>
         </div>
@@ -97,9 +99,10 @@
         </div>
         <div class="v2-battle-command">
           <div class="v2-battle-player-row">
-            <div><small>主人公 <span id="v2-battle-player-level">Lv 1</span></small><strong id="v2-battle-player-hp">42 / 42</strong></div>
-            <div><small>行動力</small><strong id="v2-battle-energy">◆◆◆</strong></div>
-            <div><small>選択中</small><strong id="v2-battle-preview">カードを選択</strong></div>
+            <div class="v2-battle-vital"><small>主人公 <span id="v2-battle-player-level">Lv 1</span> · HP</small><strong id="v2-battle-player-hp">42 / 42</strong></div>
+            <div class="v2-battle-vital"><small>MP</small><strong id="v2-battle-player-mp">6 / 6</strong></div>
+            <div class="v2-battle-vital"><small>行動力</small><strong id="v2-battle-energy">◆</strong></div>
+            <div class="v2-battle-preview-wrap"><small>選択中</small><strong id="v2-battle-preview">カードを選択</strong></div>
           </div>
           <div id="v2-battle-hand" class="v2-battle-hand" role="group" aria-label="手札"></div>
           <div class="v2-battle-actions">
