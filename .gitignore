@@ -1,0 +1,15 @@
+# Local dependencies and test output
+node_modules/
+coverage/
+.nyc_output/
+
+# Generated previews and caches
+tmp/
+**/__pycache__/
+*.py[cod]
+
+# Local configuration and operating-system files
+.env
+.env.*
+.DS_Store
+Thumbs.db
