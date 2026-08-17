@@ -146,7 +146,8 @@ test('the shared page exposes touch dialogue and interaction controls', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /id="v2-dialogue"/);
-  assert.match(html, /id="v2-interact"/);
+  assert.match(html, /<button id="v2-interaction-prompt"/);
+  assert.doesNotMatch(html, /id="v2-interact"/);
   assert.match(html, /v2-past-story\.js/);
   assert.match(html, /v2-past-campaign\.js/);
   assert.match(html, /id="v2-shop"/);

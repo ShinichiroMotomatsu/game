@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 const {
+  NPC_PATROL_SPEED_SCALE,
   NPC_SPRITE_ASSETS,
   PAST_SCENE_ASSETS,
   npcPoseAt
@@ -44,6 +45,15 @@ test('walking NPCs patrol around their interaction anchors and report a facing',
   assert.notDeepEqual([later.x, later.y], [start.x, start.y]);
   assert.ok(['up', 'down', 'left', 'right'].includes(later.facing));
   assert.ok(Math.hypot(later.x - npc.point[0], later.y - npc.point[1]) <= npc.patrol.distance + 1);
+});
+
+test('townsfolk and soldiers patrol at half of their original movement speed', () => {
+  const npc = { point: [100, 100], patrol: { axis: 'x', distance: 40, periodMs: 4000, phase: 0 } };
+  const start = npcPoseAt(npc, 0);
+  const afterOneHundredMs = npcPoseAt(npc, 100);
+
+  assert.equal(NPC_PATROL_SPEED_SCALE, 0.5);
+  assert.ok(Math.abs((afterOneHundredMs.x - start.x) - 2) < 0.0001);
 });
 
 test('conversation proximity follows a walking townsperson instead of a stale point', () => {

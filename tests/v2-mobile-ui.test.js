@@ -54,12 +54,25 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const css = fs.readFileSync('v2.css', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
-  assert.match(html, /v2\.js\?edition=4/);
-  assert.match(html, /v2\.css\?edition=3/);
+  assert.match(html, /v2\.js\?edition=5/);
+  assert.match(html, /v2\.css\?edition=4/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);
   assert.match(runtime, /shell\.addEventListener\('pointerdown'/);
   assert.match(runtime, /shell\.addEventListener\('pointermove'/);
   assert.match(runtime, /isMapDragOrigin/);
   assert.match(runtime, /dragMovementVector/);
+});
+
+test('the contextual action is one tappable label that stays clear of the movement cursor', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const css = fs.readFileSync('v2.css', 'utf8');
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+
+  assert.match(html, /<button id="v2-interaction-prompt"[^>]*type="button"/);
+  assert.doesNotMatch(html, /id="v2-interact"/);
+  assert.match(css, /\.v2-interaction-prompt\s*\{[^}]*cursor:\s*pointer/s);
+  assert.match(css, /@media \(max-width: 700px\)[\s\S]*\.v2-interaction-prompt\s*\{[^}]*right:\s*max\(12px, env\(safe-area-inset-right\)\)[^}]*width:\s*min\(240px, calc\(100vw - 158px\)\)/s);
+  assert.match(runtime, /interactionPrompt\.addEventListener\('click', performStoryInteraction\)/);
+  assert.doesNotMatch(runtime, /interactButton/);
 });

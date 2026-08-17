@@ -66,9 +66,9 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 #v2-story-energy { color: #ffd56b; }
 .v2-story-vitals button { margin-left: auto; padding: 4px 7px; border: 1px solid #bd7948; background: #4f2a25; color: #ffe9c4; font: inherit; font-weight: 700; cursor: pointer; }
 .v2-story-status p { clear: both; margin: 8px 0 0; padding-top: 7px; border-top: 1px solid #d28a4544; color: #d8c5b0; font-size: 10px; line-height: 1.45; }
-.v2-interaction-prompt { position: absolute; z-index: 8; left: 50%; bottom: 84px; min-width: 240px; padding: 10px 18px; transform: translateX(-50%); border: 1px solid #e3a854; border-radius: 4px; background: #211323ed; color: #ffe5ad; font: 700 13px Georgia, "Yu Mincho", serif; text-align: center; box-shadow: 0 8px 28px #000b, inset 0 0 18px #7d3d2922; transition: opacity .16s, transform .16s; }
+.v2-interaction-prompt { position: absolute; z-index: 9; left: 50%; bottom: 32px; min-width: 240px; min-height: 48px; padding: 10px 18px; transform: translateX(-50%); border: 2px solid #e3a854; border-radius: 7px; background: #5b3029ed; color: #ffe5ad; font: 700 13px Georgia, "Yu Mincho", serif; text-align: center; box-shadow: 0 8px 28px #000b, inset 0 0 18px #7d3d2922; transition: opacity .16s, transform .16s, background .16s; touch-action: manipulation; cursor: pointer; }
+.v2-interaction-prompt:hover, .v2-interaction-prompt:focus-visible { background: #7a4130f2; outline: 2px solid #ffe4a7aa; outline-offset: 2px; }
 .v2-interaction-prompt[aria-hidden="true"] { opacity: 0; transform: translate(-50%, 8px); pointer-events: none; }
-.v2-interact { display: none; position: absolute; z-index: 9; right: 22px; bottom: 32px; min-width: 88px; min-height: 54px; border: 2px solid #ffc263; border-radius: 50%; background: #713b2de8; color: #fff0cc; font: 800 13px Georgia, "Yu Mincho", serif; box-shadow: 0 5px 18px #0009; touch-action: manipulation; }
 .v2-dialogue { position: fixed; z-index: 30; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); width: min(820px, calc(100vw - 28px)); min-height: 150px; padding: 22px 98px 22px 24px; transform: translateX(-50%); border: 3px double #e3aa5d; border-radius: 8px; background: linear-gradient(145deg, #2d1828f5, #130d17fa); color: #fff1d5; box-shadow: 0 18px 60px #000d, inset 0 0 40px #8a432622; }
 .v2-dialogue[aria-hidden="true"] { display: none; }
 .v2-dialogue small { color: #ffbb61; font: 700 11px Georgia, "Yu Mincho", serif; letter-spacing: .12em; }
@@ -218,7 +218,6 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
   .v2-controls { display: grid; }
   .v2-help, #v2-shell[data-theme="past"] .v2-landmark-info { display: none; }
   #v2-shell[data-theme="past"] #v2-battle-practice { display: none; }
-  #v2-shell[data-theme="past"] .v2-interact:not([hidden]) { display: block; }
 }
 @media (max-width: 700px) {
   .v2-floating-controls { top: max(6px, env(safe-area-inset-top)); right: 6px; }
@@ -241,8 +240,8 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
   .v2-map span { top: 6px; right: 7px; font-size: 8px; }
   .v2-controls { left: max(10px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); width: 116px; height: 116px; }
   .v2-controls button { min-width: 38px; min-height: 38px; font-size: 16px; touch-action: none; }
-  .v2-interact { right: max(12px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); min-width: 76px; min-height: 58px; font-size: 12px; }
-  .v2-interaction-prompt { bottom: calc(max(18px, env(safe-area-inset-bottom)) + 70px); min-width: 0; width: min(270px, 70vw); padding: 7px 10px; font-size: 10px; }
+  .v2-interaction-prompt { left: auto; right: max(12px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); min-width: 0; width: min(240px, calc(100vw - 158px)); min-height: 52px; padding: 8px 10px; transform: none; font-size: 11px; }
+  .v2-interaction-prompt[aria-hidden="true"] { transform: translateY(8px); }
   .v2-dialogue { left: 0; bottom: 0; width: 100%; min-height: 0; max-height: 44dvh; padding: 14px 14px calc(62px + env(safe-area-inset-bottom)); transform: none; border-width: 2px 0 0; border-radius: 12px 12px 0 0; overflow: auto; }
   .v2-dialogue p { margin-top: 7px; font-size: 14px; line-height: 1.55; }
   .v2-dialogue button { right: 12px; bottom: max(10px, env(safe-area-inset-bottom)); width: calc(100% - 24px); min-height: 44px; }

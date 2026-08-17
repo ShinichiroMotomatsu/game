@@ -30,7 +30,6 @@
   const openBagButton = document.querySelector('#v2-open-bag');
   const storyObjectiveLabel = document.querySelector('#v2-story-objective');
   const interactionPrompt = document.querySelector('#v2-interaction-prompt');
-  const interactButton = document.querySelector('#v2-interact');
   const dialogueOverlay = document.querySelector('#v2-dialogue');
   const dialogueSpeaker = document.querySelector('#v2-dialogue-speaker');
   const dialogueText = document.querySelector('#v2-dialogue-text');
@@ -651,8 +650,8 @@
     const touchLayout = window.matchMedia('(pointer: coarse), (max-width: 700px)').matches;
     interactionPrompt.textContent = visible ? `${touchLayout ? '' : 'E / Enter　'}${interaction.label}` : '';
     interactionPrompt.setAttribute('aria-hidden', String(!visible));
-    interactButton.hidden = !visible;
-    if (visible) interactButton.textContent = interaction.label.includes('話す') ? '話す' : '調べる';
+    interactionPrompt.disabled = !visible;
+    interactionPrompt.tabIndex = visible ? 0 : -1;
   }
 
   function pastInteractionAvailable(interaction) {
@@ -803,7 +802,7 @@
   settingsClose.addEventListener('click', () => setSettingsOpen(false));
   infoToggle.addEventListener('click', () => setStoryPanelVisible(!storyPanelVisible));
   collisionToggle.addEventListener('click', () => setCollisionDisplay(!showCollision));
-  interactButton.addEventListener('click', performStoryInteraction);
+  interactionPrompt.addEventListener('click', performStoryInteraction);
   dialogueNext.addEventListener('click', advanceStoryDialogue);
   openBagButton.addEventListener('click', () => openService('bag'));
   shopClose.addEventListener('click', closeService);
