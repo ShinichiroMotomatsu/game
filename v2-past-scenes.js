@@ -3,6 +3,8 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.V2_PAST_SCENES = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
+  const NPC_PATROL_SPEED_SCALE = 0.5;
+
   const PAST_SCENE_ASSETS = Object.freeze({
     'castle-town-ground': Object.freeze({
       path: 'assets/v2/past-scenes/castle-town-ground.png',
@@ -31,7 +33,7 @@
   function npcPoseAt(npc, elapsedMs = 0) {
     const [baseX, baseY] = npc.point;
     if (!npc.patrol) return { x: baseX, y: baseY, facing: npc.facing || 'down', moving: false };
-    const periodMs = Math.max(1000, Number(npc.patrol.periodMs) || 5000);
+    const periodMs = Math.max(1000, Number(npc.patrol.periodMs) || 5000) / NPC_PATROL_SPEED_SCALE;
     const phase = Number(npc.patrol.phase) || 0;
     const cycle = ((Number(elapsedMs) / periodMs + phase) % 1 + 1) % 1;
     const triangle = cycle < 0.5 ? cycle * 4 - 1 : 3 - cycle * 4;
@@ -48,5 +50,5 @@
     };
   }
 
-  return { NPC_SPRITE_ASSETS, PAST_SCENE_ASSETS, npcPoseAt };
+  return { NPC_PATROL_SPEED_SCALE, NPC_SPRITE_ASSETS, PAST_SCENE_ASSETS, npcPoseAt };
 });
