@@ -72,6 +72,12 @@ test('the launcher exposes only Modern Day and Past Evening editions', () => {
   assert.equal(fs.existsSync('legacy.html'), false);
 });
 
+test('the launcher offers both continue and restart entrances for Past Evening', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.match(html, /href="v2\.html\?edition=past"[^>]*>[^<]*つづきから/s);
+  assert.match(html, /href="v2\.html\?edition=past&amp;newGame=past"[^>]*>[^<]*はじめから/s);
+});
+
 test('the game provides a settings-panel edition switch with shared geometry', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
