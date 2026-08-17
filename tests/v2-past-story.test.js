@@ -17,6 +17,7 @@ const {
   nearestWalkablePoint,
   nearbyPastInteraction,
   storyAllowsEncounters,
+  storyUnlocksInteraction,
   storyObjective
 } = require('../v2-past-story.js');
 
@@ -152,10 +153,24 @@ test('all town businesses open their implemented service instead of a placeholde
   assert.ok(interactions.every(result => result.dialogue === null));
 });
 
-test('the old watchtower interaction is part of the western overworld investigation', () => {
-  const story = createPastStory({ area: 'overworld', phase: 'first-mission' });
-  const result = activatePastInteraction(story, 'old-watchtower');
-  assert.equal(result.actionId, 'watchtower');
+test('the old watchtower quest is unlocked only after the royal audience', () => {
+  const interaction = PAST_INTERACTIONS.find(item => item.id === 'old-watchtower');
+  const beforeAudience = createPastStory({ area: 'overworld', phase: 'seek-king' });
+  const afterAudience = createPastStory({ area: 'overworld', phase: 'first-mission' });
+  assert.equal(interaction.unlockAfter, 'king-audience');
+  assert.equal(storyUnlocksInteraction(beforeAudience, interaction), false);
+  assert.equal(storyUnlocksInteraction(afterAudience, interaction), true);
+  assert.equal(activatePastInteraction(beforeAudience, 'old-watchtower').actionId, null);
+  assert.equal(activatePastInteraction(afterAudience, 'old-watchtower').actionId, 'watchtower');
+});
+
+test('watchtower drawing and minimap visibility use the same first-mission gate', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const towerRenderer = runtime.slice(runtime.indexOf('function drawPastWatchtower'), runtime.indexOf('function drawPastCardDiscoveries'));
+  const minimapRenderer = runtime.slice(runtime.indexOf('function drawMap()'), runtime.indexOf('function render()'));
+  assert.match(towerRenderer, /storyAllowsEncounters\(storyState\)/);
+  assert.doesNotMatch(towerRenderer, /royalRewardClaimed/);
+  assert.match(minimapRenderer, /storyAllowsEncounters\(storyState\)/);
 });
 
 test('the western road contains two visible card discoveries', () => {
@@ -171,7 +186,7 @@ test('the western road contains two visible card discoveries', () => {
 
 test('the capital marker stays visible while enemies wait for the royal mission', () => {
   const runtime = fs.readFileSync('v2.js', 'utf8');
-  const gateRenderer = runtime.slice(runtime.indexOf('function drawPastCapitalGate'), runtime.indexOf('function drawPastEnemies'));
+  const gateRenderer = runtime.slice(runtime.indexOf('function drawPastCapitalGate'), runtime.indexOf('function drawPastWatchtower'));
   const enemyRenderer = runtime.slice(runtime.indexOf('function drawPastEnemies'), runtime.indexOf('function drawDepthSortedEntities'));
   assert.doesNotMatch(gateRenderer, /storyAllowsEncounters/);
   assert.match(enemyRenderer, /storyAllowsEncounters/);

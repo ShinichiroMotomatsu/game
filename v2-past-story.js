@@ -113,7 +113,7 @@
 
   const PAST_INTERACTIONS = Object.freeze([
     Object.freeze({ id: 'capital-gate', area: 'overworld', point: PAST_START.capitalGatePoint, radius: 46, label: '王都ロプンギアへ入る', targetArea: 'castle-town', spawn: PAST_AREAS['castle-town'].spawn }),
-    Object.freeze({ id: 'old-watchtower', area: 'overworld', point: Object.freeze([145, 515]), radius: 46, label: '古い見張り台を調べる', actionId: 'watchtower' }),
+    Object.freeze({ id: 'old-watchtower', area: 'overworld', point: Object.freeze([145, 515]), radius: 46, label: '古い見張り台を調べる', actionId: 'watchtower', unlockAfter: 'king-audience' }),
     Object.freeze({ id: 'road-mage', area: 'overworld', point: Object.freeze([262, 480]), radius: 34, label: '旅の魔導士と話す', actionId: 'learn-first-magic' }),
     Object.freeze({ id: 'frost-card-chest', area: 'overworld', point: Object.freeze([245, 500]), radius: 28, label: '青い宝箱を開ける', actionId: 'discover-card:frost', cardId: 'frost', unlockAfter: 'watchtower-boss' }),
     Object.freeze({ id: 'mend-card-chest', area: 'overworld', point: Object.freeze([90, 570]), radius: 28, label: '白い宝箱を開ける', actionId: 'discover-card:mend', cardId: 'mend', unlockAfter: 'watchtower-boss' }),
@@ -181,9 +181,17 @@
     return state.phase === 'first-mission' || state.phase === 'first-mission-report' || state.phase === 'first-mission-complete';
   }
 
+  function storyUnlocksInteraction(state, interaction) {
+    if (!interaction) return false;
+    if (interaction.unlockAfter === 'king-audience') return storyAllowsEncounters(state);
+    return true;
+  }
+
   function activatePastInteraction(state, interactionId) {
     const interaction = PAST_INTERACTIONS.find(item => item.id === interactionId && item.area === state.area);
-    if (!interaction) return { state, spawn: null, dialogue: null, serviceId: null, actionId: null };
+    if (!interaction || !storyUnlocksInteraction(state, interaction)) {
+      return { state, spawn: null, dialogue: null, serviceId: null, actionId: null };
+    }
     if (interaction.targetArea) {
       return {
         state: { ...state, area: interaction.targetArea },
@@ -272,6 +280,7 @@
     nearestWalkablePoint,
     nearbyPastInteraction,
     storyAllowsEncounters,
+    storyUnlocksInteraction,
     storyObjective
   };
 });
