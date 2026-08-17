@@ -22,12 +22,26 @@
   });
 
   const TOWN_BUILDINGS = Object.freeze([
-    Object.freeze({ id: 'royal-castle', type: 'castle', label: '蜘蛛守の王城', icon: '♜', rect: Object.freeze([370, 8, 660, 500]), color: '#8d4850', labelPoint: Object.freeze([700, 520]) }),
-    Object.freeze({ id: 'weapon-shop', type: 'weapon', label: '武器屋「鉄蜘蛛」', icon: '⚔', rect: Object.freeze([20, 45, 330, 350]), color: '#8c4a32', labelPoint: Object.freeze([365, 335]) }),
-    Object.freeze({ id: 'armor-shop', type: 'armor', label: '防具屋「銀の殻」', icon: '⬟', rect: Object.freeze([1050, 90, 330, 310]), color: '#465b74', labelPoint: Object.freeze([1035, 335]) }),
-    Object.freeze({ id: 'item-shop', type: 'item', label: '道具屋「旅支度」', icon: '⚗', rect: Object.freeze([20, 430, 340, 285]), color: '#556c3d', labelPoint: Object.freeze([375, 645]) }),
-    Object.freeze({ id: 'inn', type: 'inn', label: '宿屋「夕映え亭」', icon: '☾', rect: Object.freeze([1040, 440, 340, 310]), color: '#7c5136', labelPoint: Object.freeze([1025, 665]) }),
-    Object.freeze({ id: 'card-shop', type: 'card', label: 'カード屋「星札堂」', icon: '✦', rect: Object.freeze([15, 710, 350, 275]), color: '#63467e', labelPoint: Object.freeze([385, 865]) })
+    Object.freeze({ id: 'royal-castle', type: 'castle', label: '蜘蛛守の王城', icon: '♜', rect: Object.freeze([400, 8, 600, 502]), color: '#8d4850', labelPoint: Object.freeze([700, 520]) }),
+    Object.freeze({ id: 'weapon-shop', type: 'weapon', label: '武器屋「鉄蜘蛛」', icon: '⚔', rect: Object.freeze([35, 75, 310, 335]), color: '#8c4a32', labelPoint: Object.freeze([365, 335]) }),
+    Object.freeze({ id: 'armor-shop', type: 'armor', label: '防具屋「銀の殻」', icon: '⬟', rect: Object.freeze([1055, 85, 310, 325]), color: '#465b74', labelPoint: Object.freeze([1035, 335]) }),
+    Object.freeze({ id: 'item-shop', type: 'item', label: '道具屋「旅支度」', icon: '⚗', rect: Object.freeze([35, 430, 320, 280]), color: '#556c3d', labelPoint: Object.freeze([375, 645]) }),
+    Object.freeze({ id: 'inn', type: 'inn', label: '宿屋「夕映え亭」', icon: '☾', rect: Object.freeze([1055, 440, 310, 300]), color: '#7c5136', labelPoint: Object.freeze([1025, 665]) }),
+    Object.freeze({ id: 'card-shop', type: 'card', label: 'カード屋「星札堂」', icon: '✦', rect: Object.freeze([35, 710, 320, 250]), color: '#63467e', labelPoint: Object.freeze([385, 865]) })
+  ]);
+
+  const TOWN_WALLS = Object.freeze([
+    Object.freeze({ id: 'wall-west', rect: Object.freeze([0, 0, 95, 1000]) }),
+    Object.freeze({ id: 'wall-east', rect: Object.freeze([1305, 0, 95, 1000]) }),
+    Object.freeze({ id: 'wall-north-west', rect: Object.freeze([0, 0, 560, 115]) }),
+    Object.freeze({ id: 'wall-north-east', rect: Object.freeze([840, 0, 560, 115]) }),
+    Object.freeze({ id: 'wall-south-west', rect: Object.freeze([0, 885, 620, 115]) }),
+    Object.freeze({ id: 'wall-south-east', rect: Object.freeze([780, 885, 620, 115]) })
+  ]);
+
+  const TOWN_COLLISION_RECTS = Object.freeze([
+    ...TOWN_BUILDINGS.map(building => building.rect),
+    ...TOWN_WALLS.map(wall => wall.rect)
   ]);
 
   const TOWN_NPCS = Object.freeze([
@@ -274,8 +288,8 @@
     const margin = 34 + radius;
     if (x < margin || y < margin || x > area.width - margin || y > area.height - margin) return false;
     if (areaId !== 'castle-town') return true;
-    return TOWN_BUILDINGS.every(building => {
-      const [left, top, width, height] = building.rect;
+    return TOWN_COLLISION_RECTS.every(rect => {
+      const [left, top, width, height] = rect;
       const padding = radius + 8;
       return x < left - padding || x > left + width + padding || y < top - padding || y > top + height + padding;
     });
@@ -307,6 +321,7 @@
     STORY_DIALOGUES,
     TOWN_BUILDINGS,
     TOWN_NPCS,
+    TOWN_WALLS,
     activatePastInteraction,
     addStoryGold,
     canStandInPastArea,

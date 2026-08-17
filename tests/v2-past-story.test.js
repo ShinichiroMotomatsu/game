@@ -10,6 +10,7 @@ const {
   STORY_DIALOGUES,
   TOWN_BUILDINGS,
   TOWN_NPCS,
+  TOWN_WALLS,
   activatePastInteraction,
   addStoryGold,
   canStandInPastArea,
@@ -21,6 +22,29 @@ const {
   storyUnlocksInteraction,
   storyObjective
 } = require('../v2-past-story.js');
+
+function reachableTownInteractions(interactions, step = 8) {
+  const start = PAST_AREAS['castle-town'].spawn;
+  const queue = [start];
+  const visited = new Set([`${start[0]},${start[1]}`]);
+  const reached = new Set();
+  for (let index = 0; index < queue.length; index++) {
+    const [x, y] = queue[index];
+    for (const interaction of interactions) {
+      if (Math.hypot(x - interaction.point[0], y - interaction.point[1]) <= interaction.radius) {
+        reached.add(interaction.id);
+      }
+    }
+    for (const [dx, dy] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
+      const next = [x + dx, y + dy];
+      const key = `${next[0]},${next[1]}`;
+      if (visited.has(key) || !canStandInPastArea('castle-town', next[0], next[1], 6)) continue;
+      visited.add(key);
+      queue.push(next);
+    }
+  }
+  return reached;
+}
 
 test('Past Evening starts at the western harbor beside Roppongi Hills', () => {
   assert.equal(PAST_START.area, 'overworld');
@@ -127,6 +151,21 @@ test('town collision keeps the player outside buildings while leaving streets wa
   const weaponShop = TOWN_BUILDINGS.find(building => building.type === 'weapon');
   assert.equal(canStandInPastArea('castle-town', weaponShop.rect[0] + 20, weaponShop.rect[1] + 20, 12), false);
   assert.equal(canStandInPastArea('castle-town', 700, 620, 12), true);
+});
+
+test('town walls block their visible perimeter while leaving the south gate open', () => {
+  assert.ok(TOWN_WALLS.length >= 4);
+  assert.equal(canStandInPastArea('castle-town', 70, 500, 6), false);
+  assert.equal(canStandInPastArea('castle-town', 700, 950, 6), true);
+});
+
+test('every shop counter and town gate has a reachable approach from the south entrance', () => {
+  const destinations = PAST_INTERACTIONS.filter(interaction =>
+    interaction.area === 'castle-town'
+    && (interaction.serviceId || ['castle-door', 'capital-exit'].includes(interaction.id))
+  );
+  const reached = reachableTownInteractions(destinations);
+  assert.deepEqual([...reached].sort(), destinations.map(destination => destination.id).sort());
 });
 
 test('overworld interactions scale with the high-resolution world', () => {
