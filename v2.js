@@ -48,11 +48,12 @@
   const battleApi = window.V2_BATTLE;
   const pastWorldApi = window.V2_PAST_WORLD;
   const pastCampaignApi = window.V2_PAST_CAMPAIGN;
+  const pastSceneApi = window.V2_PAST_SCENES;
   const pastStoryApi = window.V2_PAST_STORY;
   const saveApi = window.V2_SAVE;
   const inputApi = window.V2_INPUT;
   const mapLayout = window.V2_MAP_LAYOUT;
-  if (!landmarkGeometry || !editionApi || !battleApi || !pastWorldApi || !pastCampaignApi || !pastStoryApi || !saveApi || !inputApi || !mapLayout) {
+  if (!landmarkGeometry || !editionApi || !battleApi || !pastWorldApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !saveApi || !inputApi || !mapLayout) {
     loading.textContent = 'GAME MODULE ERROR';
     throw new Error('Game geometry, edition, or map layout data is missing.');
   }
@@ -65,8 +66,10 @@
   const { advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, shouldStartEncounter } = pastWorldApi;
   const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
+  const { NPC_SPRITE_ASSETS, PAST_SCENE_ASSETS, npcPoseAt } = pastSceneApi;
   const {
     INN_PRICE,
+    FIRST_QUEST_LOADOUT,
     SHOP_CATALOG,
     applyBattleVictory,
     battleProfile,
@@ -88,6 +91,7 @@
     PAST_START,
     STORY_DIALOGUES,
     TOWN_BUILDINGS,
+    TOWN_NPCS,
     activatePastInteraction,
     addStoryGold,
     canStandInPastArea,
@@ -114,6 +118,8 @@
   const editionSprites = new Map();
   const editionLandmarkImages = new Map();
   const pastEnemyImages = new Map();
+  const pastSceneImages = new Map();
+  const pastNpcImages = new Map();
   const editionIds = ['modern', 'past'];
 
   for (const editionId of editionIds) {
@@ -231,7 +237,9 @@
     ['mist-watcher', 'rune-wolf.png']
   ];
   const expectedAssets = editionIds.length * (tileCols * tileRows + facingNames.length + landmarks.length)
-    + enemyAssetDefinitions.length;
+    + enemyAssetDefinitions.length
+    + Object.keys(PAST_SCENE_ASSETS).length
+    + Object.keys(NPC_SPRITE_ASSETS).length;
 
   function finishAssetLoad() {
     loadedAssets++;
@@ -276,6 +284,22 @@
     image.addEventListener('error', failAssetLoad);
     image.src = `assets/v2/past-enemies/${filename}?battle=1`;
     pastEnemyImages.set(enemyId, image);
+  }
+  for (const [assetId, definition] of Object.entries(PAST_SCENE_ASSETS)) {
+    const image = new Image();
+    image.decoding = 'async';
+    image.addEventListener('load', finishAssetLoad);
+    image.addEventListener('error', failAssetLoad);
+    image.src = `${definition.path}?scene=1`;
+    pastSceneImages.set(assetId, image);
+  }
+  for (const [spriteId, path] of Object.entries(NPC_SPRITE_ASSETS)) {
+    const image = new Image();
+    image.decoding = 'async';
+    image.addEventListener('load', finishAssetLoad);
+    image.addEventListener('error', failAssetLoad);
+    image.src = `${path}?scene=1`;
+    pastNpcImages.set(spriteId, image);
   }
 
   function setEdition(value, updateUrl = true) {
@@ -574,7 +598,7 @@
         const uniqueOwned = badge === '装備中' || badge === '所持済み';
         entries.push(createServiceButton({
           name: product.name,
-          detail: product.description,
+          detail: `${FIRST_QUEST_LOADOUT.includes(product.id) ? '★ 序盤おすすめ　' : ''}${product.description}`,
           price: product.price,
           badge,
           disabled: uniqueOwned,
@@ -604,6 +628,9 @@
     updateInteractionPrompt(null);
     shopMessage.textContent = serviceId === 'bag' ? '道具を使うか、装備を確認できます。' : '何を買いますか？';
     if (serviceId === 'inn') shopMessage.textContent = '一晩12G。旅の疲れをすっかり癒やします。';
+    if (['weapon', 'armor', 'item'].includes(serviceId) && storyState.royalRewardClaimed) {
+      shopMessage.textContent = '支度金300Gなら、銅の剣・皮の鎧・やくそう2個が序盤のおすすめです。';
+    }
     renderService();
     shopOverlay.setAttribute('aria-hidden', 'false');
   }
@@ -935,8 +962,12 @@
       if (encounter) openBattle(encounter);
     }
 
+    const dynamicNpcPoints = new Map(localNpcs().map(npc => {
+      const pose = npcPoseAt(npc, performance.now());
+      return [npc.id, [pose.x, pose.y]];
+    }));
     const nearbyInteraction = currentEdition === 'past'
-      ? nearbyPastInteraction(activeAreaId(), player, maskScale, pastInteractionAvailable)
+      ? nearbyPastInteraction(activeAreaId(), player, maskScale, pastInteractionAvailable, dynamicNpcPoints)
       : null;
     const interaction = nearbyInteraction?.cardId && campaignState.ownedCards.includes(nearbyInteraction.cardId)
       ? null
@@ -983,237 +1014,77 @@
     }
   }
 
-  function drawCobbleRoad(x, y, width, height) {
-    ctx.fillStyle = '#8f7864';
-    ctx.fillRect(x, y, width, height);
-    ctx.strokeStyle = '#5b493f77';
-    ctx.lineWidth = 2;
-    for (let row = y + 14, index = 0; row < y + height; row += 24, index++) {
-      ctx.beginPath();
-      ctx.moveTo(x, row);
-      ctx.lineTo(x + width, row);
-      ctx.stroke();
-      for (let column = x + (index % 2 ? 16 : 32); column < x + width; column += 54) {
-        ctx.beginPath();
-        ctx.moveTo(column, row - 24);
-        ctx.lineTo(column, row);
-        ctx.stroke();
-      }
-    }
-  }
-
-  function drawTownBuilding(building) {
-    const [x, y, width, height] = building.rect;
-    const castle = building.type === 'castle';
-    ctx.save();
-    ctx.fillStyle = '#120b0b70';
-    roundedRectanglePath(ctx, x - 15, y + 18, width + 30, height + 18, 18);
-    ctx.fill();
-    ctx.fillStyle = castle ? '#6f6463' : '#d0ad79';
-    ctx.strokeStyle = '#3a2827';
-    ctx.lineWidth = 5;
-    roundedRectanglePath(ctx, x, y + 36, width, height - 36, castle ? 14 : 10);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = building.color;
-    ctx.beginPath();
-    ctx.moveTo(x - 18, y + 54);
-    ctx.lineTo(x + width * 0.5, y - (castle ? 52 : 24));
-    ctx.lineTo(x + width + 18, y + 54);
-    ctx.lineTo(x + width - 4, y + 94);
-    ctx.lineTo(x + 4, y + 94);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    if (castle) {
-      for (const towerX of [x + 44, x + width - 44]) {
-        ctx.fillStyle = '#817574';
-        ctx.fillRect(towerX - 42, y - 8, 84, 170);
-        ctx.fillStyle = '#753b49';
-        ctx.beginPath();
-        ctx.moveTo(towerX - 52, y + 4);
-        ctx.lineTo(towerX, y - 68);
-        ctx.lineTo(towerX + 52, y + 4);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.fillStyle = '#322329';
-      ctx.fillRect(x + width / 2 - 44, y + height - 64, 88, 64);
-      ctx.strokeStyle = '#d6a957';
-      ctx.strokeRect(x + width / 2 - 44, y + height - 64, 88, 64);
-    } else {
-      ctx.fillStyle = '#4a312a';
-      ctx.fillRect(x + width / 2 - 28, y + height - 60, 56, 60);
-      ctx.fillStyle = '#f2b75c';
-      for (const windowX of [x + 50, x + width - 76]) ctx.fillRect(windowX, y + 112, 26, 34);
-    }
-
-    const labelWidth = castle ? 250 : 205;
-    roundedRectanglePath(ctx, x + width / 2 - labelWidth / 2, y + height + 10, labelWidth, 42, 7);
-    ctx.fillStyle = '#24151fef';
-    ctx.fill();
-    ctx.strokeStyle = '#dca65d';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle = '#ffe1a6';
-    ctx.font = `700 ${castle ? 18 : 15}px Georgia, "Yu Mincho", serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`${building.icon}  ${building.label}`, x + width / 2, y + height + 31);
-    ctx.restore();
-  }
-
   function drawCastleTown() {
     const area = PAST_AREAS['castle-town'];
-    const gradient = ctx.createLinearGradient(0, 0, area.width, area.height);
-    gradient.addColorStop(0, '#755d43');
-    gradient.addColorStop(1, '#3f4b31');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, area.width, area.height);
-    ctx.fillStyle = '#30442b';
-    for (let y = 24; y < area.height; y += 58) {
-      for (let x = 20 + (y / 58 % 2) * 23; x < area.width; x += 74) {
-        ctx.beginPath();
-        ctx.arc(x, y, 7 + (x + y) % 8, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-    drawCobbleRoad(550, 300, 300, 700);
-    drawCobbleRoad(350, 365, 700, 250);
-    drawCobbleRoad(350, 700, 410, 150);
-    ctx.fillStyle = '#aa8a67';
-    ctx.beginPath();
-    ctx.arc(700, 590, 170, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#665142';
-    ctx.lineWidth = 8;
-    ctx.stroke();
-    ctx.fillStyle = '#335f63';
-    ctx.beginPath();
-    ctx.arc(700, 590, 64, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#d7b36d';
-    ctx.stroke();
-    ctx.fillStyle = '#a171c0';
-    ctx.beginPath();
-    ctx.moveTo(700, 510);
-    ctx.lineTo(725, 565);
-    ctx.lineTo(700, 605);
-    ctx.lineTo(675, 565);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.strokeStyle = '#d0a56b';
-    ctx.lineWidth = 26;
-    ctx.strokeRect(28, 28, area.width - 56, area.height - 56);
-    ctx.strokeStyle = '#4d342c';
-    ctx.lineWidth = 8;
-    ctx.strokeRect(42, 42, area.width - 84, area.height - 84);
-    for (const building of TOWN_BUILDINGS) drawTownBuilding(building);
-
-    ctx.fillStyle = '#181016';
-    ctx.fillRect(625, area.height - 58, 150, 58);
-    ctx.strokeStyle = '#e0a95c';
-    ctx.lineWidth = 5;
-    ctx.strokeRect(625, area.height - 58, 150, 58);
-    ctx.fillStyle = '#ffe0a2';
-    ctx.font = '700 15px Georgia, "Yu Mincho", serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('街道へ', 700, area.height - 22);
+    const ground = pastSceneImages.get('castle-town-ground');
+    const buildings = pastSceneImages.get('castle-town-buildings');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(ground, 0, 0, area.width, area.height);
+    ctx.drawImage(buildings, 0, 0, area.width, area.height);
+    for (const building of TOWN_BUILDINGS) drawTownBuildingLabel(building);
   }
 
   function drawCastleInterior() {
     const area = PAST_AREAS.castle;
-    ctx.fillStyle = '#251b22';
-    ctx.fillRect(0, 0, area.width, area.height);
-    ctx.fillStyle = '#85766c';
-    ctx.fillRect(34, 34, area.width - 68, area.height - 68);
-    ctx.strokeStyle = '#5d4c46';
-    ctx.lineWidth = 2;
-    for (let y = 46; y < area.height - 34; y += 46) {
-      ctx.beginPath();
-      ctx.moveTo(34, y);
-      ctx.lineTo(area.width - 34, y);
-      ctx.stroke();
-    }
-    for (let x = 58; x < area.width - 34; x += 68) {
-      ctx.beginPath();
-      ctx.moveTo(x, 34);
-      ctx.lineTo(x, area.height - 34);
-      ctx.stroke();
-    }
-    ctx.fillStyle = '#6e2635';
-    ctx.fillRect(430, 105, 140, 655);
-    ctx.strokeStyle = '#d7a750';
-    ctx.lineWidth = 6;
-    ctx.strokeRect(430, 105, 140, 655);
-    ctx.fillStyle = '#40303a';
-    ctx.fillRect(295, 58, 410, 142);
-    ctx.strokeStyle = '#d6a556';
-    ctx.strokeRect(295, 58, 410, 142);
-    ctx.fillStyle = '#8a3f45';
-    roundedRectanglePath(ctx, 455, 88, 90, 100, 24);
-    ctx.fill();
-    ctx.strokeStyle = '#f0c66a';
-    ctx.stroke();
-    ctx.fillStyle = '#e1bb64';
-    ctx.font = '32px Georgia, serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('♛', 500, 132);
-    for (const x of [160, 270, 730, 840]) {
-      ctx.fillStyle = '#55464b';
-      ctx.beginPath();
-      ctx.arc(x, 310, 32, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillRect(x - 25, 310, 50, 270);
-      ctx.fillStyle = '#b77a3f';
-      ctx.beginPath();
-      ctx.arc(x, 350, 10, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.fillStyle = '#1a1117';
-    ctx.fillRect(440, area.height - 34, 120, 34);
+    const interior = pastSceneImages.get('castle-interior');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(interior, 0, 0, area.width, area.height);
   }
 
-  function drawPastNpc(npc) {
-    const [x, y] = npc.point;
+  function drawTownBuildingLabel(building) {
+    const [x, y] = building.labelPoint;
+    const labelWidth = building.type === 'castle' ? 235 : 190;
     ctx.save();
-    ctx.translate(x, y);
-    ctx.fillStyle = '#0007';
-    ctx.beginPath();
-    ctx.ellipse(0, 5, 21, 8, 0, 0, Math.PI * 2);
+    roundedRectanglePath(ctx, x - labelWidth / 2, y - 18, labelWidth, 36, 8);
+    ctx.fillStyle = '#1b1118e8';
     ctx.fill();
-    ctx.fillStyle = npc.role === 'king' ? '#8d2946' : '#4a6076';
-    ctx.beginPath();
-    ctx.moveTo(-21, 0);
-    ctx.lineTo(-15, -50);
-    ctx.lineTo(15, -50);
-    ctx.lineTo(21, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = '#d4ad86';
-    ctx.beginPath();
-    ctx.arc(0, -63, 16, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = npc.role === 'king' ? '#f2cb5e' : '#a8b2b7';
-    ctx.font = `${npc.role === 'king' ? 28 : 25}px Georgia, serif`;
+    ctx.strokeStyle = '#e0ae5c';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#ffe7b5';
+    ctx.font = `700 ${building.type === 'castle' ? 15 : 13}px Georgia, "Yu Mincho", serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(npc.role === 'king' ? '♛' : '♜', 0, -73);
-    ctx.fillStyle = '#fff0cf';
-    ctx.font = '700 12px Georgia, "Yu Mincho", serif';
-    ctx.fillText(npc.name, 0, 24);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${building.icon} ${building.label}`, x, y);
+    ctx.restore();
+  }
+
+  function localNpcs() {
+    if (currentEdition !== 'past') return [];
+    if (activeAreaId() === 'castle-town') return TOWN_NPCS;
+    if (activeAreaId() === 'castle') return CASTLE_NPCS;
+    return [];
+  }
+
+  function drawPastNpc(npc, pose, now) {
+    const image = pastNpcImages.get(npc.sprite);
+    if (!image?.complete || !image.naturalWidth) return;
+    const displayHeight = npc.role === 'king' ? 68 : npc.role === 'soldier' ? 58 : 52;
+    const displayWidth = displayHeight * image.naturalWidth / image.naturalHeight;
+    const bob = pose.moving ? Math.sin(now / 110 + npc.id.length) * 1.7 : 0;
+    const flip = pose.facing === 'left' ? -1 : 1;
+    ctx.save();
+    ctx.translate(Math.round(pose.x), Math.round(pose.y));
+    ctx.fillStyle = '#09060966';
+    ctx.beginPath();
+    ctx.ellipse(0, 2, displayWidth * 0.3, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.scale(flip, 1);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(image, -displayWidth / 2, -displayHeight + 4 + bob, displayWidth, displayHeight);
     ctx.restore();
   }
 
   function drawLocalCharacters() {
-    if (activeAreaId() !== 'castle') {
-      drawPlayer();
-      return;
-    }
+    const now = performance.now();
     const characters = [
-      ...CASTLE_NPCS.map(npc => ({ y: npc.point[1], draw: () => drawPastNpc(npc) })),
+      ...localNpcs().map(npc => {
+        const pose = npcPoseAt(npc, now);
+        return { y: pose.y, draw: () => drawPastNpc(npc, pose, now) };
+      }),
       { y: player.y, draw: drawPlayer }
     ].sort((left, right) => left.y - right.y);
     for (const character of characters) character.draw();
@@ -1578,25 +1449,13 @@
     const areaId = activeAreaId();
     if (currentEdition === 'past' && areaId !== 'overworld') {
       const area = PAST_AREAS[areaId];
-      mctx.fillStyle = areaId === 'castle' ? '#71645d' : '#50603c';
-      mctx.fillRect(0, 0, 210, 145);
+      const baseImage = pastSceneImages.get(areaId === 'castle' ? 'castle-interior' : 'castle-town-ground');
+      mctx.drawImage(baseImage, 0, 0, 210, 145);
+      if (areaId === 'castle-town') {
+        mctx.drawImage(pastSceneImages.get('castle-town-buildings'), 0, 0, 210, 145);
+      }
       mctx.save();
       mctx.scale(210 / area.width, 145 / area.height);
-      if (areaId === 'castle-town') {
-        mctx.fillStyle = '#94806d';
-        mctx.fillRect(550, 300, 300, 700);
-        mctx.fillRect(350, 365, 700, 250);
-        for (const building of TOWN_BUILDINGS) {
-          const [x, y, width, height] = building.rect;
-          mctx.fillStyle = building.color;
-          mctx.fillRect(x, y, width, height);
-        }
-      } else {
-        mctx.fillStyle = '#742c3c';
-        mctx.fillRect(430, 105, 140, 655);
-        mctx.fillStyle = '#3e3138';
-        mctx.fillRect(295, 58, 410, 142);
-      }
       mctx.fillStyle = '#fff';
       mctx.beginPath();
       mctx.arc(player.x, player.y, 24, 0, Math.PI * 2);

@@ -12,6 +12,7 @@
   });
   const INN_PRICE = 12;
   const WATCHTOWER_SEALS = 4;
+  const FIRST_QUEST_LOADOUT = Object.freeze(['bronze-sword', 'leather-armor', 'herb', 'herb']);
 
   const LEVEL_TABLE = Object.freeze([
     Object.freeze({ level: 1, exp: 0, maxHp: 42, maxMp: 6, energy: 1, attack: 0, defense: 0 }),
@@ -306,6 +307,7 @@
     MAIN_STORY_PACING,
     INN_PRICE,
     DISCOVERABLE_CARDS,
+    FIRST_QUEST_LOADOUT,
     LEVEL_TABLE,
     SHOP_CATALOG,
     WATCHTOWER_SEALS,

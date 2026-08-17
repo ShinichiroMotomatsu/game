@@ -9,6 +9,7 @@ const {
   PAST_START,
   STORY_DIALOGUES,
   TOWN_BUILDINGS,
+  TOWN_NPCS,
   activatePastInteraction,
   addStoryGold,
   canStandInPastArea,
@@ -41,6 +42,16 @@ test('the castle contains a king and multiple soldiers', () => {
   assert.ok(CASTLE_NPCS.filter(npc => npc.role === 'soldier').length >= 2);
 });
 
+test('the castle town has walking residents with individual conversations', () => {
+  assert.ok(TOWN_NPCS.length >= 4);
+  assert.ok(TOWN_NPCS.every(npc => npc.sprite && npc.dialogueId && npc.patrol));
+  for (const npc of TOWN_NPCS) {
+    const interaction = PAST_INTERACTIONS.find(candidate => candidate.id === npc.id);
+    assert.equal(interaction?.area, 'castle-town');
+    assert.equal(interaction?.dialogueId, npc.dialogueId);
+  }
+});
+
 test('capital and castle entrances form a reversible area route', () => {
   let story = createPastStory();
   let result = activatePastInteraction(story, 'capital-gate');
@@ -53,6 +64,7 @@ test('capital and castle entrances form a reversible area route', () => {
 
   result = activatePastInteraction(result.state, 'castle-exit');
   assert.equal(result.state.area, 'castle-town');
+  assert.equal(canStandInPastArea('castle-town', result.spawn[0], result.spawn[1], 6), true);
 
   result = activatePastInteraction(result.state, 'capital-exit');
   assert.equal(result.state.area, 'overworld');

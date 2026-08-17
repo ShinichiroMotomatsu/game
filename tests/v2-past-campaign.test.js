@@ -1,8 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 
 const {
   MAIN_STORY_PACING,
+  FIRST_QUEST_LOADOUT,
   LEVEL_TABLE,
   SHOP_CATALOG,
   applyBattleVictory,
@@ -20,12 +22,36 @@ const {
   useItem
 } = require('../v2-past-campaign.js');
 const { ENEMY_LIBRARY } = require('../v2-battle.js');
+const { createBattle, resolveTurn, toggleCard } = require('../v2-battle.js');
 const { PAST_ENCOUNTERS } = require('../v2-past-world.js');
 
 test('the 300G royal grant buys the recommended Dragon Quest-like starter loadout exactly', () => {
-  const ids = ['bronze-sword', 'leather-armor', 'herb', 'herb'];
+  const ids = FIRST_QUEST_LOADOUT;
   const total = ids.reduce((sum, id) => sum + Object.values(SHOP_CATALOG).flat().find(item => item.id === id).price, 0);
   assert.equal(total, 300);
+});
+
+test('the recommended first-quest purchases equip attack and defense before leaving town', () => {
+  let campaign = createPastCampaign();
+  let gold = 300;
+  for (const productId of FIRST_QUEST_LOADOUT) {
+    const purchase = buyProduct(campaign, gold, productId);
+    assert.equal(purchase.ok, true);
+    campaign = purchase.state;
+    gold = purchase.gold;
+  }
+  const profile = battleProfile(campaign);
+  assert.equal(gold, 0);
+  assert.ok(profile.attackBonus >= 3);
+  assert.ok(profile.defenseBonus >= 3);
+  assert.equal(campaign.inventory.herb, 2);
+});
+
+test('the shop runtime tells the player which exact 300G preparation to buy', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  assert.match(runtime, /支度金300G/);
+  assert.match(runtime, /銅の剣・皮の鎧・やくそう2個/);
+  assert.match(runtime, /序盤おすすめ/);
 });
 
 test('buying equipment deducts gold and automatically equips the stronger item', () => {
@@ -140,6 +166,90 @@ test('four western-road victories reach level two and the boss reward reaches le
 test('the mid-boss durability targets roughly eight action-one turns', () => {
   const expectedTurns = Math.ceil(ENEMY_LIBRARY['mist-watcher'].maxHp / 11);
   assert.ok(expectedTurns >= 7 && expectedTurns <= 9);
+});
+
+function slashUntilBattleEnds(profile, turnLimit = 20, enemyId = 'mist-watcher') {
+  let battle = createBattle(enemyId, () => 0, profile);
+  while (battle.status === 'active' && battle.turn <= turnLimit) {
+    battle = toggleCard(battle, 'slash');
+    battle = resolveTurn(battle, () => 0);
+  }
+  return battle;
+}
+
+test('level-two recommended equipment crosses the first boss survival threshold', () => {
+  const equipped = battleProfile(createPastCampaign({
+    exp: 66,
+    currentHp: 47,
+    equipment: { weapon: 'bronze-sword', armor: 'leather-armor' },
+    ownedCards: ['spark'],
+    schemaVersion: 2
+  }));
+  const unequipped = battleProfile(createPastCampaign({
+    exp: 66,
+    currentHp: 47,
+    ownedCards: ['spark'],
+    schemaVersion: 2
+  }));
+  const equippedResult = slashUntilBattleEnds(equipped);
+  const unequippedResult = slashUntilBattleEnds(unequipped);
+  assert.equal(equippedResult.status, 'victory');
+  assert.ok(equippedResult.turn >= 8 && equippedResult.turn <= 12);
+  assert.ok(equippedResult.player.hp > 0);
+  assert.equal(unequippedResult.status, 'defeat');
+});
+
+test('the complete recommended first-quest route reaches level three after the mid-boss', () => {
+  let campaign = createPastCampaign();
+  let gold = 300;
+  for (const productId of FIRST_QUEST_LOADOUT) {
+    const purchase = buyProduct(campaign, gold, productId);
+    campaign = purchase.state;
+    gold = purchase.gold;
+  }
+
+  for (const [index, encounter] of PAST_ENCOUNTERS.entries()) {
+    const result = slashUntilBattleEnds(battleProfile(campaign), 20, encounter.enemyId);
+    assert.equal(result.status, 'victory', `${encounter.enemyId} should be beatable with the recommended gear`);
+    campaign = applyBattleVictory(campaign, {
+      xp: result.reward.xp,
+      playerHp: result.player.hp,
+      playerMp: result.player.mp,
+      encounterId: encounter.id
+    }).state;
+    gold += result.reward.gold;
+    if (index === 0) campaign = learnFirstMagic(campaign).state;
+    if (campaign.currentHp < 30) {
+      const herb = useItem(campaign, 'herb');
+      if (herb.ok) campaign = herb.state;
+      else {
+        const rest = restAtInn(campaign, gold);
+        assert.equal(rest.ok, true);
+        campaign = rest.state;
+        gold = rest.gold;
+      }
+    }
+  }
+
+  const rest = restAtInn(campaign, gold);
+  assert.equal(rest.ok, true);
+  campaign = rest.state;
+  gold = rest.gold;
+  assert.equal(campaign.level, 2);
+  assert.equal(campaign.roadVictories, 4);
+
+  const boss = slashUntilBattleEnds(battleProfile(campaign));
+  assert.equal(boss.status, 'victory');
+  campaign = applyBattleVictory(campaign, {
+    xp: boss.reward.xp,
+    playerHp: boss.player.hp,
+    playerMp: boss.player.mp,
+    encounterId: 'watchtower-boss'
+  }).state;
+  gold += boss.reward.gold;
+  assert.equal(campaign.level, 3);
+  assert.equal(campaign.bossDefeated, true);
+  assert.ok(gold >= 100);
 });
 
 test('repeat farming gives experience but does not duplicate watchtower seal progress', () => {

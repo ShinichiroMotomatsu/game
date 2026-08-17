@@ -22,19 +22,26 @@
   });
 
   const TOWN_BUILDINGS = Object.freeze([
-    Object.freeze({ id: 'royal-castle', type: 'castle', label: '蜘蛛守の王城', icon: '♜', rect: Object.freeze([430, 60, 540, 260]), color: '#8d4850' }),
-    Object.freeze({ id: 'weapon-shop', type: 'weapon', label: '武器屋「鉄蜘蛛」', icon: '⚔', rect: Object.freeze([90, 150, 260, 190]), color: '#8c4a32' }),
-    Object.freeze({ id: 'armor-shop', type: 'armor', label: '防具屋「銀の殻」', icon: '⬟', rect: Object.freeze([1050, 150, 260, 190]), color: '#465b74' }),
-    Object.freeze({ id: 'item-shop', type: 'item', label: '道具屋「旅支度」', icon: '⚗', rect: Object.freeze([90, 420, 260, 190]), color: '#556c3d' }),
-    Object.freeze({ id: 'inn', type: 'inn', label: '宿屋「夕映え亭」', icon: '☾', rect: Object.freeze([1050, 420, 260, 190]), color: '#7c5136' }),
-    Object.freeze({ id: 'card-shop', type: 'card', label: 'カード屋「星札堂」', icon: '✦', rect: Object.freeze([90, 690, 260, 190]), color: '#63467e' })
+    Object.freeze({ id: 'royal-castle', type: 'castle', label: '蜘蛛守の王城', icon: '♜', rect: Object.freeze([370, 8, 660, 500]), color: '#8d4850', labelPoint: Object.freeze([700, 520]) }),
+    Object.freeze({ id: 'weapon-shop', type: 'weapon', label: '武器屋「鉄蜘蛛」', icon: '⚔', rect: Object.freeze([20, 45, 330, 350]), color: '#8c4a32', labelPoint: Object.freeze([365, 335]) }),
+    Object.freeze({ id: 'armor-shop', type: 'armor', label: '防具屋「銀の殻」', icon: '⬟', rect: Object.freeze([1050, 90, 330, 310]), color: '#465b74', labelPoint: Object.freeze([1035, 335]) }),
+    Object.freeze({ id: 'item-shop', type: 'item', label: '道具屋「旅支度」', icon: '⚗', rect: Object.freeze([20, 430, 340, 285]), color: '#556c3d', labelPoint: Object.freeze([375, 645]) }),
+    Object.freeze({ id: 'inn', type: 'inn', label: '宿屋「夕映え亭」', icon: '☾', rect: Object.freeze([1040, 440, 340, 310]), color: '#7c5136', labelPoint: Object.freeze([1025, 665]) }),
+    Object.freeze({ id: 'card-shop', type: 'card', label: 'カード屋「星札堂」', icon: '✦', rect: Object.freeze([15, 710, 350, 275]), color: '#63467e', labelPoint: Object.freeze([385, 865]) })
+  ]);
+
+  const TOWN_NPCS = Object.freeze([
+    Object.freeze({ id: 'town-mapmaker', role: 'villager', sprite: 'villager-man', name: '地図師見習いノル', point: Object.freeze([540, 585]), patrol: Object.freeze({ axis: 'x', distance: 36, periodMs: 5600, phase: 0.1 }), dialogueId: 'town-mapmaker' }),
+    Object.freeze({ id: 'town-shopper', role: 'villager', sprite: 'villager-woman', name: '買い物帰りの女性', point: Object.freeze([865, 585]), patrol: Object.freeze({ axis: 'y', distance: 34, periodMs: 6200, phase: 0.55 }), dialogueId: 'town-shopper' }),
+    Object.freeze({ id: 'town-traveler', role: 'villager', sprite: 'villager-man', name: '港帰りの旅人', point: Object.freeze([700, 785]), patrol: Object.freeze({ axis: 'x', distance: 42, periodMs: 6800, phase: 0.8 }), dialogueId: 'town-traveler' }),
+    Object.freeze({ id: 'town-florist', role: 'villager', sprite: 'villager-woman', name: '花売りの娘', point: Object.freeze([700, 610]), patrol: Object.freeze({ axis: 'y', distance: 30, periodMs: 5200, phase: 0.3 }), dialogueId: 'town-florist' })
   ]);
 
   const CASTLE_NPCS = Object.freeze([
-    Object.freeze({ id: 'king', role: 'king', name: 'アルディオン王', point: Object.freeze([500, 150]) }),
-    Object.freeze({ id: 'soldier-left', role: 'soldier', name: '王城兵', point: Object.freeze([365, 300]) }),
-    Object.freeze({ id: 'soldier-right', role: 'soldier', name: '王城兵', point: Object.freeze([635, 300]) }),
-    Object.freeze({ id: 'soldier-door', role: 'soldier', name: '門衛', point: Object.freeze([420, 610]) })
+    Object.freeze({ id: 'king', role: 'king', sprite: 'king', name: 'アルディオン王', point: Object.freeze([500, 165]), facing: 'down' }),
+    Object.freeze({ id: 'soldier-left', role: 'soldier', sprite: 'soldier', name: '王城兵', point: Object.freeze([355, 320]), patrol: Object.freeze({ axis: 'y', distance: 24, periodMs: 6000, phase: 0.1 }) }),
+    Object.freeze({ id: 'soldier-right', role: 'soldier', sprite: 'soldier', name: '王城兵', point: Object.freeze([645, 320]), patrol: Object.freeze({ axis: 'y', distance: 24, periodMs: 6000, phase: 0.6 }) }),
+    Object.freeze({ id: 'soldier-door', role: 'soldier', sprite: 'soldier', name: '門衛', point: Object.freeze([420, 610]), patrol: Object.freeze({ axis: 'x', distance: 34, periodMs: 5400, phase: 0.25 }) })
   ]);
 
   const STORY_DIALOGUES = Object.freeze({
@@ -94,6 +101,30 @@
         Object.freeze({ speaker: '王城兵', text: '王都の外では魔物が増えている。出発前に城下町で装備を整えるといい。' })
       ])
     }),
+    'town-mapmaker': Object.freeze({
+      id: 'town-mapmaker',
+      lines: Object.freeze([
+        Object.freeze({ speaker: '地図師見習いノル', text: '星の羅針盤を持っているのかい？ 師匠のエルドも、同じように街道を一歩ずつ地図へ刻んでいたよ。' })
+      ])
+    }),
+    'town-shopper': Object.freeze({
+      id: 'town-shopper',
+      lines: Object.freeze([
+        Object.freeze({ speaker: '買い物帰りの女性', text: '初めて街道へ出るなら、銅の剣と皮の鎧、それにやくそうを二つ。ちょうど300Gで揃うわよ。' })
+      ])
+    }),
+    'town-traveler': Object.freeze({
+      id: 'town-traveler',
+      lines: Object.freeze([
+        Object.freeze({ speaker: '港帰りの旅人', text: '西の街道で紫の霧を見た。王に会うまでは、むやみに城門の外へ出ないほうがいい。' })
+      ])
+    }),
+    'town-florist': Object.freeze({
+      id: 'town-florist',
+      lines: Object.freeze([
+        Object.freeze({ speaker: '花売りの娘', text: '中央広場の泉は旅人の目印なの。迷ったら泉へ戻れば、どの店にも行けるわ。' })
+      ])
+    }),
     'watchtower-locked': Object.freeze({
       id: 'watchtower-locked',
       lines: Object.freeze([
@@ -117,17 +148,19 @@
     Object.freeze({ id: 'road-mage', area: 'overworld', point: Object.freeze([262, 480]), radius: 34, label: '旅の魔導士と話す', actionId: 'learn-first-magic' }),
     Object.freeze({ id: 'frost-card-chest', area: 'overworld', point: Object.freeze([245, 500]), radius: 28, label: '青い宝箱を開ける', actionId: 'discover-card:frost', cardId: 'frost', unlockAfter: 'watchtower-boss' }),
     Object.freeze({ id: 'mend-card-chest', area: 'overworld', point: Object.freeze([90, 570]), radius: 28, label: '白い宝箱を開ける', actionId: 'discover-card:mend', cardId: 'mend', unlockAfter: 'watchtower-boss' }),
-    Object.freeze({ id: 'castle-door', area: 'castle-town', point: Object.freeze([700, 360]), radius: 60, label: '王城へ入る', targetArea: 'castle', spawn: PAST_AREAS.castle.spawn }),
+    Object.freeze({ id: 'castle-door', area: 'castle-town', point: Object.freeze([700, 535]), radius: 66, label: '王城へ入る', targetArea: 'castle', spawn: PAST_AREAS.castle.spawn }),
     Object.freeze({ id: 'capital-exit', area: 'castle-town', point: Object.freeze([700, 950]), radius: 55, label: '新大陸の街道へ戻る', targetArea: 'overworld', spawn: PAST_START.capitalGatePoint }),
-    Object.freeze({ id: 'castle-exit', area: 'castle', point: Object.freeze([500, 720]), radius: 52, label: '城下町へ戻る', targetArea: 'castle-town', spawn: Object.freeze([700, 425]) }),
+    Object.freeze({ id: 'castle-exit', area: 'castle', point: Object.freeze([500, 720]), radius: 52, label: '城下町へ戻る', targetArea: 'castle-town', spawn: Object.freeze([700, 575]) }),
     Object.freeze({ id: 'king', area: 'castle', point: Object.freeze([500, 190]), radius: 90, label: '王と話す', dialogueId: 'king-audience' }),
     Object.freeze({ id: 'soldier-left', area: 'castle', point: Object.freeze([365, 330]), radius: 65, label: '兵士と話す', dialogueId: 'soldier-greeting' }),
     Object.freeze({ id: 'soldier-right', area: 'castle', point: Object.freeze([635, 330]), radius: 65, label: '兵士と話す', dialogueId: 'soldier-greeting' }),
-    Object.freeze({ id: 'weapon-shop', area: 'castle-town', point: Object.freeze([385, 245]), radius: 58, label: '武器屋で買い物する', serviceId: 'weapon' }),
-    Object.freeze({ id: 'armor-shop', area: 'castle-town', point: Object.freeze([1015, 245]), radius: 58, label: '防具屋で買い物する', serviceId: 'armor' }),
-    Object.freeze({ id: 'item-shop', area: 'castle-town', point: Object.freeze([385, 515]), radius: 58, label: '道具屋で買い物する', serviceId: 'item' }),
-    Object.freeze({ id: 'inn', area: 'castle-town', point: Object.freeze([1015, 515]), radius: 58, label: '宿屋に泊まる', serviceId: 'inn' }),
-    Object.freeze({ id: 'card-shop', area: 'castle-town', point: Object.freeze([385, 785]), radius: 58, label: 'カード屋で買い物する', serviceId: 'card' })
+    Object.freeze({ id: 'soldier-door', area: 'castle', point: Object.freeze([420, 610]), radius: 72, label: '門衛と話す', dialogueId: 'soldier-greeting' }),
+    ...TOWN_NPCS.map(npc => Object.freeze({ id: npc.id, area: 'castle-town', point: npc.point, radius: 54, label: `${npc.name}と話す`, dialogueId: npc.dialogueId })),
+    Object.freeze({ id: 'weapon-shop', area: 'castle-town', point: Object.freeze([370, 335]), radius: 64, label: '武器屋で買い物する', serviceId: 'weapon' }),
+    Object.freeze({ id: 'armor-shop', area: 'castle-town', point: Object.freeze([1030, 335]), radius: 64, label: '防具屋で買い物する', serviceId: 'armor' }),
+    Object.freeze({ id: 'item-shop', area: 'castle-town', point: Object.freeze([380, 645]), radius: 64, label: '道具屋で買い物する', serviceId: 'item' }),
+    Object.freeze({ id: 'inn', area: 'castle-town', point: Object.freeze([1020, 665]), radius: 64, label: '宿屋に泊まる', serviceId: 'inn' }),
+    Object.freeze({ id: 'card-shop', area: 'castle-town', point: Object.freeze([390, 865]), radius: 64, label: 'カード屋で買い物する', serviceId: 'card' })
   ]);
 
   function createPastStory(saved = {}) {
@@ -217,14 +250,15 @@
     };
   }
 
-  function nearbyPastInteraction(area, position, scale = 1, isAvailable = () => true) {
+  function nearbyPastInteraction(area, position, scale = 1, isAvailable = () => true, dynamicPoints = null) {
     let closest = null;
     let closestDistance = Number.POSITIVE_INFINITY;
     for (const interaction of PAST_INTERACTIONS) {
       if (interaction.area !== area || !isAvailable(interaction)) continue;
       const coordinateScale = area === 'overworld' ? scale : 1;
-      const x = interaction.point[0] * coordinateScale;
-      const y = interaction.point[1] * coordinateScale;
+      const dynamicPoint = dynamicPoints?.get?.(interaction.id) || interaction.point;
+      const x = dynamicPoint[0] * coordinateScale;
+      const y = dynamicPoint[1] * coordinateScale;
       const distance = Math.hypot(position.x - x, position.y - y);
       if (distance <= interaction.radius * coordinateScale && distance < closestDistance) {
         closest = interaction;
@@ -272,6 +306,7 @@
     PAST_START,
     STORY_DIALOGUES,
     TOWN_BUILDINGS,
+    TOWN_NPCS,
     activatePastInteraction,
     addStoryGold,
     canStandInPastArea,
