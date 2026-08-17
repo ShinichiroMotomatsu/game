@@ -72,9 +72,10 @@ test('the launcher exposes only Modern Day and Past Evening editions', () => {
   assert.equal(fs.existsSync('legacy.html'), false);
 });
 
-test('the game provides an in-map edition switch with shared geometry', () => {
+test('the game provides a settings-panel edition switch with shared geometry', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
+  assert.match(html, /id="v2-settings"/);
   assert.match(html, /data-edition="modern"/);
   assert.match(html, /data-edition="past"/);
   assert.match(runtime, /setEdition/);

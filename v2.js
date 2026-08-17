@@ -7,6 +7,9 @@
   const collisionStatus = document.querySelector('#v2-collision-status');
   const collisionToggle = document.querySelector('#v2-toggle-collision');
   const shell = document.querySelector('#v2-shell');
+  const settingsPanel = document.querySelector('#v2-settings');
+  const settingsToggle = document.querySelector('#v2-settings-toggle');
+  const settingsClose = document.querySelector('#v2-settings-close');
   const editionTitle = document.querySelector('#v2-edition-title');
   const editionSubtitle = document.querySelector('#v2-edition-subtitle');
   const battleOverlay = document.querySelector('#v2-battle');
@@ -39,14 +42,17 @@
   const shopMessage = document.querySelector('#v2-shop-message');
   const shopList = document.querySelector('#v2-shop-list');
   const shopClose = document.querySelector('#v2-shop-close');
+  const dragGuide = document.querySelector('#v2-drag-guide');
+  const dragGuideKnob = dragGuide.querySelector('span');
   const landmarkGeometry = window.V2_LANDMARK_GEOMETRY;
   const editionApi = window.V2_EDITIONS;
   const battleApi = window.V2_BATTLE;
   const pastWorldApi = window.V2_PAST_WORLD;
   const pastCampaignApi = window.V2_PAST_CAMPAIGN;
   const pastStoryApi = window.V2_PAST_STORY;
+  const inputApi = window.V2_INPUT;
   const mapLayout = window.V2_MAP_LAYOUT;
-  if (!landmarkGeometry || !editionApi || !battleApi || !pastWorldApi || !pastCampaignApi || !pastStoryApi || !mapLayout) {
+  if (!landmarkGeometry || !editionApi || !battleApi || !pastWorldApi || !pastCampaignApi || !pastStoryApi || !inputApi || !mapLayout) {
     loading.textContent = 'GAME MODULE ERROR';
     throw new Error('Game geometry, edition, or map layout data is missing.');
   }
@@ -57,6 +63,7 @@
   const { editionDefinition, editionLandmarkImage, normalizeEdition } = editionApi;
   const { CARD_LIBRARY, ENEMY_INTENTS, createBattle, previewAction, resolveTurn, toggleCard } = battleApi;
   const { advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, shouldStartEncounter } = pastWorldApi;
+  const { dragMovementVector } = inputApi;
   const {
     INN_PRICE,
     SHOP_CATALOG,
@@ -88,6 +95,7 @@
     nearestWalkablePoint,
     nearbyPastInteraction,
     storyAllowsEncounters,
+    storyUnlocksInteraction,
     storyObjective
   } = pastStoryApi;
   const campaignProducts = new Map(Object.values(SHOP_CATALOG).flat().map(product => [product.id, product]));
@@ -180,6 +188,7 @@
   const landmarksById = new Map(landmarks.map(landmark => [landmark.id, landmark]));
   const camera = { x: 0, y: 0, zoom: 1 };
   const keys = new Set();
+  const mapDrag = { active: false, pointerId: null, start: { x: 0, y: 0 }, movement: { x: 0, y: 0, strength: 0 } };
   let pastEnemies = createPastEnemies(maskScale);
   let memoryStage = Number.parseInt(localStorage.getItem('roppongi-past-memory-stage') || '0', 10);
   if (!Number.isFinite(memoryStage)) memoryStage = 0;
@@ -287,6 +296,14 @@
     });
     if (updateUrl) history.replaceState(null, '', `?edition=${currentEdition}`);
     if (ready && currentEdition === 'past' && !storyState.arrivalSeen) openStoryDialogue(STORY_DIALOGUES.arrival);
+  }
+
+  function setSettingsOpen(value) {
+    const open = Boolean(value);
+    settingsPanel.setAttribute('aria-hidden', String(!open));
+    settingsToggle.setAttribute('aria-expanded', String(open));
+    settingsToggle.setAttribute('aria-label', open ? '設定を閉じる' : '設定を開く');
+    if (open) resetMapDrag();
   }
 
   function loadPastStory() {
@@ -399,6 +416,7 @@
     activeStoryDialogue = dialogue;
     storyDialogueIndex = 0;
     keys.clear();
+    resetMapDrag();
     updateInteractionPrompt(null);
     dialogueOverlay.setAttribute('aria-hidden', 'false');
     renderStoryDialogue();
@@ -564,6 +582,7 @@
     if (currentEdition !== 'past' || activeBattle || activeStoryDialogue) return;
     activeServiceId = serviceId;
     keys.clear();
+    resetMapDrag();
     updateInteractionPrompt(null);
     shopMessage.textContent = serviceId === 'bag' ? '道具を使うか、装備を確認できます。' : '何を買いますか？';
     if (serviceId === 'inn') shopMessage.textContent = '一晩12G。旅の疲れをすっかり癒やします。';
@@ -592,6 +611,7 @@
   }
 
   function pastInteractionAvailable(interaction) {
+    if (!storyUnlocksInteraction(storyState, interaction)) return false;
     if (interaction.actionId === 'learn-first-magic') return canLearnFirstMagic(campaignState);
     if (interaction.cardId) return canDiscoverCard(campaignState, interaction.cardId);
     return true;
@@ -679,7 +699,10 @@
   });
 
   document.querySelectorAll('[data-edition]').forEach(button => {
-    button.addEventListener('click', () => setEdition(button.dataset.edition));
+    button.addEventListener('click', () => {
+      setEdition(button.dataset.edition);
+      setSettingsOpen(false);
+    });
   });
 
   function resize() {
@@ -705,6 +728,11 @@
       event.preventDefault();
     }
     const key = event.key.toLowerCase();
+    if (key === 'escape' && settingsPanel.getAttribute('aria-hidden') === 'false') {
+      setSettingsOpen(false);
+      event.preventDefault();
+      return;
+    }
     if (activeServiceId) {
       if (key === 'escape') closeService();
       event.preventDefault();
@@ -724,6 +752,10 @@
     keys.add(key);
   });
   addEventListener('keyup', event => keys.delete(event.key.toLowerCase()));
+  settingsToggle.addEventListener('click', () => {
+    setSettingsOpen(settingsPanel.getAttribute('aria-hidden') === 'true');
+  });
+  settingsClose.addEventListener('click', () => setSettingsOpen(false));
   collisionToggle.addEventListener('click', () => setCollisionDisplay(!showCollision));
   interactButton.addEventListener('click', performStoryInteraction);
   dialogueNext.addEventListener('click', advanceStoryDialogue);
@@ -750,6 +782,59 @@
     button.addEventListener('pointercancel', release);
     button.addEventListener('pointerleave', release);
   });
+
+  function resetMapDrag(pointerId = null) {
+    if (pointerId !== null && mapDrag.pointerId !== pointerId) return;
+    const capturedPointer = mapDrag.pointerId;
+    mapDrag.active = false;
+    mapDrag.pointerId = null;
+    mapDrag.movement = { x: 0, y: 0, strength: 0 };
+    dragGuide.classList.remove('is-active');
+    dragGuideKnob.style.transform = '';
+    if (capturedPointer !== null && shell.hasPointerCapture?.(capturedPointer)) {
+      shell.releasePointerCapture(capturedPointer);
+    }
+  }
+
+  const mapDragBlockedSelector = '.v2-hud, .v2-settings, .v2-help, .v2-map, .v2-landmark-info, .v2-story-status, .v2-interaction-prompt, .v2-dialogue, .v2-shop, .v2-battle, .v2-controls, .v2-attribution, #v2-loading, button, a, input, select, textarea';
+
+  function isMapDragOrigin(event) {
+    return event.target instanceof Element && !event.target.closest(mapDragBlockedSelector);
+  }
+
+  shell.addEventListener('pointerdown', event => {
+    if (
+      event.isPrimary === false || event.button > 0 || !isMapDragOrigin(event) ||
+      settingsPanel.getAttribute('aria-hidden') === 'false' || activeBattle || encounterTransitioning ||
+      activeStoryDialogue || activeServiceId
+    ) return;
+    event.preventDefault();
+    resetMapDrag();
+    mapDrag.active = true;
+    mapDrag.pointerId = event.pointerId;
+    mapDrag.start = { x: event.clientX, y: event.clientY };
+    dragGuide.style.left = `${event.clientX}px`;
+    dragGuide.style.top = `${event.clientY}px`;
+    dragGuide.classList.add('is-active');
+    try {
+      shell.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Pointer capture is optional on older iOS WebKit; shell-level listeners still receive the drag.
+    }
+    canvas.focus();
+  }, { passive: false });
+
+  shell.addEventListener('pointermove', event => {
+    if (!mapDrag.active || event.pointerId !== mapDrag.pointerId) return;
+    event.preventDefault();
+    mapDrag.movement = dragMovementVector(mapDrag.start, { x: event.clientX, y: event.clientY });
+    const knobDistance = mapDrag.movement.strength * 28;
+    dragGuideKnob.style.transform = `translate(${mapDrag.movement.x * knobDistance}px, ${mapDrag.movement.y * knobDistance}px)`;
+  }, { passive: false });
+
+  shell.addEventListener('pointerup', event => resetMapDrag(event.pointerId));
+  shell.addEventListener('pointercancel', event => resetMapDrag(event.pointerId));
+  shell.addEventListener('lostpointercapture', event => resetMapDrag(event.pointerId));
 
   function maskPointIsWalkable(worldX, worldY) {
     const activeCollisionData = currentEdition === 'past' ? pastCollisionData : collisionData;
@@ -801,12 +886,18 @@
     if (keys.has('s') || keys.has('arrowdown')) dy++;
     if (keys.has('a') || keys.has('arrowleft')) dx--;
     if (keys.has('d') || keys.has('arrowright')) dx++;
+    let movementStrength = 1;
+    if (!dx && !dy && mapDrag.active && mapDrag.movement.strength > 0) {
+      dx = mapDrag.movement.x;
+      dy = mapDrag.movement.y;
+      movementStrength = mapDrag.movement.strength;
+    }
 
     if (dx || dy) {
       const length = Math.hypot(dx, dy);
       dx /= length;
       dy /= length;
-      movePlayer(dx, dy, player.speed * dt);
+      movePlayer(dx, dy, player.speed * dt * movementStrength);
       player.step += dt * 9;
       player.facing = Math.abs(dx) > Math.abs(dy)
         ? (dx > 0 ? 'right' : 'left')
@@ -1142,7 +1233,7 @@
   }
 
   function drawPastWatchtower() {
-    if (currentEdition !== 'past' || activeAreaId() !== 'overworld' || !storyState.royalRewardClaimed) return;
+    if (currentEdition !== 'past' || activeAreaId() !== 'overworld' || !storyAllowsEncounters(storyState)) return;
     const interaction = pastStoryApi.PAST_INTERACTIONS.find(item => item.id === 'old-watchtower');
     const x = interaction.point[0] * maskScale;
     const y = interaction.point[1] * maskScale;
@@ -1189,6 +1280,16 @@
     ctx.font = '700 14px Georgia, "Yu Mincho", serif';
     ctx.textAlign = 'center';
     ctx.fillText(cleared ? '霧の晴れた見張り台' : open ? '古い見張り台・封印解除' : `古い見張り台　封印 ${campaignState.roadVictories}/4`, 0, 56);
+    ctx.globalAlpha = cleared ? 0.72 : glow;
+    ctx.fillStyle = cleared ? '#d0bd8a' : '#ffb555';
+    ctx.beginPath();
+    ctx.arc(0, -232, 23, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#261522';
+    ctx.font = '900 24px Georgia, serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(cleared ? '✓' : '!', 0, -230);
     ctx.restore();
   }
 
@@ -1518,10 +1619,17 @@
       mctx.fill();
     }
     if (currentEdition === 'past') {
-      if (storyState.royalRewardClaimed) {
+      if (storyAllowsEncounters(storyState)) {
         const tower = pastStoryApi.PAST_INTERACTIONS.find(item => item.id === 'old-watchtower');
         mctx.fillStyle = campaignState.bossDefeated ? '#d0bd8a' : canChallengeWatchtower(campaignState) ? '#ffb555' : '#ac69df';
-        mctx.fillRect(tower.point[0] / mapLayout.width * 210 - 3, tower.point[1] / mapLayout.height * 145 - 3, 6, 6);
+        const towerX = tower.point[0] / mapLayout.width * 210;
+        const towerY = tower.point[1] / mapLayout.height * 145;
+        mctx.beginPath();
+        mctx.arc(towerX, towerY, 5, 0, Math.PI * 2);
+        mctx.fill();
+        mctx.strokeStyle = '#fff1bd';
+        mctx.lineWidth = 1.5;
+        mctx.stroke();
       }
       mctx.fillStyle = '#e65f58';
       for (const enemy of pastEnemies) {
@@ -1741,6 +1849,7 @@
     if (activeBattle || encounterTransitioning) return;
     encounterTransitioning = true;
     keys.clear();
+    resetMapDrag();
     await playEncounterTransition();
     if (currentEdition !== 'past') {
       resetEncounterTransition();
