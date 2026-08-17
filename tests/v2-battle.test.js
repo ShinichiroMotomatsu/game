@@ -314,8 +314,8 @@ test('equipment increases outgoing damage and reduces received damage', () => {
 
 test('the old watchtower guardian is balanced for an action-one first quest', () => {
   const battle = createBattle('mist-watcher', () => 0, { attackBonus: 5, defenseBonus: 4, maxHp: 58, hp: 58 });
-  assert.ok(battle.enemy.maxHp >= 80 && battle.enemy.maxHp <= 90);
-  assert.ok(battle.enemy.attack >= 11 && battle.enemy.attack <= 13);
+  assert.ok(battle.enemy.maxHp >= 68 && battle.enemy.maxHp <= 72);
+  assert.ok(battle.enemy.attack >= 8 && battle.enemy.attack <= 9);
   assert.ok(battle.enemy.xp >= 70);
   assert.equal(battle.enemy.boss, true);
 });
