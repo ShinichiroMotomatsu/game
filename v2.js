@@ -10,8 +10,7 @@
   const settingsPanel = document.querySelector('#v2-settings');
   const settingsToggle = document.querySelector('#v2-settings-toggle');
   const settingsClose = document.querySelector('#v2-settings-close');
-  const editionTitle = document.querySelector('#v2-edition-title');
-  const editionSubtitle = document.querySelector('#v2-edition-subtitle');
+  const infoToggle = document.querySelector('#v2-info-toggle');
   const battleOverlay = document.querySelector('#v2-battle');
   const battleHand = document.querySelector('#v2-battle-hand');
   const battleResolve = document.querySelector('#v2-battle-resolve');
@@ -50,9 +49,10 @@
   const pastWorldApi = window.V2_PAST_WORLD;
   const pastCampaignApi = window.V2_PAST_CAMPAIGN;
   const pastStoryApi = window.V2_PAST_STORY;
+  const saveApi = window.V2_SAVE;
   const inputApi = window.V2_INPUT;
   const mapLayout = window.V2_MAP_LAYOUT;
-  if (!landmarkGeometry || !editionApi || !battleApi || !pastWorldApi || !pastCampaignApi || !pastStoryApi || !inputApi || !mapLayout) {
+  if (!landmarkGeometry || !editionApi || !battleApi || !pastWorldApi || !pastCampaignApi || !pastStoryApi || !saveApi || !inputApi || !mapLayout) {
     loading.textContent = 'GAME MODULE ERROR';
     throw new Error('Game geometry, edition, or map layout data is missing.');
   }
@@ -63,6 +63,7 @@
   const { editionDefinition, editionLandmarkImage, normalizeEdition } = editionApi;
   const { CARD_LIBRARY, ENEMY_INTENTS, createBattle, previewAction, resolveTurn, toggleCard } = battleApi;
   const { advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, shouldStartEncounter } = pastWorldApi;
+  const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
   const {
     INN_PRICE,
@@ -189,6 +190,10 @@
   const camera = { x: 0, y: 0, zoom: 1 };
   const keys = new Set();
   const mapDrag = { active: false, pointerId: null, start: { x: 0, y: 0 }, movement: { x: 0, y: 0, strength: 0 } };
+  const restartRequest = consumePastRestart(location.search, localStorage);
+  if (restartRequest.restarted) {
+    history.replaceState(null, '', `${location.pathname}${restartRequest.search}${location.hash}`);
+  }
   let pastEnemies = createPastEnemies(maskScale);
   let memoryStage = Number.parseInt(localStorage.getItem('roppongi-past-memory-stage') || '0', 10);
   if (!Number.isFinite(memoryStage)) memoryStage = 0;
@@ -197,7 +202,8 @@
   let battleEffectTimer = 0;
   let encounterTransitioning = false;
   let ready = false;
-  let currentEdition = normalizeEdition(new URLSearchParams(location.search).get('edition'));
+  let currentEdition = normalizeEdition(restartRequest.edition);
+  let storyPanelVisible = localStorage.getItem('roppongi-past-story-panel') !== 'hidden';
   let storyState = loadPastStory();
   let campaignState = loadPastCampaign();
   pastEnemies = pastEnemies.map(enemy => campaignState.defeatedRoadEnemies.includes(enemy.id)
@@ -283,13 +289,12 @@
     camera.y = 0;
     const definition = editionDefinition(currentEdition);
     shell.dataset.theme = definition.uiTheme;
-    editionTitle.textContent = definition.label;
-    editionSubtitle.textContent = definition.subtitle;
     if (currentEdition !== 'past' && activeBattle) closeBattle('fled');
     if (currentEdition !== 'past') closeStoryDialogue(false);
     if (currentEdition !== 'past') closeService();
     updateMemoryLabels();
     updateStoryStatus();
+    setStoryPanelVisible(storyPanelVisible, false);
     updateInteractionPrompt(null);
     document.querySelectorAll('[data-edition]').forEach(button => {
       button.setAttribute('aria-pressed', String(button.dataset.edition === currentEdition));
@@ -304,6 +309,19 @@
     settingsToggle.setAttribute('aria-expanded', String(open));
     settingsToggle.setAttribute('aria-label', open ? '設定を閉じる' : '設定を開く');
     if (open) resetMapDrag();
+  }
+
+  function setStoryPanelVisible(value, persist = true) {
+    storyPanelVisible = Boolean(value);
+    if (persist) {
+      localStorage.setItem('roppongi-past-story-panel', storyPanelVisible ? 'visible' : 'hidden');
+    }
+    const visible = currentEdition === 'past' && storyPanelVisible;
+    storyStatus.classList.toggle('is-collapsed', !visible);
+    storyStatus.setAttribute('aria-hidden', String(!visible));
+    infoToggle.hidden = currentEdition !== 'past';
+    infoToggle.setAttribute('aria-expanded', String(visible));
+    infoToggle.setAttribute('aria-label', visible ? '情報パネルを隠す' : '情報パネルを表示');
   }
 
   function loadPastStory() {
@@ -756,6 +774,7 @@
     setSettingsOpen(settingsPanel.getAttribute('aria-hidden') === 'true');
   });
   settingsClose.addEventListener('click', () => setSettingsOpen(false));
+  infoToggle.addEventListener('click', () => setStoryPanelVisible(!storyPanelVisible));
   collisionToggle.addEventListener('click', () => setCollisionDisplay(!showCollision));
   interactButton.addEventListener('click', performStoryInteraction);
   dialogueNext.addEventListener('click', advanceStoryDialogue);
@@ -796,7 +815,7 @@
     }
   }
 
-  const mapDragBlockedSelector = '.v2-hud, .v2-settings, .v2-help, .v2-map, .v2-landmark-info, .v2-story-status, .v2-interaction-prompt, .v2-dialogue, .v2-shop, .v2-battle, .v2-controls, .v2-attribution, #v2-loading, button, a, input, select, textarea';
+  const mapDragBlockedSelector = '.v2-floating-controls, .v2-settings, .v2-help, .v2-map, .v2-landmark-info, .v2-story-status, .v2-interaction-prompt, .v2-dialogue, .v2-shop, .v2-battle, .v2-controls, .v2-attribution, #v2-loading, button, a, input, select, textarea';
 
   function isMapDragOrigin(event) {
     return event.target instanceof Element && !event.target.closest(mapDragBlockedSelector);

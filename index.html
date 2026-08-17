@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0b1218" />
     <title>ROPPONGI CHRONICLES / 編選択</title>
-    <link rel="stylesheet" href="launcher.css" />
+    <link rel="stylesheet" href="launcher.css?edition=3" />
   </head>
   <body>
     <main class="launcher">
@@ -23,12 +23,16 @@
           <strong>現代編を開く →</strong>
         </a>
 
-        <a class="version-card past-card" href="v2.html?edition=past">
+        <article class="version-card past-card">
           <div class="badge">PAST · EVENING</div>
           <h2>過去編-夕方</h2>
           <p>同じ道筋が石畳となり、王城・魔導学院・大聖堂が並ぶ剣と魔法の時代です。</p>
-          <strong>過去編を開く →</strong>
-        </a>
+          <div class="version-actions">
+            <a class="version-action" href="v2.html?edition=past">つづきから</a>
+            <a class="version-action restart" href="v2.html?edition=past&amp;newGame=past">はじめから</a>
+          </div>
+          <small>「はじめから」は過去編のセーブデータを初期化します。</small>
+        </article>
       </section>
     </main>
   </body>
