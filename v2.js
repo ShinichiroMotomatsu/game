@@ -44,6 +44,7 @@
   const dragGuideKnob = dragGuide.querySelector('span');
   const landmarkGeometry = window.V2_LANDMARK_GEOMETRY;
   const editionApi = window.V2_EDITIONS;
+  const assetApi = window.V2_ASSETS;
   const battleApi = window.V2_BATTLE;
   const pastWorldApi = window.V2_PAST_WORLD;
   const pastCampaignApi = window.V2_PAST_CAMPAIGN;
@@ -52,7 +53,7 @@
   const saveApi = window.V2_SAVE;
   const inputApi = window.V2_INPUT;
   const mapLayout = window.V2_MAP_LAYOUT;
-  if (!landmarkGeometry || !editionApi || !battleApi || !pastWorldApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !saveApi || !inputApi || !mapLayout) {
+  if (!landmarkGeometry || !editionApi || !assetApi || !battleApi || !pastWorldApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !saveApi || !inputApi || !mapLayout) {
     loading.textContent = 'GAME MODULE ERROR';
     throw new Error('Game geometry, edition, or map layout data is missing.');
   }
@@ -61,6 +62,12 @@
     shadowVectorFromLight
   } = landmarkGeometry;
   const { editionDefinition, editionLandmarkImage, normalizeEdition } = editionApi;
+  const {
+    createLazyImageLoader,
+    directionalTileCoordinate,
+    tileCoordinateForPoint,
+    visibleTileCoordinates
+  } = assetApi;
   const { CARD_LIBRARY, ENEMY_INTENTS, createBattle, previewAction, resolveTurn, toggleCard } = battleApi;
   const { advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, shouldStartEncounter } = pastWorldApi;
   const { consumePastRestart } = saveApi;
@@ -112,6 +119,11 @@
   const tileRows = 2;
   const tileW = world.w / tileCols;
   const tileH = world.h / tileRows;
+  const assetLoader = createLazyImageLoader({ createImage: () => {
+    const image = new Image();
+    image.decoding = 'async';
+    return image;
+  } });
   const editionTiles = new Map();
   const facingNames = ['down', 'left', 'right', 'up'];
   const editionSprites = new Map();
@@ -120,25 +132,29 @@
   const pastSceneImages = new Map();
   const pastNpcImages = new Map();
   const editionIds = ['modern', 'past'];
+  const tileAssetKey = (editionId, col, row) => `${editionId}:tile:${col}:${row}`;
+  const spriteAssetKey = (editionId, facing) => `${editionId}:player:${facing}`;
+  const landmarkAssetKey = (editionId, landmarkId) => `${editionId}:landmark:${landmarkId}`;
+  const enemyAssetKey = enemyId => `past:enemy:${enemyId}`;
+  const sceneAssetKey = sceneId => `past:scene:${sceneId}`;
+  const npcAssetKey = spriteId => `past:npc:${spriteId}`;
 
   for (const editionId of editionIds) {
     const definition = editionDefinition(editionId);
     const tiles = [];
     for (let row = 0; row < tileRows; row++) {
       for (let col = 0; col < tileCols; col++) {
-        const image = new Image();
-        image.decoding = 'async';
-        tiles.push({ row, col, image, source: `assets/v2/${definition.tileDirectory}/${col}-${row}.png?edition=1` });
+        const source = `assets/v2/${definition.tileDirectory}/${col}-${row}.png?edition=1`;
+        const key = tileAssetKey(editionId, col, row);
+        tiles.push({ row, col, key, image: assetLoader.register(key, source), source });
       }
     }
     editionTiles.set(editionId, tiles);
     const sprites = {};
     for (const facing of facingNames) {
-      const image = new Image();
-      image.decoding = 'async';
-      sprites[facing] = image;
       const directory = editionId === 'past' ? 'past-protagonist' : 'protagonist';
-      image.dataset.source = `assets/v2/${directory}/${facing}.png?edition=1`;
+      const key = spriteAssetKey(editionId, facing);
+      sprites[facing] = assetLoader.register(key, `assets/v2/${directory}/${facing}.png?edition=1`);
     }
     editionSprites.set(editionId, sprites);
   }
@@ -226,7 +242,8 @@
     ['past-castle', [...PAST_AREAS.castle.spawn]]
   ]);
   let showCollision = false;
-  let loadedAssets = 0;
+  let assetLoadGeneration = 0;
+  const backgroundAssetRequests = new Set();
   let last = performance.now();
 
   const enemyAssetDefinitions = [
@@ -235,70 +252,77 @@
     ['rune-wolf', 'rune-wolf.png'],
     ['mist-watcher', 'rune-wolf.png']
   ];
-  const expectedAssets = editionIds.length * (tileCols * tileRows + facingNames.length + landmarks.length)
-    + enemyAssetDefinitions.length
-    + Object.keys(PAST_SCENE_ASSETS).length
-    + Object.keys(NPC_SPRITE_ASSETS).length;
-
-  function finishAssetLoad() {
-    loadedAssets++;
-    if (loadedAssets !== expectedAssets) return;
-    ready = true;
-    loading.classList.add('hidden');
-    if (currentEdition === 'past' && !storyState.arrivalSeen) openStoryDialogue(STORY_DIALOGUES.arrival);
-  }
-
-  function failAssetLoad(event) {
-    console.error('Asset failed to load:', event.target.currentSrc || event.target.src);
-    loading.textContent = 'ASSET LOAD ERROR';
-  }
-
   for (const editionId of editionIds) {
-    for (const tile of editionTiles.get(editionId)) {
-      tile.image.addEventListener('load', finishAssetLoad);
-      tile.image.addEventListener('error', failAssetLoad);
-      tile.image.src = tile.source;
-    }
-    for (const facing of facingNames) {
-      const image = editionSprites.get(editionId)[facing];
-      image.addEventListener('load', finishAssetLoad);
-      image.addEventListener('error', failAssetLoad);
-      image.src = image.dataset.source;
-    }
     const images = new Map();
     for (const landmark of landmarks) {
-      const image = new Image();
-      image.decoding = 'async';
-      image.addEventListener('load', finishAssetLoad);
-      image.addEventListener('error', failAssetLoad);
-      image.src = `${editionLandmarkImage(editionId, landmark.imageName)}?edition=1`;
+      const key = landmarkAssetKey(editionId, landmark.id);
+      const image = assetLoader.register(key, `${editionLandmarkImage(editionId, landmark.imageName)}?edition=1`);
       images.set(landmark.id, image);
     }
     editionLandmarkImages.set(editionId, images);
   }
   for (const [enemyId, filename] of enemyAssetDefinitions) {
-    const image = new Image();
-    image.decoding = 'async';
-    image.addEventListener('load', finishAssetLoad);
-    image.addEventListener('error', failAssetLoad);
-    image.src = `assets/v2/past-enemies/${filename}?battle=1`;
+    const image = assetLoader.register(enemyAssetKey(enemyId), `assets/v2/past-enemies/${filename}?battle=1`);
     pastEnemyImages.set(enemyId, image);
   }
   for (const [assetId, definition] of Object.entries(PAST_SCENE_ASSETS)) {
-    const image = new Image();
-    image.decoding = 'async';
-    image.addEventListener('load', finishAssetLoad);
-    image.addEventListener('error', failAssetLoad);
-    image.src = `${definition.path}?scene=1`;
+    const image = assetLoader.register(sceneAssetKey(assetId), `${definition.path}?scene=1`);
     pastSceneImages.set(assetId, image);
   }
   for (const [spriteId, path] of Object.entries(NPC_SPRITE_ASSETS)) {
-    const image = new Image();
-    image.decoding = 'async';
-    image.addEventListener('load', finishAssetLoad);
-    image.addEventListener('error', failAssetLoad);
-    image.src = `${path}?scene=1`;
+    const image = assetLoader.register(npcAssetKey(spriteId), `${path}?scene=1`);
     pastNpcImages.set(spriteId, image);
+  }
+
+  function imageIsLoaded(image) {
+    return Boolean(image?.complete && image.naturalWidth);
+  }
+
+  function requiredAssetsForActiveLocation() {
+    const playerAssets = facingNames.map(facing => spriteAssetKey(currentEdition, facing));
+    if (currentEdition !== 'past' || activeAreaId() === 'overworld') {
+      const tile = tileCoordinateForPoint(player.x, player.y, tileW, tileH, tileCols, tileRows);
+      return [tileAssetKey(currentEdition, tile.col, tile.row), ...playerAssets];
+    }
+    if (activeAreaId() === 'castle-town') {
+      return [
+        ...playerAssets,
+        sceneAssetKey('castle-town-ground'),
+        sceneAssetKey('castle-town-buildings'),
+        ...new Set(TOWN_NPCS.map(npc => npcAssetKey(npc.sprite)))
+      ];
+    }
+    return [
+      ...playerAssets,
+      sceneAssetKey('castle-interior'),
+      ...new Set(CASTLE_NPCS.map(npc => npcAssetKey(npc.sprite)))
+    ];
+  }
+
+  function loadAssetsInBackground(keys) {
+    const pendingKeys = [...new Set(keys)].filter(key => !backgroundAssetRequests.has(key));
+    if (!pendingKeys.length) return;
+    pendingKeys.forEach(key => backgroundAssetRequests.add(key));
+    assetLoader.loadMany(pendingKeys).catch(error => console.error(error));
+  }
+
+  async function prepareActiveLocation() {
+    const generation = ++assetLoadGeneration;
+    ready = false;
+    loading.textContent = activeAreaId() === 'overworld' ? 'MAP LOADING…' : 'AREA LOADING…';
+    loading.classList.remove('hidden');
+    try {
+      await assetLoader.loadMany(requiredAssetsForActiveLocation());
+      if (generation !== assetLoadGeneration) return;
+      ready = true;
+      loading.classList.add('hidden');
+      ensureOverworldAssets();
+      if (currentEdition === 'past' && !storyState.arrivalSeen) openStoryDialogue(STORY_DIALOGUES.arrival);
+    } catch (error) {
+      if (generation !== assetLoadGeneration) return;
+      console.error(error);
+      loading.textContent = 'ASSET LOAD ERROR';
+    }
   }
 
   function setEdition(value, updateUrl = true) {
@@ -308,8 +332,7 @@
     const savedPosition = locationPositions.get(activeLocationKey) || locationSpawn(currentEdition, storyState.area);
     player.x = savedPosition[0];
     player.y = savedPosition[1];
-    camera.x = 0;
-    camera.y = 0;
+    centerCameraOnPlayer();
     const definition = editionDefinition(currentEdition);
     shell.dataset.theme = definition.uiTheme;
     if (currentEdition !== 'past' && activeBattle) closeBattle('fled');
@@ -323,7 +346,7 @@
       button.setAttribute('aria-pressed', String(button.dataset.edition === currentEdition));
     });
     if (updateUrl) history.replaceState(null, '', `?edition=${currentEdition}`);
-    if (ready && currentEdition === 'past' && !storyState.arrivalSeen) openStoryDialogue(STORY_DIALOGUES.arrival);
+    prepareActiveLocation();
   }
 
   function setSettingsOpen(value) {
@@ -390,6 +413,14 @@
   function activeWorldSize() {
     const area = PAST_AREAS[activeAreaId()];
     return activeAreaId() === 'overworld' ? world : { w: area.width, h: area.height };
+  }
+
+  function centerCameraOnPlayer() {
+    const activeWorld = activeWorldSize();
+    const viewW = innerWidth / camera.zoom;
+    const viewH = innerHeight / camera.zoom;
+    camera.x = Math.max(0, Math.min(Math.max(0, activeWorld.w - viewW), player.x - viewW / 2));
+    camera.y = Math.max(0, Math.min(Math.max(0, activeWorld.h - viewH), player.y - viewH / 2));
   }
 
   function updateStoryStatus() {
@@ -676,11 +707,11 @@
     player.y = safeSpawn[1];
     player.facing = storyState.area === 'castle' ? 'up' : 'down';
     locationPositions.set(activeLocationKey, [player.x, player.y]);
-    camera.x = 0;
-    camera.y = 0;
+    centerCameraOnPlayer();
     keys.clear();
     updateStoryStatus();
     updateInteractionPrompt(null);
+    prepareActiveLocation();
   }
 
   function performStoryInteraction() {
@@ -923,6 +954,50 @@
     }
   }
 
+  function ensureOverworldAssets(dx = 0, dy = 0) {
+    if (currentEdition === 'past' && activeAreaId() !== 'overworld') return;
+    const viewport = {
+      x: camera.x,
+      y: camera.y,
+      width: innerWidth / camera.zoom,
+      height: innerHeight / camera.zoom
+    };
+    const tileCoordinates = visibleTileCoordinates(viewport, tileW, tileH, tileCols, tileRows);
+    const playerTile = tileCoordinateForPoint(player.x, player.y, tileW, tileH, tileCols, tileRows);
+    const directionalTile = directionalTileCoordinate(playerTile, dx, dy, tileCols, tileRows);
+    if (directionalTile) tileCoordinates.push(directionalTile);
+
+    const assetKeys = tileCoordinates.map(tile => tileAssetKey(currentEdition, tile.col, tile.row));
+    const landmarkMargin = 220;
+    const viewportRight = viewport.x + viewport.width;
+    const viewportBottom = viewport.y + viewport.height;
+    for (const landmark of landmarks) {
+      if (currentEdition === 'past' && landmarkMemoryState(landmark.id, memoryStage) === 'fog') continue;
+      const left = landmark.x - landmark.width / 2;
+      const right = landmark.x + landmark.width / 2;
+      const top = landmark.y - landmark.height;
+      const bottom = landmark.y;
+      const nearViewport = right >= viewport.x - landmarkMargin
+        && left <= viewportRight + landmarkMargin
+        && bottom >= viewport.y - landmarkMargin
+        && top <= viewportBottom + landmarkMargin;
+      if (nearViewport) assetKeys.push(landmarkAssetKey(currentEdition, landmark.id));
+    }
+
+    if (currentEdition === 'past' && storyAllowsEncounters(storyState)) {
+      const enemyMargin = 320;
+      for (const enemy of pastEnemies) {
+        const nearViewport = enemy.active
+          && enemy.x >= viewport.x - enemyMargin
+          && enemy.x <= viewportRight + enemyMargin
+          && enemy.y >= viewport.y - enemyMargin
+          && enemy.y <= viewportBottom + enemyMargin;
+        if (nearViewport) assetKeys.push(enemyAssetKey(enemy.enemyId));
+      }
+    }
+    loadAssetsInBackground(assetKeys);
+  }
+
   function update(dt) {
     if (!ready || activeBattle || encounterTransitioning || activeStoryDialogue || activeServiceId) return;
     let dx = 0;
@@ -980,6 +1055,7 @@
     const targetY = Math.max(0, Math.min(Math.max(0, activeWorld.h - viewH), player.y - viewH / 2));
     camera.x += (targetX - camera.x) * Math.min(1, dt * 7);
     camera.y += (targetY - camera.y) * Math.min(1, dt * 7);
+    ensureOverworldAssets(dx, dy);
   }
 
   function drawPlayer() {
@@ -1009,6 +1085,7 @@
       return;
     }
     for (const tile of editionTiles.get(currentEdition)) {
+      if (!imageIsLoaded(tile.image)) continue;
       ctx.drawImage(tile.image, tile.col * tileW, tile.row * tileH, tileW, tileH);
     }
   }
@@ -1017,6 +1094,7 @@
     const area = PAST_AREAS['castle-town'];
     const ground = pastSceneImages.get('castle-town-ground');
     const buildings = pastSceneImages.get('castle-town-buildings');
+    if (!imageIsLoaded(ground) || !imageIsLoaded(buildings)) return;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(ground, 0, 0, area.width, area.height);
@@ -1027,6 +1105,7 @@
   function drawCastleInterior() {
     const area = PAST_AREAS.castle;
     const interior = pastSceneImages.get('castle-interior');
+    if (!imageIsLoaded(interior)) return;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(interior, 0, 0, area.width, area.height);
@@ -1328,6 +1407,7 @@
 
   function drawLandmarkGround(landmark) {
     if (currentEdition === 'past' && landmarkMemoryState(landmark.id, memoryStage) === 'fog') return;
+    if (!imageIsLoaded(editionLandmarkImages.get(currentEdition).get(landmark.id))) return;
     const shadow = shadowVectorFromLight(1, -1, landmark.shadowLength);
     const castCenterX = landmark.x + shadow.x * 0.78;
     const castCenterY = landmark.y + shadow.y * 0.48;
@@ -1358,7 +1438,7 @@
       return;
     }
     const image = editionLandmarkImages.get(currentEdition).get(landmark.id);
-    if (!image.complete || !image.naturalWidth) return;
+    if (!imageIsLoaded(image)) return;
     const sizeOverride = editionDefinition(currentEdition).landmarkSizeOverrides?.[landmark.id];
     const displayWidth = landmark.width * (sizeOverride?.widthScale || 1);
     const displayHeight = landmark.height * (sizeOverride?.heightScale || 1);
@@ -1449,9 +1529,10 @@
     if (currentEdition === 'past' && areaId !== 'overworld') {
       const area = PAST_AREAS[areaId];
       const baseImage = pastSceneImages.get(areaId === 'castle' ? 'castle-interior' : 'castle-town-ground');
-      mctx.drawImage(baseImage, 0, 0, 210, 145);
+      if (imageIsLoaded(baseImage)) mctx.drawImage(baseImage, 0, 0, 210, 145);
       if (areaId === 'castle-town') {
-        mctx.drawImage(pastSceneImages.get('castle-town-buildings'), 0, 0, 210, 145);
+        const buildings = pastSceneImages.get('castle-town-buildings');
+        if (imageIsLoaded(buildings)) mctx.drawImage(buildings, 0, 0, 210, 145);
       }
       mctx.save();
       mctx.scale(210 / area.width, 145 / area.height);
@@ -1467,6 +1548,7 @@
     }
     if (ready) {
       for (const tile of editionTiles.get(currentEdition)) {
+        if (!imageIsLoaded(tile.image)) continue;
         mctx.drawImage(tile.image, tile.col * 105, tile.row * 72.5, 105, 72.5);
       }
       if (showCollision) {
@@ -1727,7 +1809,16 @@
     encounterTransitioning = true;
     keys.clear();
     resetMapDrag();
-    await playEncounterTransition();
+    try {
+      await Promise.all([
+        playEncounterTransition(),
+        assetLoader.load(enemyAssetKey(encounter.enemyId))
+      ]);
+    } catch (error) {
+      console.error(error);
+      resetEncounterTransition();
+      return;
+    }
     if (currentEdition !== 'past') {
       resetEncounterTransition();
       return;
