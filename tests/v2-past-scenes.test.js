@@ -70,11 +70,13 @@ test('conversation proximity follows a walking townsperson instead of a stale po
   assert.equal(interaction.id, npc.id);
 });
 
-test('the browser runtime loads the three scene images before leaving MAP LOADING', () => {
+test('the browser runtime registers scene images for area-scoped lazy loading', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-past-scenes\.js/);
   assert.match(runtime, /PAST_SCENE_ASSETS/);
   assert.match(runtime, /pastSceneImages/);
+  assert.match(runtime, /sceneAssetKey\('castle-town-ground'\)/);
+  assert.match(runtime, /sceneAssetKey\('castle-interior'\)/);
   assert.match(runtime, /npcPoseAt/);
 });

@@ -54,7 +54,7 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const css = fs.readFileSync('v2.css', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
-  assert.match(html, /v2\.js\?edition=5/);
+  assert.match(html, /v2\.js\?edition=6/);
   assert.match(html, /v2\.css\?edition=4/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);
@@ -75,4 +75,16 @@ test('the contextual action is one tappable label that stays clear of the moveme
   assert.match(css, /@media \(max-width: 700px\)[\s\S]*\.v2-interaction-prompt\s*\{[^}]*right:\s*max\(12px, env\(safe-area-inset-right\)\)[^}]*width:\s*min\(240px, calc\(100vw - 158px\)\)/s);
   assert.match(runtime, /interactionPrompt\.addEventListener\('click', performStoryInteraction\)/);
   assert.doesNotMatch(runtime, /interactButton/);
+});
+
+test('field assets use the lazy loader before the main runtime starts', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const assetScript = html.indexOf('v2-assets.js');
+  const runtimeScript = html.indexOf('v2.js?edition=');
+
+  assert.ok(assetScript > 0 && assetScript < runtimeScript);
+  assert.match(runtime, /createLazyImageLoader/);
+  assert.doesNotMatch(runtime, /expectedAssets/);
+  assert.doesNotMatch(runtime, /for \(const editionId of editionIds\)[\s\S]*tile\.image\.src = tile\.source/);
 });
