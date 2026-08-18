@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const {
   NPC_PATROL_SPEED_SCALE,
   NPC_SPRITE_ASSETS,
+  PAST_EVENT_ASSETS,
   PAST_SCENE_ASSETS,
   npcPoseAt
 } = require('../v2-past-scenes.js');
@@ -22,6 +23,16 @@ test('the royal capital is rendered as ground, building, and character raster la
   ]);
   for (const asset of Object.values(PAST_SCENE_ASSETS)) {
     assert.match(asset.path, /^assets\/v2\/past-scenes\/.+\.png$/);
+    assert.equal(fs.existsSync(asset.path), true, `${asset.path} is missing`);
+  }
+});
+
+test('overworld event people and structures use transparent raster assets', () => {
+  assert.deepEqual(Object.keys(PAST_EVENT_ASSETS).sort(), [
+    'capital-gate', 'card-chest-frost', 'card-chest-mend', 'magic-tutor', 'old-watchtower'
+  ]);
+  for (const asset of Object.values(PAST_EVENT_ASSETS)) {
+    assert.match(asset.path, /^assets\/v2\/past-events\/.+\.png$/);
     assert.equal(fs.existsSync(asset.path), true, `${asset.path} is missing`);
   }
 });

@@ -23,10 +23,10 @@
 
   const TOWN_BUILDINGS = Object.freeze([
     Object.freeze({ id: 'royal-castle', type: 'castle', label: '蜘蛛守の王城', icon: '♜', rect: Object.freeze([400, 8, 600, 502]), color: '#8d4850', labelPoint: Object.freeze([700, 520]) }),
-    Object.freeze({ id: 'weapon-shop', type: 'weapon', label: '武器屋「鉄蜘蛛」', icon: '⚔', rect: Object.freeze([35, 75, 310, 335]), color: '#8c4a32', labelPoint: Object.freeze([365, 335]) }),
-    Object.freeze({ id: 'armor-shop', type: 'armor', label: '防具屋「銀の殻」', icon: '⬟', rect: Object.freeze([1055, 85, 310, 325]), color: '#465b74', labelPoint: Object.freeze([1035, 335]) }),
-    Object.freeze({ id: 'item-shop', type: 'item', label: '道具屋「旅支度」', icon: '⚗', rect: Object.freeze([35, 430, 320, 280]), color: '#556c3d', labelPoint: Object.freeze([375, 645]) }),
-    Object.freeze({ id: 'inn', type: 'inn', label: '宿屋「夕映え亭」', icon: '☾', rect: Object.freeze([1055, 440, 310, 300]), color: '#7c5136', labelPoint: Object.freeze([1025, 665]) }),
+    Object.freeze({ id: 'weapon-shop', type: 'weapon', label: '武器屋「鉄蜘蛛」', icon: '⚔', rect: Object.freeze([35, 75, 310, 280]), color: '#8c4a32', labelPoint: Object.freeze([230, 385]) }),
+    Object.freeze({ id: 'armor-shop', type: 'armor', label: '防具屋「銀の殻」', icon: '⬟', rect: Object.freeze([1055, 85, 310, 280]), color: '#465b74', labelPoint: Object.freeze([1240, 390]) }),
+    Object.freeze({ id: 'item-shop', type: 'item', label: '道具屋「旅支度」', icon: '⚗', rect: Object.freeze([35, 430, 320, 215]), color: '#556c3d', labelPoint: Object.freeze([215, 680]) }),
+    Object.freeze({ id: 'inn', type: 'inn', label: '宿屋「夕映え亭」', icon: '☾', rect: Object.freeze([1055, 440, 310, 250]), color: '#7c5136', labelPoint: Object.freeze([1180, 725]) }),
     Object.freeze({ id: 'card-shop', type: 'card', label: 'カード屋「星札堂」', icon: '✦', rect: Object.freeze([35, 710, 320, 250]), color: '#63467e', labelPoint: Object.freeze([385, 865]) })
   ]);
 
@@ -42,6 +42,20 @@
   const TOWN_COLLISION_RECTS = Object.freeze([
     ...TOWN_BUILDINGS.map(building => building.rect),
     ...TOWN_WALLS.map(wall => wall.rect)
+  ]);
+
+  const CASTLE_COLLISION_RECTS = Object.freeze([
+    Object.freeze([0, 0, 112, 760]),
+    Object.freeze([888, 0, 112, 760]),
+    Object.freeze([112, 0, 278, 105]),
+    Object.freeze([610, 0, 278, 105]),
+    Object.freeze([360, 70, 280, 150]),
+    Object.freeze([112, 105, 72, 165]),
+    Object.freeze([816, 105, 72, 165]),
+    Object.freeze([112, 285, 72, 185]),
+    Object.freeze([816, 285, 72, 185]),
+    Object.freeze([0, 655, 390, 105]),
+    Object.freeze([610, 655, 390, 105])
   ]);
 
   const TOWN_NPCS = Object.freeze([
@@ -175,7 +189,7 @@
     Object.freeze({ id: 'road-mage', area: 'overworld', point: Object.freeze([205, 460]), radius: 34, label: '旅の魔導士と話す', actionId: 'learn-first-magic' }),
     Object.freeze({ id: 'frost-card-chest', area: 'overworld', point: Object.freeze([245, 500]), radius: 28, label: '青い宝箱を開ける', actionId: 'discover-card:frost', cardId: 'frost', unlockAfter: 'watchtower-boss' }),
     Object.freeze({ id: 'mend-card-chest', area: 'overworld', point: Object.freeze([90, 570]), radius: 28, label: '白い宝箱を開ける', actionId: 'discover-card:mend', cardId: 'mend', unlockAfter: 'watchtower-boss' }),
-    Object.freeze({ id: 'castle-door', area: 'castle-town', point: Object.freeze([700, 535]), radius: 66, label: '王城へ入る', targetArea: 'castle', spawn: PAST_AREAS.castle.spawn }),
+    Object.freeze({ id: 'castle-door', area: 'castle-town', point: Object.freeze([700, 515]), radius: 72, label: '王城へ入る', targetArea: 'castle', spawn: PAST_AREAS.castle.spawn }),
     Object.freeze({ id: 'capital-exit', area: 'castle-town', point: Object.freeze([700, 950]), radius: 55, label: '新大陸の街道へ戻る', targetArea: 'overworld', spawn: PAST_START.capitalGatePoint }),
     Object.freeze({ id: 'castle-exit', area: 'castle', point: Object.freeze([500, 720]), radius: 52, label: '城下町へ戻る', targetArea: 'castle-town', spawn: Object.freeze([700, 575]) }),
     Object.freeze({ id: 'king', area: 'castle', point: Object.freeze([500, 190]), radius: 90, label: '王と話す', dialogueId: 'king-audience' }),
@@ -183,11 +197,11 @@
     Object.freeze({ id: 'soldier-right', area: 'castle', point: Object.freeze([635, 330]), radius: 65, label: '兵士と話す', dialogueId: 'soldier-greeting' }),
     Object.freeze({ id: 'soldier-door', area: 'castle', point: Object.freeze([420, 610]), radius: 72, label: '門衛と話す', dialogueId: 'soldier-greeting' }),
     ...TOWN_NPCS.map(npc => Object.freeze({ id: npc.id, area: 'castle-town', point: npc.point, radius: 54, label: `${npc.name}と話す`, dialogueId: npc.dialogueId })),
-    Object.freeze({ id: 'weapon-shop', area: 'castle-town', point: Object.freeze([370, 335]), radius: 64, label: '武器屋で買い物する', serviceId: 'weapon' }),
-    Object.freeze({ id: 'armor-shop', area: 'castle-town', point: Object.freeze([1030, 335]), radius: 64, label: '防具屋で買い物する', serviceId: 'armor' }),
-    Object.freeze({ id: 'item-shop', area: 'castle-town', point: Object.freeze([380, 645]), radius: 64, label: '道具屋で買い物する', serviceId: 'item' }),
-    Object.freeze({ id: 'inn', area: 'castle-town', point: Object.freeze([1020, 665]), radius: 64, label: '宿屋に泊まる', serviceId: 'inn' }),
-    Object.freeze({ id: 'card-shop', area: 'castle-town', point: Object.freeze([390, 865]), radius: 64, label: 'カード屋で買い物する', serviceId: 'card' })
+    Object.freeze({ id: 'weapon-shop', area: 'castle-town', point: Object.freeze([230, 385]), radius: 84, label: '武器屋で買い物する', serviceId: 'weapon' }),
+    Object.freeze({ id: 'armor-shop', area: 'castle-town', point: Object.freeze([1240, 390]), radius: 84, label: '防具屋で買い物する', serviceId: 'armor' }),
+    Object.freeze({ id: 'item-shop', area: 'castle-town', point: Object.freeze([215, 680]), radius: 84, label: '道具屋で買い物する', serviceId: 'item' }),
+    Object.freeze({ id: 'inn', area: 'castle-town', point: Object.freeze([1180, 725]), radius: 92, label: '宿屋に泊まる', serviceId: 'inn' }),
+    Object.freeze({ id: 'card-shop', area: 'castle-town', point: Object.freeze([195, 950]), radius: 210, label: 'カード屋で買い物する', serviceId: 'card' })
   ]);
 
   function createPastStory(saved = {}) {
@@ -300,8 +314,12 @@
     if (!area?.width || !area?.height) return false;
     const margin = 34 + radius;
     if (x < margin || y < margin || x > area.width - margin || y > area.height - margin) return false;
-    if (areaId !== 'castle-town') return true;
-    return TOWN_COLLISION_RECTS.every(rect => {
+    const collisionRects = areaId === 'castle-town'
+      ? TOWN_COLLISION_RECTS
+      : areaId === 'castle'
+        ? CASTLE_COLLISION_RECTS
+        : [];
+    return collisionRects.every(rect => {
       const [left, top, width, height] = rect;
       const padding = radius + 8;
       return x < left - padding || x > left + width + padding || y < top - padding || y > top + height + padding;
@@ -327,6 +345,7 @@
   }
 
   return {
+    CASTLE_COLLISION_RECTS,
     CASTLE_NPCS,
     PAST_AREAS,
     PAST_INTERACTIONS,

@@ -50,10 +50,11 @@
   const pastCampaignApi = window.V2_PAST_CAMPAIGN;
   const pastSceneApi = window.V2_PAST_SCENES;
   const pastStoryApi = window.V2_PAST_STORY;
+  const dialogueApi = window.V2_DIALOGUE;
   const saveApi = window.V2_SAVE;
   const inputApi = window.V2_INPUT;
   const mapLayout = window.V2_MAP_LAYOUT;
-  if (!landmarkGeometry || !editionApi || !assetApi || !battleApi || !pastWorldApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !saveApi || !inputApi || !mapLayout) {
+  if (!landmarkGeometry || !editionApi || !assetApi || !battleApi || !pastWorldApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !dialogueApi || !saveApi || !inputApi || !mapLayout) {
     loading.textContent = 'GAME MODULE ERROR';
     throw new Error('Game geometry, edition, or map layout data is missing.');
   }
@@ -72,7 +73,8 @@
   const { advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, respawnPastEnemies, shouldStartEncounter } = pastWorldApi;
   const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
-  const { NPC_SPRITE_ASSETS, PAST_SCENE_ASSETS, npcPoseAt } = pastSceneApi;
+  const { NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, npcPoseAt } = pastSceneApi;
+  const { createTypewriterLine, revealTypewriterLine, tickTypewriterLine, typewriterText } = dialogueApi;
   const {
     SHOP_CATALOG,
     applyBattleVictory,
@@ -131,6 +133,7 @@
   const pastEnemyImages = new Map();
   const pastSceneImages = new Map();
   const pastNpcImages = new Map();
+  const pastEventImages = new Map();
   const editionIds = ['modern', 'past'];
   const tileAssetKey = (editionId, col, row) => `${editionId}:tile:${col}:${row}`;
   const spriteAssetKey = (editionId, facing) => `${editionId}:player:${facing}`;
@@ -138,6 +141,7 @@
   const enemyAssetKey = enemyId => `past:enemy:${enemyId}`;
   const sceneAssetKey = sceneId => `past:scene:${sceneId}`;
   const npcAssetKey = spriteId => `past:npc:${spriteId}`;
+  const eventAssetKey = eventId => `past:event:${eventId}`;
 
   for (const editionId of editionIds) {
     const definition = editionDefinition(editionId);
@@ -232,6 +236,8 @@
     : enemy);
   let activeStoryDialogue = null;
   let storyDialogueIndex = 0;
+  let activeTypewriterLine = null;
+  let dialogueTypeTimer = 0;
   let activeInteraction = null;
   let activeServiceId = null;
   let activeLocationKey = 'modern-overworld';
@@ -273,6 +279,10 @@
     const image = assetLoader.register(npcAssetKey(spriteId), `${path}?scene=1`);
     pastNpcImages.set(spriteId, image);
   }
+  for (const [eventId, definition] of Object.entries(PAST_EVENT_ASSETS)) {
+    const image = assetLoader.register(eventAssetKey(eventId), `${definition.path}?event=1`);
+    pastEventImages.set(eventId, image);
+  }
 
   function imageIsLoaded(image) {
     return Boolean(image?.complete && image.naturalWidth);
@@ -280,9 +290,17 @@
 
   function requiredAssetsForActiveLocation() {
     const playerAssets = facingNames.map(facing => spriteAssetKey(currentEdition, facing));
-    if (currentEdition !== 'past' || activeAreaId() === 'overworld') {
+    if (currentEdition !== 'past') {
       const tile = tileCoordinateForPoint(player.x, player.y, tileW, tileH, tileCols, tileRows);
       return [tileAssetKey(currentEdition, tile.col, tile.row), ...playerAssets];
+    }
+    if (activeAreaId() === 'overworld') {
+      const tile = tileCoordinateForPoint(player.x, player.y, tileW, tileH, tileCols, tileRows);
+      return [
+        tileAssetKey(currentEdition, tile.col, tile.row),
+        ...playerAssets,
+        ...Object.keys(PAST_EVENT_ASSETS).map(eventAssetKey)
+      ];
     }
     if (activeAreaId() === 'castle-town') {
       return [
@@ -497,17 +515,44 @@
     renderStoryDialogue();
   }
 
+  function stopDialogueTyping() {
+    if (dialogueTypeTimer) window.clearTimeout(dialogueTypeTimer);
+    dialogueTypeTimer = 0;
+  }
+
+  function paintTypewriterLine() {
+    dialogueText.textContent = activeTypewriterLine ? typewriterText(activeTypewriterLine) : '';
+    const finalLine = storyDialogueIndex === activeStoryDialogue.lines.length - 1;
+    dialogueNext.textContent = activeTypewriterLine?.complete ? (finalLine ? '閉じる' : '次へ') : '一行表示';
+  }
+
+  function scheduleDialogueCharacter() {
+    stopDialogueTyping();
+    if (!activeStoryDialogue || activeTypewriterLine?.complete) return;
+    dialogueTypeTimer = window.setTimeout(() => {
+      activeTypewriterLine = tickTypewriterLine(activeTypewriterLine);
+      paintTypewriterLine();
+      scheduleDialogueCharacter();
+    }, 34);
+  }
+
   function renderStoryDialogue() {
     if (!activeStoryDialogue) return;
     const line = activeStoryDialogue.lines[storyDialogueIndex];
     dialogueSpeaker.textContent = line.speaker;
-    dialogueText.textContent = line.text;
-    const finalLine = storyDialogueIndex === activeStoryDialogue.lines.length - 1;
-    dialogueNext.textContent = finalLine ? '閉じる' : '次へ';
+    activeTypewriterLine = createTypewriterLine(line.text);
+    paintTypewriterLine();
+    scheduleDialogueCharacter();
   }
 
   function advanceStoryDialogue() {
     if (!activeStoryDialogue) return;
+    if (!activeTypewriterLine.complete) {
+      stopDialogueTyping();
+      activeTypewriterLine = revealTypewriterLine(activeTypewriterLine);
+      paintTypewriterLine();
+      return;
+    }
     if (storyDialogueIndex < activeStoryDialogue.lines.length - 1) {
       storyDialogueIndex++;
       renderStoryDialogue();
@@ -518,8 +563,10 @@
 
   function closeStoryDialogue(complete = true) {
     if (!activeStoryDialogue) return;
+    stopDialogueTyping();
     const eventId = activeStoryDialogue.onComplete;
     activeStoryDialogue = null;
+    activeTypewriterLine = null;
     storyDialogueIndex = 0;
     dialogueOverlay.setAttribute('aria-hidden', 'true');
     if (complete && eventId === 'watchtower-return-to-king') {
@@ -841,7 +888,7 @@
   infoToggle.addEventListener('click', () => setStoryPanelVisible(!storyPanelVisible));
   collisionToggle.addEventListener('click', () => setCollisionDisplay(!showCollision));
   interactionPrompt.addEventListener('click', performStoryInteraction);
-  dialogueNext.addEventListener('click', advanceStoryDialogue);
+  dialogueOverlay.addEventListener('click', advanceStoryDialogue);
   openBagButton.addEventListener('click', () => openService('bag'));
   shopClose.addEventListener('click', closeService);
 
@@ -1179,22 +1226,14 @@
     if (currentEdition !== 'past' || activeAreaId() !== 'overworld') return;
     const x = PAST_START.capitalGatePoint[0] * maskScale;
     const y = PAST_START.capitalGatePoint[1] * maskScale;
+    const definition = PAST_EVENT_ASSETS['capital-gate'];
+    const image = pastEventImages.get('capital-gate');
+    if (!imageIsLoaded(image)) return;
     const pulse = 1 + Math.sin(performance.now() / 350) * 0.08;
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(pulse, pulse);
-    ctx.fillStyle = '#210f1ddf';
-    ctx.strokeStyle = '#ffc15d';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.arc(0, 0, 40, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = '#ffe3a2';
-    ctx.font = '34px Georgia, serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('♜', 0, 1);
+    ctx.drawImage(image, -definition.width / 2, -definition.height + 18, definition.width, definition.height);
     roundedRectanglePath(ctx, -78, 48, 156, 35, 6);
     ctx.fillStyle = '#21131fe8';
     ctx.fill();
@@ -1214,36 +1253,14 @@
     const y = interaction.point[1] * maskScale;
     const open = canChallengeWatchtower(campaignState);
     const cleared = campaignState.bossDefeated;
+    const definition = PAST_EVENT_ASSETS['old-watchtower'];
+    const image = pastEventImages.get('old-watchtower');
+    if (!imageIsLoaded(image)) return;
     const glow = 0.62 + Math.sin(performance.now() / 280) * 0.18;
     ctx.save();
     ctx.translate(x, y);
-    ctx.fillStyle = '#05040a88';
-    ctx.beginPath();
-    ctx.ellipse(0, 12, 72, 24, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = cleared ? '#514f50' : '#4b3c4b';
-    ctx.strokeStyle = cleared ? '#b09a74' : '#a877d7';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(-48, 8);
-    ctx.lineTo(-38, -142);
-    ctx.lineTo(-58, -174);
-    ctx.lineTo(-22, -163);
-    ctx.lineTo(0, -197);
-    ctx.lineTo(22, -163);
-    ctx.lineTo(58, -174);
-    ctx.lineTo(38, -142);
-    ctx.lineTo(48, 8);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = '#170f1b';
-    ctx.fillRect(-15, -48, 30, 56);
-    ctx.globalAlpha = cleared ? 0.35 : glow;
-    ctx.fillStyle = open ? '#ffbd5e' : '#bb63ff';
-    ctx.beginPath();
-    ctx.arc(0, -112, 18, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.globalAlpha = cleared ? 0.82 : 1;
+    ctx.drawImage(image, -definition.width / 2, -definition.height + 12, definition.width, definition.height);
     ctx.globalAlpha = 1;
     roundedRectanglePath(ctx, -92, 28, 184, 45, 7);
     ctx.fillStyle = '#201220ed';
@@ -1275,31 +1292,20 @@
     if (currentEdition !== 'past' || activeAreaId() !== 'overworld') return;
     const discoveries = pastStoryApi.PAST_INTERACTIONS.filter(interaction =>
       interaction.cardId && canDiscoverCard(campaignState, interaction.cardId));
-    const pulse = 0.7 + Math.sin(performance.now() / 320) * 0.18;
+    const pulse = 0.86 + Math.sin(performance.now() / 320) * 0.08;
     for (const discovery of discoveries) {
       const x = discovery.point[0] * maskScale;
       const y = discovery.point[1] * maskScale;
       const healing = discovery.cardId === 'mend';
+      const assetId = healing ? 'card-chest-mend' : 'card-chest-frost';
+      const definition = PAST_EVENT_ASSETS[assetId];
+      const image = pastEventImages.get(assetId);
+      if (!imageIsLoaded(image)) continue;
       ctx.save();
       ctx.translate(x, y);
-      ctx.fillStyle = '#05040a88';
-      ctx.beginPath();
-      ctx.ellipse(0, 9, 40, 13, 0, 0, Math.PI * 2);
-      ctx.fill();
       ctx.globalAlpha = pulse;
-      ctx.fillStyle = healing ? '#fff3c9' : '#79d8ff';
-      ctx.beginPath();
-      ctx.arc(0, -23, 34, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.drawImage(image, -definition.width / 2, -definition.height + 8, definition.width, definition.height);
       ctx.globalAlpha = 1;
-      ctx.fillStyle = healing ? '#ddd2b0' : '#416b87';
-      ctx.strokeStyle = healing ? '#fff2b1' : '#a4efff';
-      ctx.lineWidth = 4;
-      roundedRectanglePath(ctx, -30, -30, 60, 42, 6);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = '#231720';
-      ctx.fillRect(-5, -17, 10, 18);
       ctx.fillStyle = '#fff5cf';
       ctx.font = '700 14px Georgia, "Yu Mincho", serif';
       ctx.textAlign = 'center';
@@ -1314,30 +1320,14 @@
     if (!tutor) return;
     const x = tutor.point[0] * maskScale;
     const y = tutor.point[1] * maskScale;
+    const definition = PAST_EVENT_ASSETS['magic-tutor'];
+    const image = pastEventImages.get('magic-tutor');
+    if (!imageIsLoaded(image)) return;
     const pulse = 0.75 + Math.sin(performance.now() / 360) * 0.15;
     ctx.save();
     ctx.translate(x, y);
-    ctx.fillStyle = '#0008';
-    ctx.beginPath();
-    ctx.ellipse(0, 2, 12, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#f0c7a1';
-    ctx.beginPath();
-    ctx.arc(0, -35, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#6d3b91';
-    ctx.beginPath();
-    ctx.moveTo(-13, -26);
-    ctx.lineTo(13, -26);
-    ctx.lineTo(18, 0);
-    ctx.lineTo(-18, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.globalAlpha = pulse;
-    ctx.fillStyle = '#ffb253';
-    ctx.beginPath();
-    ctx.arc(15, -30, 7, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.globalAlpha = 0.94 + pulse * 0.04;
+    ctx.drawImage(image, -definition.width / 2, -definition.height + 4, definition.width, definition.height);
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#fff0c7';
     ctx.font = '700 12px Georgia, "Yu Mincho", serif';
