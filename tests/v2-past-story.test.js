@@ -236,6 +236,17 @@ test('the western road contains two visible card discoveries', () => {
   assert.equal(PAST_INTERACTIONS.some(interaction => interaction.actionId === 'learn-first-magic'), true);
 });
 
+test('the traveling mage remains visible and talkable before and after teaching magic', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const tutorRenderer = runtime.slice(runtime.indexOf('function drawPastMagicTutor'), runtime.indexOf('function roundedRectanglePath'));
+  const availability = runtime.slice(runtime.indexOf('function pastInteractionAvailable'), runtime.indexOf('function transitionStoryArea'));
+
+  assert.doesNotMatch(tutorRenderer, /canLearnFirstMagic/);
+  assert.match(tutorRenderer, /旅の魔導士リゼ/);
+  assert.match(availability, /learn-first-magic[^\n]+return true/);
+  assert.match(runtime, /first-magic-after/);
+});
+
 test('the capital marker stays visible while enemies wait for the royal mission', () => {
   const runtime = fs.readFileSync('v2.js', 'utf8');
   const gateRenderer = runtime.slice(runtime.indexOf('function drawPastCapitalGate'), runtime.indexOf('function drawPastWatchtower'));

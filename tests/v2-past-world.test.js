@@ -5,8 +5,10 @@ const fs = require('node:fs');
 const {
   PAST_ENCOUNTERS,
   advancePatrol,
+  createPastEnemies,
   landmarkMemoryState,
   nextMemoryStage,
+  respawnPastEnemies,
   shouldStartEncounter
 } = require('../v2-past-world.js');
 
@@ -46,6 +48,29 @@ test('a nearby active enemy starts an encounter but a defeated enemy does not', 
   const enemy = { x: 100, y: 100, active: true, respawnAt: 0 };
   assert.equal(shouldStartEncounter({ x: 118, y: 110 }, enemy, 40, 1000), true);
   assert.equal(shouldStartEncounter({ x: 118, y: 110 }, { ...enemy, active: false, respawnAt: 2000 }, 40, 1000), false);
+});
+
+test('entering a building restores every field monster at its patrol origin', () => {
+  const defeated = createPastEnemies().map((enemy, index) => ({
+    ...enemy,
+    x: enemy.x + 30,
+    y: enemy.y + 20,
+    patrolIndex: 2,
+    active: index !== 0,
+    respawnAt: index === 0 ? 999999 : 0
+  }));
+  const respawned = respawnPastEnemies(defeated);
+  assert.ok(respawned.every(enemy => enemy.active && enemy.respawnAt === 0));
+  assert.ok(respawned.every(enemy => enemy.x === enemy.patrol[0][0] && enemy.y === enemy.patrol[0][1]));
+  assert.ok(respawned.every(enemy => enemy.patrolIndex === 1));
+});
+
+test('the runtime respawns field monsters on every transition into a town or building', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const transition = runtime.slice(runtime.indexOf('function transitionStoryArea'), runtime.indexOf('function performStoryInteraction'));
+  assert.match(transition, /storyState\.area !== previousArea/);
+  assert.match(transition, /storyState\.area !== 'overworld'/);
+  assert.match(transition, /respawnPastEnemies\(pastEnemies\)/);
 });
 
 test('Midtown and both Azabudai parts begin hidden by memory fog', () => {

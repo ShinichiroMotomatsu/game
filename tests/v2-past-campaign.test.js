@@ -16,7 +16,9 @@ const {
   campaignObjective,
   createPastCampaign,
   discoverCard,
+  experienceToNextLevel,
   learnFirstMagic,
+  reachWatchtower,
   resolveDefeat,
   restAtInn,
   useItem
@@ -47,11 +49,12 @@ test('the recommended first-quest purchases equip attack and defense before leav
   assert.equal(campaign.inventory.herb, 2);
 });
 
-test('the shop runtime tells the player which exact 300G preparation to buy', () => {
+test('a townsperson recommends the exact 300G preparation instead of the shop UI', () => {
   const runtime = fs.readFileSync('v2.js', 'utf8');
-  assert.match(runtime, /支度金300G/);
-  assert.match(runtime, /銅の剣・皮の鎧・やくそう2個/);
-  assert.match(runtime, /序盤おすすめ/);
+  const story = fs.readFileSync('v2-past-story.js', 'utf8');
+  assert.match(story, /買い物帰りの女性/);
+  assert.match(story, /銅の剣と皮の鎧、それにやくそうを二つ/);
+  assert.doesNotMatch(runtime, /支度金300G|序盤おすすめ/);
 });
 
 test('buying equipment deducts gold and automatically equips the stronger item', () => {
@@ -136,17 +139,24 @@ test('herbs heal outside battle and are consumed', () => {
   assert.equal(used.state.inventory.herb, 1);
 });
 
-test('the inn costs 12G and restores all HP and MP', () => {
+test('the first-town inn is free and restores all HP and MP', () => {
   const campaign = createPastCampaign({ currentHp: 5, currentMp: 1 });
   const rested = restAtInn(campaign, 50);
   assert.equal(rested.ok, true);
-  assert.equal(rested.gold, 38);
+  assert.equal(rested.gold, 50);
   assert.equal(rested.state.currentHp, battleProfile(campaign).maxHp);
   assert.equal(rested.state.currentMp, battleProfile(campaign).maxMp);
 });
 
+test('experience remaining is calculated from the next level threshold', () => {
+  assert.equal(experienceToNextLevel(createPastCampaign({ exp: 0 })), 40);
+  assert.equal(experienceToNextLevel(createPastCampaign({ exp: 39 })), 1);
+  assert.equal(experienceToNextLevel(createPastCampaign({ exp: 40 })), 70);
+  assert.equal(experienceToNextLevel(createPastCampaign({ exp: LEVEL_TABLE.at(-1).exp })), null);
+});
+
 test('four western-road victories reach level two and the boss reward reaches level three', () => {
-  let campaign = createPastCampaign();
+  let campaign = reachWatchtower(createPastCampaign());
   for (const encounter of PAST_ENCOUNTERS) {
     campaign = applyBattleVictory(campaign, {
       xp: ENEMY_LIBRARY[encounter.enemyId].xp,
@@ -156,6 +166,7 @@ test('four western-road victories reach level two and the boss reward reaches le
   }
   assert.equal(campaign.level, 2);
   assert.equal(campaign.roadVictories, 4);
+  assert.equal(campaign.sealFragments.length, 4);
   campaign = learnFirstMagic(campaign).state;
   campaign = applyBattleVictory(campaign, { xp: ENEMY_LIBRARY['mist-watcher'].xp, encounterId: 'watchtower-boss' }).state;
   assert.equal(campaign.level, 3);
@@ -200,7 +211,7 @@ test('level-two recommended equipment crosses the first boss survival threshold'
 });
 
 test('the complete recommended first-quest route reaches level three after the mid-boss', () => {
-  let campaign = createPastCampaign();
+  let campaign = reachWatchtower(createPastCampaign());
   let gold = 300;
   for (const productId of FIRST_QUEST_LOADOUT) {
     const purchase = buyProduct(campaign, gold, productId);
@@ -237,6 +248,7 @@ test('the complete recommended first-quest route reaches level three after the m
   gold = rest.gold;
   assert.equal(campaign.level, 2);
   assert.equal(campaign.roadVictories, 4);
+  assert.equal(campaign.sealFragments.length, 4);
 
   const boss = slashUntilBattleEnds(battleProfile(campaign));
   assert.equal(boss.status, 'victory');
@@ -253,16 +265,29 @@ test('the complete recommended first-quest route reaches level three after the m
 });
 
 test('repeat farming gives experience but does not duplicate watchtower seal progress', () => {
-  let campaign = createPastCampaign();
+  let campaign = reachWatchtower(createPastCampaign());
   campaign = applyBattleVictory(campaign, { xp: 12, playerHp: 30, encounterId: 'road-a' }).state;
   campaign = applyBattleVictory(campaign, { xp: 12, playerHp: 25, encounterId: 'road-a' }).state;
   assert.equal(campaign.exp, 24);
   assert.equal(campaign.roadVictories, 1);
+  assert.deepEqual(campaign.sealFragments, ['road-a']);
 });
 
-test('the watchtower opens after four different road enemies are defeated', () => {
-  const locked = createPastCampaign({ defeatedRoadEnemies: ['road-a', 'road-b', 'road-c'] });
-  const sealed = createPastCampaign({ defeatedRoadEnemies: ['road-a', 'road-b', 'road-c', 'road-d'] });
+test('seal collection starts only after reaching the watchtower', () => {
+  let campaign = createPastCampaign();
+  campaign = applyBattleVictory(campaign, { xp: 12, encounterId: 'road-a' }).state;
+  assert.equal(campaign.roadVictories, 1);
+  assert.deepEqual(campaign.sealFragments, []);
+  assert.match(campaignObjective(learnFirstMagic(campaign).state), /見張り台/);
+
+  campaign = reachWatchtower(campaign);
+  campaign = applyBattleVictory(campaign, { xp: 12, encounterId: 'road-a' }).state;
+  assert.deepEqual(campaign.sealFragments, ['road-a']);
+});
+
+test('the watchtower opens after four different post-arrival road enemies are defeated', () => {
+  const locked = createPastCampaign({ schemaVersion: 3, watchtowerReached: true, sealFragments: ['road-a', 'road-b', 'road-c'] });
+  const sealed = createPastCampaign({ schemaVersion: 3, watchtowerReached: true, sealFragments: ['road-a', 'road-b', 'road-c', 'road-d'], defeatedRoadEnemies: ['road-a', 'road-b', 'road-c', 'road-d'] });
   const open = learnFirstMagic(sealed).state;
   assert.equal(canChallengeWatchtower(locked), false);
   assert.equal(canChallengeWatchtower(sealed), false);
@@ -271,11 +296,32 @@ test('the watchtower opens after four different road enemies are defeated', () =
 
 test('campaign objectives count seal fragments and then point to the mid-boss', () => {
   assert.match(campaignObjective(createPastCampaign({ defeatedRoadEnemies: ['road-a'] })), /魔導士/);
-  const underway = learnFirstMagic(createPastCampaign({ defeatedRoadEnemies: ['road-a', 'road-b'] })).state;
+  const underway = learnFirstMagic(createPastCampaign({ schemaVersion: 3, watchtowerReached: true, defeatedRoadEnemies: ['road-a', 'road-b'], sealFragments: ['road-a', 'road-b'] })).state;
   assert.match(campaignObjective(underway), /2\/4/);
-  const ready = learnFirstMagic(createPastCampaign({ defeatedRoadEnemies: ['road-a', 'road-b', 'road-c', 'road-d'] })).state;
+  const ready = learnFirstMagic(createPastCampaign({ schemaVersion: 3, watchtowerReached: true, defeatedRoadEnemies: ['road-a', 'road-b', 'road-c', 'road-d'], sealFragments: ['road-a', 'road-b', 'road-c', 'road-d'] })).state;
   assert.match(campaignObjective(ready), /見張り台/);
   assert.match(campaignObjective(createPastCampaign({ bossDefeated: true })), /調査完了/);
+});
+
+test('version-two saves preserve their existing watchtower seal progress', () => {
+  const migrated = createPastCampaign({
+    schemaVersion: 2,
+    defeatedRoadEnemies: ['road-a', 'road-b'],
+    ownedCards: ['spark']
+  });
+  assert.equal(migrated.watchtowerReached, true);
+  assert.deepEqual(migrated.sealFragments, ['road-a', 'road-b']);
+  assert.deepEqual(migrated.ownedCards, ['spark']);
+});
+
+test('the status UI shows remaining experience and MAX at the cap', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const css = fs.readFileSync('v2.css', 'utf8');
+  assert.match(runtime, /experienceToNextLevel\(campaignState\)/);
+  assert.match(runtime, /次まで/);
+  assert.match(runtime, /MAX/);
+  assert.doesNotMatch(css, /#v2-story-exp\s*{\s*display:\s*none/);
+  assert.match(css, /#v2-story-exp\s*{[^}]*grid-column/);
 });
 
 test('defeat halves gold and returns the hero fully healed', () => {

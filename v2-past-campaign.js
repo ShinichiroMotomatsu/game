@@ -3,14 +3,14 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.V2_PAST_CAMPAIGN = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
-  const CAMPAIGN_SCHEMA_VERSION = 2;
+  const CAMPAIGN_SCHEMA_VERSION = 3;
   const STARTER_DECK = Object.freeze(['slash', 'focus', 'guard']);
   const DISCOVERABLE_CARDS = Object.freeze({
     spark: Object.freeze({ id: 'spark', name: '火花の札', unlockAfter: 'first-victory', description: 'MP2で炎属性の一撃を放つ最初の魔法カード' }),
     frost: Object.freeze({ id: 'frost', name: '霜結の札', unlockAfter: 'watchtower-boss', description: 'MP3で氷属性の一撃を放つカード' }),
     mend: Object.freeze({ id: 'mend', name: '癒光の札', unlockAfter: 'watchtower-boss', description: 'MP3でHPを14回復するカード' })
   });
-  const INN_PRICE = 12;
+  const INN_PRICE = 0;
   const WATCHTOWER_SEALS = 4;
   const FIRST_QUEST_LOADOUT = Object.freeze(['bronze-sword', 'leather-armor', 'herb', 'herb']);
 
@@ -114,9 +114,15 @@
     }
     const defeatedRoadEnemies = sanitizeIds(saved.defeatedRoadEnemies, value => typeof value === 'string' && value.startsWith('road-'));
     const savedCards = sanitizeIds(saved.ownedCards, value => UNLOCKABLE_CARD_IDS.has(value));
-    const legacyCards = Array.isArray(saved.ownedCards) && saved.schemaVersion !== CAMPAIGN_SCHEMA_VERSION && !savedCards.includes('spark')
+    const savedSchemaVersion = Number(saved.schemaVersion);
+    const legacyCards = Array.isArray(saved.ownedCards) && (!Number.isFinite(savedSchemaVersion) || savedSchemaVersion < 2) && !savedCards.includes('spark')
       ? [...savedCards, 'spark']
       : savedCards;
+    const migratedSealFragments = savedSchemaVersion >= CAMPAIGN_SCHEMA_VERSION
+      ? sanitizeIds(saved.sealFragments, value => typeof value === 'string' && value.startsWith('road-'))
+      : defeatedRoadEnemies;
+    const bossDefeated = Boolean(saved.bossDefeated);
+    const watchtowerReached = Boolean(saved.watchtowerReached || bossDefeated || migratedSealFragments.length);
     return {
       schemaVersion: CAMPAIGN_SCHEMA_VERSION,
       level,
@@ -131,8 +137,15 @@
       ownedCards: legacyCards,
       defeatedRoadEnemies,
       roadVictories: defeatedRoadEnemies.length,
-      bossDefeated: Boolean(saved.bossDefeated)
+      watchtowerReached,
+      sealFragments: migratedSealFragments,
+      bossDefeated
     };
+  }
+
+  function experienceToNextLevel(state) {
+    const nextLevel = LEVEL_TABLE.find(definition => definition.exp > state.exp);
+    return nextLevel ? nextLevel.exp - state.exp : null;
   }
 
   function battleProfile(state) {
@@ -251,8 +264,13 @@
       ok: true,
       state: { ...state, currentHp: definition.maxHp, currentMp: definition.maxMp },
       gold: gold - INN_PRICE,
-      message: 'ぐっすり休み、HPとMPが全回復した。'
+      message: '宿屋の好意で無料で休み、HPとMPが全回復した。'
     };
+  }
+
+  function reachWatchtower(state) {
+    if (state.watchtowerReached) return state;
+    return { ...state, watchtowerReached: true };
   }
 
   function applyBattleVictory(state, {
@@ -269,6 +287,9 @@
     const defeatedRoadEnemies = encounterId.startsWith('road-')
       ? [...new Set([...state.defeatedRoadEnemies, encounterId])]
       : state.defeatedRoadEnemies;
+    const sealFragments = encounterId.startsWith('road-') && state.watchtowerReached
+      ? [...new Set([...state.sealFragments, encounterId])]
+      : state.sealFragments;
     const definition = levelDefinition(level);
     const next = {
       ...state,
@@ -278,20 +299,22 @@
       currentMp: leveledUp ? definition.maxMp : Math.max(0, Math.min(definition.maxMp, Math.floor(playerMp))),
       defeatedRoadEnemies,
       roadVictories: defeatedRoadEnemies.length,
+      sealFragments,
       bossDefeated: state.bossDefeated || encounterId === 'watchtower-boss'
     };
     return { state: next, leveledUp, levelsGained: level - previousLevel };
   }
 
   function canChallengeWatchtower(state) {
-    return state.roadVictories >= WATCHTOWER_SEALS && state.ownedCards.includes('spark') && !state.bossDefeated;
+    return state.watchtowerReached && state.sealFragments.length >= WATCHTOWER_SEALS && state.ownedCards.includes('spark') && !state.bossDefeated;
   }
 
   function campaignObjective(state) {
     if (state.bossDefeated) return '古い見張り台の異変調査完了・王へ報告する';
     if (canLearnFirstMagic(state)) return '西の港街道に現れた旅の魔導士を訪ねる';
-    if (state.roadVictories >= WATCHTOWER_SEALS) return '封印が解けた古い見張り台へ向かう';
-    return `西の港街道の魔物を倒し、封印片を集める ${state.roadVictories}/${WATCHTOWER_SEALS}`;
+    if (!state.watchtowerReached) return '西の港街道の奥にある古い見張り台を調べる';
+    if (state.sealFragments.length >= WATCHTOWER_SEALS) return '封印が解けた古い見張り台へ向かう';
+    return `西の港街道の魔物を倒し、封印片を集める ${state.sealFragments.length}/${WATCHTOWER_SEALS}`;
   }
 
   function resolveDefeat(state, gold) {
@@ -320,7 +343,9 @@
     canLearnFirstMagic,
     createPastCampaign,
     discoverCard,
+    experienceToNextLevel,
     learnFirstMagic,
+    reachWatchtower,
     resolveDefeat,
     restAtInn,
     useItem

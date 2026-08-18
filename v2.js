@@ -69,13 +69,11 @@
     visibleTileCoordinates
   } = assetApi;
   const { CARD_LIBRARY, ENEMY_INTENTS, createBattle, previewAction, resolveTurn, toggleCard } = battleApi;
-  const { advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, shouldStartEncounter } = pastWorldApi;
+  const { advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, respawnPastEnemies, shouldStartEncounter } = pastWorldApi;
   const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
   const { NPC_SPRITE_ASSETS, PAST_SCENE_ASSETS, npcPoseAt } = pastSceneApi;
   const {
-    INN_PRICE,
-    FIRST_QUEST_LOADOUT,
     SHOP_CATALOG,
     applyBattleVictory,
     battleProfile,
@@ -86,7 +84,9 @@
     canLearnFirstMagic,
     createPastCampaign,
     discoverCard,
+    experienceToNextLevel,
     learnFirstMagic,
+    reachWatchtower,
     resolveDefeat,
     restAtInn,
     useItem
@@ -432,7 +432,10 @@
     storyHp.textContent = `HP ${campaignState.currentHp} / ${profile.maxHp}`;
     storyMp.textContent = `MP ${campaignState.currentMp} / ${profile.maxMp}`;
     storyEnergy.textContent = `AP ${profile.energy}`;
-    storyExp.textContent = `EXP ${campaignState.exp}`;
+    const remainingExp = experienceToNextLevel(campaignState);
+    storyExp.textContent = remainingExp === null
+      ? `EXP ${campaignState.exp} / MAX`
+      : `EXP ${campaignState.exp} / 次まで ${remainingExp}`;
     storyObjectiveLabel.textContent = storyState.phase === 'first-mission'
       ? campaignObjective(campaignState)
       : storyObjective(storyState);
@@ -606,9 +609,8 @@
     } else if (activeServiceId === 'inn') {
       const profile = battleProfile(campaignState);
       entries.push(createServiceButton({
-        name: '一晩泊まる',
+        name: '無料で一晩泊まる',
         detail: `HPとMPを全回復　HP ${campaignState.currentHp}/${profile.maxHp}・MP ${campaignState.currentMp}/${profile.maxMp}`,
-        price: INN_PRICE,
         onClick: () => {
           const result = restAtInn(campaignState, storyState.gold);
           campaignState = result.state;
@@ -628,7 +630,7 @@
         const uniqueOwned = badge === '装備中' || badge === '所持済み';
         entries.push(createServiceButton({
           name: product.name,
-          detail: `${FIRST_QUEST_LOADOUT.includes(product.id) ? '★ 序盤おすすめ　' : ''}${product.description}`,
+          detail: product.description,
           price: product.price,
           badge,
           disabled: uniqueOwned,
@@ -657,10 +659,7 @@
     resetMapDrag();
     updateInteractionPrompt(null);
     shopMessage.textContent = serviceId === 'bag' ? '道具を使うか、装備を確認できます。' : '何を買いますか？';
-    if (serviceId === 'inn') shopMessage.textContent = '一晩12G。旅の疲れをすっかり癒やします。';
-    if (['weapon', 'armor', 'item'].includes(serviceId) && storyState.royalRewardClaimed) {
-      shopMessage.textContent = '支度金300Gなら、銅の剣・皮の鎧・やくそう2個が序盤のおすすめです。';
-    }
+    if (serviceId === 'inn') shopMessage.textContent = '新大陸へ来た旅人は無料です。旅の疲れをすっかり癒やします。';
     renderService();
     shopOverlay.setAttribute('aria-hidden', 'false');
   }
@@ -687,14 +686,18 @@
 
   function pastInteractionAvailable(interaction) {
     if (!storyUnlocksInteraction(storyState, interaction)) return false;
-    if (interaction.actionId === 'learn-first-magic') return canLearnFirstMagic(campaignState);
+    if (interaction.actionId === 'learn-first-magic') return true;
     if (interaction.cardId) return canDiscoverCard(campaignState, interaction.cardId);
     return true;
   }
 
   function transitionStoryArea(result) {
+    const previousArea = storyState.area;
     locationPositions.set(activeLocationKey, [player.x, player.y]);
     storyState = result.state;
+    if (storyState.area !== previousArea && storyState.area !== 'overworld') {
+      pastEnemies = respawnPastEnemies(pastEnemies);
+    }
     savePastStory();
     activeLocationKey = locationKey('past', storyState.area);
     const spawn = result.spawn || PAST_AREAS[storyState.area].spawn;
@@ -721,6 +724,9 @@
     if (result.dialogue) openStoryDialogue(result.dialogue);
     if (result.serviceId) openService(result.serviceId);
     if (result.actionId === 'watchtower') {
+      campaignState = reachWatchtower(campaignState);
+      savePastCampaign();
+      updateStoryStatus();
       if (campaignState.bossDefeated) {
         openStoryDialogue(STORY_DIALOGUES['watchtower-cleared']);
       } else if (canChallengeWatchtower(campaignState)) {
@@ -730,15 +736,16 @@
       }
     }
     if (result.actionId === 'learn-first-magic') {
+      if (campaignState.ownedCards.includes('spark')) {
+        openStoryDialogue(STORY_DIALOGUES['first-magic-after']);
+        return;
+      }
       const learned = learnFirstMagic(campaignState);
       campaignState = learned.state;
       if (learned.ok) savePastCampaign();
       updateStoryStatus();
       updateInteractionPrompt(null);
-      openStoryDialogue(learned.ok ? STORY_DIALOGUES['first-magic'] : {
-        id: 'first-magic-unavailable',
-        lines: [{ speaker: '旅の魔導士リゼ', text: learned.message }]
-      });
+      openStoryDialogue(learned.ok ? STORY_DIALOGUES['first-magic'] : STORY_DIALOGUES['first-magic-before']);
     }
     if (result.actionId?.startsWith('discover-card:')) {
       const cardId = result.actionId.split(':')[1];
@@ -1247,7 +1254,10 @@
     ctx.fillStyle = '#ffe7bc';
     ctx.font = '700 14px Georgia, "Yu Mincho", serif';
     ctx.textAlign = 'center';
-    ctx.fillText(cleared ? '霧の晴れた見張り台' : open ? '古い見張り台・封印解除' : `古い見張り台　封印 ${campaignState.roadVictories}/4`, 0, 56);
+    const towerLabel = campaignState.watchtowerReached
+      ? `古い見張り台　封印 ${campaignState.sealFragments.length}/4`
+      : '古い見張り台・異変';
+    ctx.fillText(cleared ? '霧の晴れた見張り台' : open ? '古い見張り台・封印解除' : towerLabel, 0, 56);
     ctx.globalAlpha = cleared ? 0.72 : glow;
     ctx.fillStyle = cleared ? '#d0bd8a' : '#ffb555';
     ctx.beginPath();
@@ -1299,7 +1309,7 @@
   }
 
   function drawPastMagicTutor() {
-    if (currentEdition !== 'past' || activeAreaId() !== 'overworld' || !canLearnFirstMagic(campaignState)) return;
+    if (currentEdition !== 'past' || activeAreaId() !== 'overworld') return;
     const tutor = pastStoryApi.PAST_INTERACTIONS.find(interaction => interaction.actionId === 'learn-first-magic');
     if (!tutor) return;
     const x = tutor.point[0] * maskScale;
@@ -1332,7 +1342,7 @@
     ctx.fillStyle = '#fff0c7';
     ctx.font = '700 12px Georgia, "Yu Mincho", serif';
     ctx.textAlign = 'center';
-    ctx.fillText('旅の魔導士', 0, 18);
+    ctx.fillText('旅の魔導士リゼ', 0, 18);
     ctx.restore();
   }
 
