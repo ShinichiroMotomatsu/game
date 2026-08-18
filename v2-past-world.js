@@ -53,6 +53,17 @@
     return { ...enemy, x: enemy.x + dx / distance * travel, y: enemy.y + dy / distance * travel };
   }
 
+  function respawnPastEnemies(enemies) {
+    return enemies.map(enemy => ({
+      ...enemy,
+      x: enemy.patrol[0][0],
+      y: enemy.patrol[0][1],
+      patrolIndex: 1,
+      active: true,
+      respawnAt: 0
+    }));
+  }
+
   function shouldStartEncounter(player, enemy, radius = 46, now = Date.now()) {
     return Boolean(enemy.active && enemy.respawnAt <= now && Math.hypot(player.x - enemy.x, player.y - enemy.y) <= radius);
   }
@@ -77,6 +88,7 @@
     createPastEnemies,
     landmarkMemoryState,
     nextMemoryStage,
+    respawnPastEnemies,
     shouldStartEncounter
   };
 });
