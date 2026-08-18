@@ -1624,11 +1624,11 @@
         drawCollisionDebug();
         drawMapLabels();
         drawPastWatchtower();
-        drawPastMagicTutor();
         drawPastCardDiscoveries();
         drawDepthSortedEntities();
         drawPastCapitalGate();
         drawPastEnemies();
+        drawPastMagicTutor();
       }
     }
     ctx.restore();
@@ -1659,7 +1659,7 @@
     intentCard.dataset.intent = intentRevealed ? intent.id : 'hidden';
     document.querySelector('#v2-battle-intent-icon').textContent = intentRevealed ? intent.icon : '？';
     document.querySelector('#v2-battle-intent').textContent = intentRevealed ? intent.name : '予兆不明';
-    document.querySelector('#v2-battle-intent-detail').textContent = intentRevealed ? intent.description : '「眼」で次の行動を見抜く';
+    document.querySelector('#v2-battle-intent-detail').textContent = intentRevealed ? intent.description : '「眼」で次の3行動を見抜く';
     document.querySelector('#v2-battle-intent-hint').textContent = intentRevealed ? intent.counterLabel : '？？';
     const enemyImage = document.querySelector('#v2-battle-enemy-image');
     const enemyImageAsset = pastEnemyImages.get(enemy.id);

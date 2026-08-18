@@ -10,7 +10,7 @@
     frost: Object.freeze({ id: 'frost', name: '霜結', discipline: 'magic', element: 'ice', icon: '氷', cost: 1, mpCost: 3, damage: 7, description: 'MP3・冷気で敵を貫く' }),
     guard: Object.freeze({ id: 'guard', name: '防ぐ', discipline: 'guard', icon: '盾', cost: 1, block: 7, description: '盾を構えて身を守る' }),
     parry: Object.freeze({ id: 'parry', name: '受流', discipline: 'guard', icon: '受', cost: 1, block: 5, damage: 2, description: '受け流しながら反撃する' }),
-    focus: Object.freeze({ id: 'focus', name: '集中', discipline: 'technique', icon: '眼', cost: 1, draw: 1, mpRestore: 2, description: '予兆を見抜きMPを2回復' }),
+    focus: Object.freeze({ id: 'focus', name: '集中', discipline: 'technique', icon: '眼', cost: 1, draw: 1, mpRestore: 2, description: '3ターン予兆を見抜きMPを2回復' }),
     feint: Object.freeze({ id: 'feint', name: '陽動', discipline: 'technique', icon: '技', cost: 1, damage: 3, weaken: 2, description: '敵を惑わせ攻撃を弱める' }),
     'flame-edge': Object.freeze({ id: 'flame-edge', name: '炎刃', discipline: 'sword', element: 'fire', icon: '焔', cost: 1, damage: 9, description: '炎をまとわせて斬りつける' }),
     fortress: Object.freeze({ id: 'fortress', name: '城壁', discipline: 'guard', icon: '城', cost: 1, block: 10, description: '堅牢な壁で身を守る' }),
@@ -134,6 +134,7 @@
       selectedMp: 0,
       readyToResolve: false,
       intentRevealed: false,
+      intentRevealTurns: 0,
       effects: [],
       log: [`${enemyDefinition.name}が現れた。`],
       reward: { gold: 0, xp: 0 }
@@ -206,7 +207,8 @@
     const action = previewAction(battle.selected);
     if (action.mpCost > battle.player.mp) return battle;
     const intent = ENEMY_INTENTS[battle.enemy.intentId] || ENEMY_INTENTS.assault;
-    const countered = battle.intentRevealed && action.disciplines.includes(intent.counteredBy);
+    const currentRevealTurns = Math.max(0, Math.floor(Number(battle.intentRevealTurns) || (battle.intentRevealed ? 1 : 0)));
+    const countered = currentRevealTurns > 0 && action.disciplines.includes(intent.counteredBy);
     const weaknessElement = action.elements.find(element => element === battle.enemy.weakness);
     const weaknessHit = Boolean(weaknessElement && action.damage > 0);
     const amplifiedDamage = weaknessHit ? Math.round(action.damage * WEAKNESS_MULTIPLIER) : action.damage;
@@ -292,6 +294,7 @@
     const needed = Math.max(0, 5 + action.draw - remainingHand.length);
     const nextDraw = drawCards(battle.deck, [...battle.discard, ...spent], needed, random);
     const intentPattern = battle.enemy.intentPattern || INTENT_PATTERN;
+    const intentRevealTurns = action.revealIntent ? 3 : Math.max(0, currentRevealTurns - 1);
     return {
       ...battle,
       turn: battle.turn + 1,
@@ -310,7 +313,8 @@
       selectedCost: 0,
       selectedMp: 0,
       readyToResolve: false,
-      intentRevealed: action.revealIntent,
+      intentRevealed: intentRevealTurns > 0,
+      intentRevealTurns,
       effects,
       log: [...battle.log, ...log].slice(-6)
     };

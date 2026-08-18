@@ -101,15 +101,35 @@ test('matching guard to a revealed assault triggers a read and cancels its damag
   assert.equal(next.enemy.intentId, 'ward');
 });
 
-test('the eye card reveals the following turn intent only', () => {
+test('the eye card reveals enemy intents for the following three turns', () => {
   let battle = createBattle('mist-slime', () => 0);
   battle = { ...battle, hand: ['focus', 'guard', 'slash', 'spark', 'frost'], selected: ['focus'] };
   const revealed = resolveTurn(battle, () => 0);
   assert.equal(revealed.enemy.intentId, 'ward');
   assert.equal(revealed.intentRevealed, true);
+  assert.equal(revealed.intentRevealTurns, 3);
 
-  const afterReveal = resolveTurn({ ...revealed, selected: ['slash'] }, () => 0);
-  assert.equal(afterReveal.intentRevealed, false);
+  const first = resolveTurn({ ...revealed, selected: ['guard'] }, () => 0);
+  assert.equal(first.intentRevealTurns, 2);
+  assert.equal(first.intentRevealed, true);
+  const second = resolveTurn({ ...first, selected: ['guard'] }, () => 0);
+  assert.equal(second.intentRevealTurns, 1);
+  assert.equal(second.intentRevealed, true);
+  const third = resolveTurn({ ...second, selected: ['guard'] }, () => 0);
+  assert.equal(third.intentRevealTurns, 0);
+  assert.equal(third.intentRevealed, false);
+});
+
+test('using the eye again refreshes its reveal duration to three turns', () => {
+  const battle = {
+    ...createBattle('mist-slime', () => 0),
+    intentRevealed: true,
+    intentRevealTurns: 1,
+    hand: ['focus', 'guard', 'slash', 'spark', 'frost'],
+    selected: ['focus']
+  };
+  const refreshed = resolveTurn(battle, () => 0);
+  assert.equal(refreshed.intentRevealTurns, 3);
 });
 
 test('the wrong discipline does not counter an assault', () => {
