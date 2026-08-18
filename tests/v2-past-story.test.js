@@ -240,11 +240,15 @@ test('the traveling mage remains visible and talkable before and after teaching 
   const runtime = fs.readFileSync('v2.js', 'utf8');
   const tutorRenderer = runtime.slice(runtime.indexOf('function drawPastMagicTutor'), runtime.indexOf('function roundedRectanglePath'));
   const availability = runtime.slice(runtime.indexOf('function pastInteractionAvailable'), runtime.indexOf('function transitionStoryArea'));
+  const overworldRenderer = runtime.slice(runtime.indexOf('function render()'), runtime.indexOf('function renderBattle'));
+  const tutor = PAST_INTERACTIONS.find(interaction => interaction.actionId === 'learn-first-magic');
 
   assert.doesNotMatch(tutorRenderer, /canLearnFirstMagic/);
   assert.match(tutorRenderer, /旅の魔導士リゼ/);
   assert.match(availability, /learn-first-magic[^\n]+return true/);
   assert.match(runtime, /first-magic-after/);
+  assert.ok(tutor.point[0] < 222, 'the mage should stand west of the castle artwork');
+  assert.ok(overworldRenderer.indexOf('drawPastMagicTutor()') > overworldRenderer.indexOf('drawDepthSortedEntities()'), 'the mage should render above landmark art');
 });
 
 test('the capital marker stays visible while enemies wait for the royal mission', () => {
