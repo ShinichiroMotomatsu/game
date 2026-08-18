@@ -18,6 +18,14 @@
     castle: Object.freeze({
       id: 'castle', name: '蜘蛛守の王城', width: 1000, height: 760,
       spawn: Object.freeze([500, 645])
+    }),
+    'crossroads-town': Object.freeze({
+      id: 'crossroads-town', name: '交差路の街クアドラ', width: 1200, height: 900,
+      spawn: Object.freeze([600, 795])
+    }),
+    'crossroads-dungeon': Object.freeze({
+      id: 'crossroads-dungeon', name: '四門水路', width: 1200, height: 900,
+      spawn: Object.freeze([600, 805])
     })
   });
 
@@ -58,6 +66,22 @@
     Object.freeze([610, 655, 390, 105])
   ]);
 
+  const CROSSROADS_TOWN_COLLISION_RECTS = Object.freeze([
+    Object.freeze([0, 0, 115, 900]), Object.freeze([1085, 0, 115, 900]),
+    Object.freeze([0, 0, 1200, 85]),
+    Object.freeze([0, 820, 500, 80]), Object.freeze([700, 820, 500, 80]),
+    Object.freeze([115, 95, 260, 240]), Object.freeze([825, 95, 260, 240]),
+    Object.freeze([115, 615, 275, 205]), Object.freeze([810, 615, 275, 205])
+  ]);
+
+  const CROSSROADS_DUNGEON_COLLISION_RECTS = Object.freeze([
+    Object.freeze([0, 0, 90, 900]), Object.freeze([1110, 0, 90, 900]),
+    Object.freeze([0, 0, 1200, 70]),
+    Object.freeze([0, 835, 500, 65]), Object.freeze([700, 835, 500, 65]),
+    Object.freeze([90, 650, 385, 185]), Object.freeze([725, 650, 385, 185]),
+    Object.freeze([420, 300, 110, 205]), Object.freeze([670, 300, 110, 205])
+  ]);
+
   const TOWN_NPCS = Object.freeze([
     Object.freeze({ id: 'town-mapmaker', role: 'villager', sprite: 'villager-man', name: '地図師見習いノル', point: Object.freeze([540, 585]), patrol: Object.freeze({ axis: 'x', distance: 36, periodMs: 5600, phase: 0.1 }), dialogueId: 'town-mapmaker' }),
     Object.freeze({ id: 'town-shopper', role: 'villager', sprite: 'villager-woman', name: '買い物帰りの女性', point: Object.freeze([865, 585]), patrol: Object.freeze({ axis: 'y', distance: 34, periodMs: 6200, phase: 0.55 }), dialogueId: 'town-shopper' }),
@@ -70,6 +94,12 @@
     Object.freeze({ id: 'soldier-left', role: 'soldier', sprite: 'soldier', name: '王城兵', point: Object.freeze([355, 320]), patrol: Object.freeze({ axis: 'y', distance: 24, periodMs: 6000, phase: 0.1 }) }),
     Object.freeze({ id: 'soldier-right', role: 'soldier', sprite: 'soldier', name: '王城兵', point: Object.freeze([645, 320]), patrol: Object.freeze({ axis: 'y', distance: 24, periodMs: 6000, phase: 0.6 }) }),
     Object.freeze({ id: 'soldier-door', role: 'soldier', sprite: 'soldier', name: '門衛', point: Object.freeze([420, 610]), patrol: Object.freeze({ axis: 'x', distance: 34, periodMs: 5400, phase: 0.25 }) })
+  ]);
+
+  const CROSSROADS_NPCS = Object.freeze([
+    Object.freeze({ id: 'crossroads-merchant', role: 'villager', sprite: 'villager-man', name: '東西商会の番頭', point: Object.freeze([420, 500]), patrol: Object.freeze({ axis: 'y', distance: 24, periodMs: 6200, phase: 0.2 }), dialogueId: 'crossroads-merchant' }),
+    Object.freeze({ id: 'crossroads-guide', role: 'villager', sprite: 'villager-woman', name: '水路番の娘', point: Object.freeze([770, 390]), patrol: Object.freeze({ axis: 'x', distance: 28, periodMs: 6500, phase: 0.5 }), dialogueId: 'crossroads-guide' }),
+    Object.freeze({ id: 'crossroads-guard', role: 'soldier', sprite: 'soldier', name: '四門衛兵', point: Object.freeze([600, 250]), patrol: Object.freeze({ axis: 'x', distance: 32, periodMs: 7000, phase: 0.8 }), dialogueId: 'crossroads-guard' })
   ]);
 
   const STORY_DIALOGUES = Object.freeze({
@@ -115,6 +145,45 @@
         Object.freeze({ speaker: 'アルディオン王', text: '父の足跡について記録を調べている。次の手掛かりが見つかるまで、王都で旅支度を整えておくがよい。' })
       ])
     }),
+    'king-crossroads-mission': Object.freeze({
+      id: 'king-crossroads-mission',
+      onComplete: 'crossroads-mission-start',
+      lines: Object.freeze([
+        Object.freeze({ speaker: 'アルディオン王', text: '見張り台で見つかった方位紋は、四つの街道が交わる交易都市クアドラの紋章でもある。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: 'この数日、六本木の交差路にあたるあの街から、荷馬車も伝令も来なくなった。交通の要所が沈黙すれば国中が分断される。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: '交差路の街へ向かい、街道が止まった原因を調べてほしい。父エルドも四門水路の古い地図を残している。' })
+      ])
+    }),
+    'crossroads-arrival': Object.freeze({
+      id: 'crossroads-arrival',
+      lines: Object.freeze([
+        Object.freeze({ speaker: '地の文', text: '四つの街道が大きな羅針盤広場で交わる、交差路の街クアドラへ着いた。' }),
+        Object.freeze({ speaker: '地の文', text: '本来は交通と交易の声が絶えない街だが、今は地下から響く水音だけが広場を満たしている。' })
+      ])
+    }),
+    'crossroads-merchant': Object.freeze({ id: 'crossroads-merchant', lines: Object.freeze([
+      Object.freeze({ speaker: '東西商会の番頭', text: '地下水路が暴れ出してから四方の門が閉じた。武具庫には昔の街道守が使った剣が残っているはずだ。' })
+    ]) }),
+    'crossroads-guide': Object.freeze({ id: 'crossroads-guide', lines: Object.freeze([
+      Object.freeze({ speaker: '水路番の娘', text: '四門水路は中央の円形広間から左右へ枝分かれするの。宝物庫を調べてから北の祭壇へ進んで。' })
+    ]) }),
+    'crossroads-guard': Object.freeze({ id: 'crossroads-guard', lines: Object.freeze([
+      Object.freeze({ speaker: '四門衛兵', text: '北門脇の階段が水路への入口だ。最深部の守護機兵が四つの門を封じている。' })
+    ]) }),
+    'crossroads-boss-cleared': Object.freeze({ id: 'crossroads-boss-cleared', onComplete: 'crossroads-boss-defeated', lines: Object.freeze([
+      Object.freeze({ speaker: '地の文', text: '守護機兵の方位核が砕け、水門がゆっくりと開いていく。地上から荷車の鐘と人々の歓声が聞こえた。' }),
+      Object.freeze({ speaker: '地の文', text: '祭壇の裏には、地図師エルドの筆跡で「道は場所ではなく、人と人を結ぶ」と刻まれていた。' })
+    ]) }),
+    'king-crossroads-report': Object.freeze({ id: 'king-crossroads-report', onComplete: 'crossroads-report-complete', lines: Object.freeze([
+      Object.freeze({ speaker: 'アルディオン王', text: '四つの門が開き、交易路に人が戻ったと報せが届いた。国を結ぶ道を取り戻した功、見事である。' }),
+      Object.freeze({ speaker: 'アルディオン王', text: 'エルドの言葉も見つけたか。あの者は地図に道だけでなく、その先にいる人々を描こうとしていた。' })
+    ]) }),
+    'king-crossroads-reminder': Object.freeze({ id: 'king-crossroads-reminder', lines: Object.freeze([
+      Object.freeze({ speaker: 'アルディオン王', text: '交差路の街クアドラへ向かい、止まった四つの街道を取り戻してくれ。' })
+    ]) }),
+    'king-after-crossroads': Object.freeze({ id: 'king-after-crossroads', lines: Object.freeze([
+      Object.freeze({ speaker: 'アルディオン王', text: '交易路は再び動き始めた。エルドの次の足跡について、届いた記録を調べている。' })
+    ]) }),
     'first-magic': Object.freeze({
       id: 'first-magic',
       lines: Object.freeze([
@@ -189,6 +258,7 @@
     Object.freeze({ id: 'road-mage', area: 'overworld', point: Object.freeze([205, 460]), radius: 34, label: '旅の魔導士と話す', actionId: 'learn-first-magic' }),
     Object.freeze({ id: 'frost-card-chest', area: 'overworld', point: Object.freeze([245, 500]), radius: 28, label: '青い宝箱を開ける', actionId: 'discover-card:frost', cardId: 'frost', unlockAfter: 'watchtower-boss' }),
     Object.freeze({ id: 'mend-card-chest', area: 'overworld', point: Object.freeze([90, 570]), radius: 28, label: '白い宝箱を開ける', actionId: 'discover-card:mend', cardId: 'mend', unlockAfter: 'watchtower-boss' }),
+    Object.freeze({ id: 'crossroads-gate', area: 'overworld', point: Object.freeze([416, 354]), radius: 42, label: '交差路の街クアドラへ入る', targetArea: 'crossroads-town', spawn: PAST_AREAS['crossroads-town'].spawn, unlockAfter: 'first-mission-complete', dialogueOnEnter: 'crossroads-arrival' }),
     Object.freeze({ id: 'castle-door', area: 'castle-town', point: Object.freeze([700, 515]), radius: 72, label: '王城へ入る', targetArea: 'castle', spawn: PAST_AREAS.castle.spawn }),
     Object.freeze({ id: 'capital-exit', area: 'castle-town', point: Object.freeze([700, 950]), radius: 55, label: '新大陸の街道へ戻る', targetArea: 'overworld', spawn: PAST_START.capitalGatePoint }),
     Object.freeze({ id: 'castle-exit', area: 'castle', point: Object.freeze([500, 720]), radius: 52, label: '城下町へ戻る', targetArea: 'castle-town', spawn: Object.freeze([700, 575]) }),
@@ -197,6 +267,14 @@
     Object.freeze({ id: 'soldier-right', area: 'castle', point: Object.freeze([635, 330]), radius: 65, label: '兵士と話す', dialogueId: 'soldier-greeting' }),
     Object.freeze({ id: 'soldier-door', area: 'castle', point: Object.freeze([420, 610]), radius: 72, label: '門衛と話す', dialogueId: 'soldier-greeting' }),
     ...TOWN_NPCS.map(npc => Object.freeze({ id: npc.id, area: 'castle-town', point: npc.point, radius: 54, label: `${npc.name}と話す`, dialogueId: npc.dialogueId })),
+    ...CROSSROADS_NPCS.map(npc => Object.freeze({ id: npc.id, area: 'crossroads-town', point: npc.point, radius: 54, label: `${npc.name}と話す`, dialogueId: npc.dialogueId })),
+    Object.freeze({ id: 'crossroads-town-exit', area: 'crossroads-town', point: Object.freeze([600, 835]), radius: 58, label: '街道へ戻る', targetArea: 'overworld', spawn: Object.freeze([416, 354]) }),
+    Object.freeze({ id: 'crossroads-dungeon-door', area: 'crossroads-town', point: Object.freeze([600, 145]), radius: 62, label: '四門水路へ降りる', targetArea: 'crossroads-dungeon', spawn: PAST_AREAS['crossroads-dungeon'].spawn }),
+    Object.freeze({ id: 'crossroads-dungeon-exit', area: 'crossroads-dungeon', point: Object.freeze([600, 835]), radius: 58, label: '交差路の街へ戻る', targetArea: 'crossroads-town', spawn: Object.freeze([600, 185]) }),
+    Object.freeze({ id: 'armory-coffer', area: 'crossroads-dungeon', point: Object.freeze([225, 475]), radius: 48, label: '武具庫の宝箱を開ける', actionId: 'dungeon-treasure:armory-coffer' }),
+    Object.freeze({ id: 'merchant-cache', area: 'crossroads-dungeon', point: Object.freeze([965, 485]), radius: 48, label: '商人の備蓄箱を開ける', actionId: 'dungeon-treasure:merchant-cache' }),
+    Object.freeze({ id: 'rune-coffer', area: 'crossroads-dungeon', point: Object.freeze([300, 205]), radius: 48, label: '方位石の宝箱を開ける', actionId: 'dungeon-treasure:rune-coffer' }),
+    Object.freeze({ id: 'crossroads-boss-altar', area: 'crossroads-dungeon', point: Object.freeze([600, 165]), radius: 72, label: '北の祭壇を調べる', actionId: 'crossroads-boss' }),
     Object.freeze({ id: 'weapon-shop', area: 'castle-town', point: Object.freeze([230, 385]), radius: 84, label: '武器屋で買い物する', serviceId: 'weapon' }),
     Object.freeze({ id: 'armor-shop', area: 'castle-town', point: Object.freeze([1240, 390]), radius: 84, label: '防具屋で買い物する', serviceId: 'armor' }),
     Object.freeze({ id: 'item-shop', area: 'castle-town', point: Object.freeze([215, 680]), radius: 84, label: '道具屋で買い物する', serviceId: 'item' }),
@@ -206,14 +284,14 @@
 
   function createPastStory(saved = {}) {
     const area = Object.hasOwn(PAST_AREAS, saved.area) ? saved.area : 'overworld';
-    const phase = ['arrival', 'seek-king', 'first-mission', 'first-mission-report', 'first-mission-complete'].includes(saved.phase) ? saved.phase : 'arrival';
+    const phase = ['arrival', 'seek-king', 'first-mission', 'first-mission-report', 'first-mission-complete', 'second-mission', 'second-mission-report', 'second-mission-complete'].includes(saved.phase) ? saved.phase : 'arrival';
     const parsedGold = Number(saved.gold);
     return {
       area,
       phase,
       gold: Number.isFinite(parsedGold) && parsedGold >= 0 ? Math.floor(parsedGold) : 0,
       arrivalSeen: Boolean(saved.arrivalSeen || phase !== 'arrival'),
-      royalRewardClaimed: Boolean(saved.royalRewardClaimed || phase === 'first-mission' || phase === 'first-mission-report' || phase === 'first-mission-complete')
+      royalRewardClaimed: Boolean(saved.royalRewardClaimed || !['arrival', 'seek-king'].includes(phase))
     };
   }
 
@@ -240,6 +318,9 @@
     if (eventId === 'first-mission-report-complete' && state.phase === 'first-mission-report') {
       return { ...state, phase: 'first-mission-complete' };
     }
+    if (eventId === 'crossroads-mission-start' && state.phase === 'first-mission-complete') return { ...state, phase: 'second-mission' };
+    if (eventId === 'crossroads-boss-defeated' && state.phase === 'second-mission') return { ...state, phase: 'second-mission-report' };
+    if (eventId === 'crossroads-report-complete' && state.phase === 'second-mission-report') return { ...state, phase: 'second-mission-complete' };
     return state;
   }
 
@@ -248,6 +329,9 @@
     if (state.phase === 'seek-king') return '蜘蛛守の王城で王に謁見する';
     if (state.phase === 'first-mission') return '西の港街道で起きている異変を調べる';
     if (state.phase === 'first-mission-report') return '古い見張り台の調査結果を王に報告する';
+    if (state.phase === 'first-mission-complete') return '王から父の足跡につながる次の依頼を受ける';
+    if (state.phase === 'second-mission') return '交差路の街クアドラの異変を調べる';
+    if (state.phase === 'second-mission-report') return '交差路の街が復旧したことを王へ報告する';
     return '父の足跡について王城の調査を待つ';
   }
 
@@ -258,6 +342,7 @@
   function storyUnlocksInteraction(state, interaction) {
     if (!interaction) return false;
     if (interaction.unlockAfter === 'king-audience') return storyAllowsEncounters(state);
+    if (interaction.unlockAfter === 'first-mission-complete') return ['second-mission', 'second-mission-report', 'second-mission-complete'].includes(state.phase);
     return true;
   }
 
@@ -270,15 +355,21 @@
       return {
         state: { ...state, area: interaction.targetArea },
         spawn: interaction.spawn,
-        dialogue: null,
+        dialogue: STORY_DIALOGUES[interaction.dialogueOnEnter] || null,
         serviceId: null,
         actionId: null
       };
     }
     const dialogueId = interaction.id === 'king' && state.phase === 'first-mission-report'
       ? 'king-mission-complete'
+      : interaction.id === 'king' && state.phase === 'second-mission-report'
+        ? 'king-crossroads-report'
+      : interaction.id === 'king' && state.phase === 'second-mission'
+        ? 'king-crossroads-reminder'
+      : interaction.id === 'king' && state.phase === 'second-mission-complete'
+        ? 'king-after-crossroads'
       : interaction.id === 'king' && state.phase === 'first-mission-complete'
-        ? 'king-after-first-mission'
+        ? 'king-crossroads-mission'
       : interaction.id === 'king' && state.royalRewardClaimed
         ? 'king-reminder'
         : interaction.dialogueId;
@@ -318,6 +409,10 @@
       ? TOWN_COLLISION_RECTS
       : areaId === 'castle'
         ? CASTLE_COLLISION_RECTS
+        : areaId === 'crossroads-town'
+          ? CROSSROADS_TOWN_COLLISION_RECTS
+          : areaId === 'crossroads-dungeon'
+            ? CROSSROADS_DUNGEON_COLLISION_RECTS
         : [];
     return collisionRects.every(rect => {
       const [left, top, width, height] = rect;
@@ -347,6 +442,7 @@
   return {
     CASTLE_COLLISION_RECTS,
     CASTLE_NPCS,
+    CROSSROADS_NPCS,
     PAST_AREAS,
     PAST_INTERACTIONS,
     PAST_START,

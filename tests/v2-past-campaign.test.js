@@ -7,6 +7,7 @@ const {
   FIRST_QUEST_LOADOUT,
   LEVEL_TABLE,
   SHOP_CATALOG,
+  DUNGEON_TREASURES,
   applyBattleVictory,
   battleProfile,
   buyProduct,
@@ -18,6 +19,7 @@ const {
   discoverCard,
   experienceToNextLevel,
   learnFirstMagic,
+  openDungeonTreasure,
   reachWatchtower,
   resolveDefeat,
   restAtInn,
@@ -129,6 +131,39 @@ test('later magic discoveries remain hidden until the first boss is defeated', (
   assert.equal(found.ok, true);
   assert.equal(battleProfile(found.state).deck.includes('frost'), true);
   assert.equal(repeated.ok, false);
+});
+
+test('dungeon treasure grants unique equipment, supplies, and a combat card once', () => {
+  let campaign = createPastCampaign({ bossDefeated: true });
+  for (const treasure of DUNGEON_TREASURES) {
+    const opened = openDungeonTreasure(campaign, treasure.id);
+    assert.equal(opened.ok, true, treasure.id);
+    campaign = opened.state;
+  }
+  assert.equal(campaign.equipment.weapon, 'crossroads-blade');
+  assert.equal(campaign.inventory.herb, 3);
+  assert.equal(campaign.inventory['magic-water'], 2);
+  assert.equal(campaign.ownedCards.includes('cross-slash'), true);
+  assert.equal(battleProfile(campaign).deck.includes('cross-slash'), true);
+  const repeated = openDungeonTreasure(campaign, DUNGEON_TREASURES[0].id);
+  assert.equal(repeated.ok, false);
+  assert.equal(repeated.state, campaign);
+});
+
+test('dungeon treasure progress survives save normalization', () => {
+  const restored = createPastCampaign({
+    openedDungeonChests: ['armory-coffer', 'unknown-chest'],
+    crossroadsBossDefeated: true
+  });
+  assert.deepEqual(restored.openedDungeonChests, ['armory-coffer']);
+  assert.equal(restored.crossroadsBossDefeated, true);
+});
+
+test('the crossroads guardian is the chapter-two boss reward target', () => {
+  const boss = ENEMY_LIBRARY['crossroads-sentinel'];
+  assert.equal(boss.boss, true);
+  assert.equal(boss.xp, 180);
+  assert.ok(boss.maxHp > ENEMY_LIBRARY['mist-watcher'].maxHp);
 });
 
 test('herbs heal outside battle and are consumed', () => {

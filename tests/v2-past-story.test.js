@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const {
   CASTLE_NPCS,
   CASTLE_COLLISION_RECTS,
+  CROSSROADS_NPCS,
   PAST_AREAS,
   PAST_INTERACTIONS,
   PAST_START,
@@ -146,6 +147,44 @@ test('defeating the watchtower boss completes the first investigation', () => {
   assert.equal(complete.phase, 'first-mission-complete');
   assert.match(storyObjective(complete), /父の足跡/);
   assert.equal(storyAllowsEncounters(complete), true);
+});
+
+test('the next royal audience opens the crossroads chapter at Roppongi Crossing', () => {
+  const completedFirstQuest = createPastStory({
+    phase: 'first-mission-complete', royalRewardClaimed: true
+  });
+  const audience = activatePastInteraction({ ...completedFirstQuest, area: 'castle' }, 'king');
+  assert.equal(audience.dialogue.id, 'king-crossroads-mission');
+  const chapterTwo = completeStoryEvent(completedFirstQuest, 'crossroads-mission-start');
+  assert.equal(chapterTwo.phase, 'second-mission');
+  assert.match(storyObjective(chapterTwo), /交差路の街/);
+});
+
+test('the traffic-hub town and dungeon form a reversible route', () => {
+  const chapterTwo = createPastStory({ area: 'overworld', phase: 'second-mission', royalRewardClaimed: true });
+  const town = activatePastInteraction(chapterTwo, 'crossroads-gate');
+  assert.equal(town.state.area, 'crossroads-town');
+  const dungeon = activatePastInteraction(town.state, 'crossroads-dungeon-door');
+  assert.equal(dungeon.state.area, 'crossroads-dungeon');
+  const returnToTown = activatePastInteraction(dungeon.state, 'crossroads-dungeon-exit');
+  assert.equal(returnToTown.state.area, 'crossroads-town');
+  assert.ok(CROSSROADS_NPCS.length >= 3);
+});
+
+test('Roppongi Crossing is represented as a four-road trade hub', () => {
+  const dialogue = STORY_DIALOGUES['crossroads-arrival'].lines.map(line => line.text).join('');
+  assert.match(dialogue, /四つの街道|交通|交易/);
+  const gate = PAST_INTERACTIONS.find(interaction => interaction.id === 'crossroads-gate');
+  assert.deepEqual(gate.point, [416, 354]);
+  assert.equal(gate.unlockAfter, 'first-mission-complete');
+});
+
+test('the dungeon exposes three treasure chests and a final boss altar', () => {
+  const dungeonInteractions = PAST_INTERACTIONS.filter(interaction => interaction.area === 'crossroads-dungeon');
+  assert.equal(dungeonInteractions.filter(interaction => interaction.actionId?.startsWith('dungeon-treasure:')).length, 3);
+  assert.equal(dungeonInteractions.some(interaction => interaction.actionId === 'crossroads-boss'), true);
+  assert.equal(canStandInPastArea('crossroads-dungeon', 600, 450, 10), true);
+  assert.equal(canStandInPastArea('crossroads-dungeon', 50, 450, 10), false);
 });
 
 test('town collision keeps the player outside buildings while leaving streets walkable', () => {

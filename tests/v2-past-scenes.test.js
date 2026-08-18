@@ -19,7 +19,9 @@ test('the royal capital is rendered as ground, building, and character raster la
   assert.deepEqual(Object.keys(PAST_SCENE_ASSETS).sort(), [
     'castle-interior',
     'castle-town-buildings',
-    'castle-town-ground'
+    'castle-town-ground',
+    'crossroads-dungeon',
+    'crossroads-town'
   ]);
   for (const asset of Object.values(PAST_SCENE_ASSETS)) {
     assert.match(asset.path, /^assets\/v2\/past-scenes\/.+\.png$/);
@@ -33,6 +35,14 @@ test('overworld event people and structures use transparent raster assets', () =
   ]);
   for (const asset of Object.values(PAST_EVENT_ASSETS)) {
     assert.match(asset.path, /^assets\/v2\/past-events\/.+\.png$/);
+    assert.equal(fs.existsSync(asset.path), true, `${asset.path} is missing`);
+  }
+});
+
+test('the crossroads town and dungeon use dedicated raster backgrounds', () => {
+  for (const id of ['crossroads-town', 'crossroads-dungeon']) {
+    const asset = PAST_SCENE_ASSETS[id];
+    assert.ok(asset, `${id} should be declared`);
     assert.equal(fs.existsSync(asset.path), true, `${asset.path} is missing`);
   }
 });

@@ -3,7 +3,7 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.V2_PAST_CAMPAIGN = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
-  const CAMPAIGN_SCHEMA_VERSION = 3;
+  const CAMPAIGN_SCHEMA_VERSION = 4;
   const STARTER_DECK = Object.freeze(['slash', 'focus', 'guard']);
   const DISCOVERABLE_CARDS = Object.freeze({
     spark: Object.freeze({ id: 'spark', name: '火花の札', unlockAfter: 'first-victory', description: 'MP2で炎属性の一撃を放つ最初の魔法カード' }),
@@ -13,6 +13,14 @@
   const INN_PRICE = 0;
   const WATCHTOWER_SEALS = 4;
   const FIRST_QUEST_LOADOUT = Object.freeze(['bronze-sword', 'leather-armor', 'herb', 'herb']);
+  const QUEST_REWARDS = Object.freeze({
+    'crossroads-blade': Object.freeze({ id: 'crossroads-blade', type: 'weapon', name: '交差路の剣', attack: 7, description: '四方へ伸びる刃紋を刻んだ剣。攻撃力＋7' })
+  });
+  const DUNGEON_TREASURES = Object.freeze([
+    Object.freeze({ id: 'armory-coffer', name: '武具庫の宝箱', weaponId: 'crossroads-blade' }),
+    Object.freeze({ id: 'merchant-cache', name: '商人の備蓄箱', items: Object.freeze({ herb: 3, 'magic-water': 2 }) }),
+    Object.freeze({ id: 'rune-coffer', name: '方位石の宝箱', cardId: 'cross-slash' })
+  ]);
 
   const LEVEL_TABLE = Object.freeze([
     Object.freeze({ level: 1, exp: 0, maxHp: 42, maxMp: 6, energy: 1, attack: 0, defense: 0 }),
@@ -65,10 +73,14 @@
     ])
   });
 
-  const PRODUCTS = new Map(Object.values(SHOP_CATALOG).flat().map(product => [product.id, product]));
+  const PRODUCTS = new Map([
+    ...Object.values(SHOP_CATALOG).flat().map(product => [product.id, product]),
+    ...Object.values(QUEST_REWARDS).map(product => [product.id, product])
+  ]);
   const UNLOCKABLE_CARD_IDS = new Set([
     ...Object.keys(DISCOVERABLE_CARDS),
-    ...SHOP_CATALOG.card.map(card => card.id)
+    ...SHOP_CATALOG.card.map(card => card.id),
+    'cross-slash'
   ]);
 
   function levelDefinition(level) {
@@ -139,7 +151,9 @@
       roadVictories: defeatedRoadEnemies.length,
       watchtowerReached,
       sealFragments: migratedSealFragments,
-      bossDefeated
+      bossDefeated,
+      openedDungeonChests: sanitizeIds(saved.openedDungeonChests, value => DUNGEON_TREASURES.some(treasure => treasure.id === value)),
+      crossroadsBossDefeated: Boolean(saved.crossroadsBossDefeated)
     };
   }
 
@@ -200,6 +214,42 @@
       state: { ...state, ownedCards: [...state.ownedCards, cardId] },
       card,
       message: `${card.name}を見つけ、デッキに加えた。`
+    };
+  }
+
+  function openDungeonTreasure(state, treasureId) {
+    const treasure = DUNGEON_TREASURES.find(candidate => candidate.id === treasureId);
+    if (!treasure) return { ok: false, state, message: '空の石箱だ。' };
+    if (state.openedDungeonChests.includes(treasureId)) {
+      return { ok: false, state, treasure, message: `${treasure.name}はすでに開けている。` };
+    }
+    const inventory = { ...state.inventory };
+    for (const [itemId, amount] of Object.entries(treasure.items || {})) {
+      const product = PRODUCTS.get(itemId);
+      inventory[itemId] = Math.min(product.maxQuantity, (inventory[itemId] || 0) + amount);
+    }
+    const equipment = treasure.weaponId
+      ? { ...state.equipment, weapon: treasure.weaponId }
+      : state.equipment;
+    const ownedCards = treasure.cardId && !state.ownedCards.includes(treasure.cardId)
+      ? [...state.ownedCards, treasure.cardId]
+      : state.ownedCards;
+    const rewards = [
+      treasure.weaponId ? PRODUCTS.get(treasure.weaponId).name : '',
+      treasure.cardId ? '十字斬りの札' : '',
+      treasure.items ? 'やくそう×3・まほうの雫×2' : ''
+    ].filter(Boolean).join('、');
+    return {
+      ok: true,
+      state: {
+        ...state,
+        equipment,
+        inventory,
+        ownedCards,
+        openedDungeonChests: [...state.openedDungeonChests, treasureId]
+      },
+      treasure,
+      message: `${treasure.name}から${rewards}を手に入れた。`
     };
   }
 
@@ -300,7 +350,8 @@
       defeatedRoadEnemies,
       roadVictories: defeatedRoadEnemies.length,
       sealFragments,
-      bossDefeated: state.bossDefeated || encounterId === 'watchtower-boss'
+      bossDefeated: state.bossDefeated || encounterId === 'watchtower-boss',
+      crossroadsBossDefeated: state.crossroadsBossDefeated || encounterId === 'crossroads-boss'
     };
     return { state: next, leveledUp, levelsGained: level - previousLevel };
   }
@@ -327,6 +378,7 @@
   }
 
   return {
+    DUNGEON_TREASURES,
     MAIN_STORY_PACING,
     INN_PRICE,
     DISCOVERABLE_CARDS,
@@ -345,6 +397,7 @@
     discoverCard,
     experienceToNextLevel,
     learnFirstMagic,
+    openDungeonTreasure,
     reachWatchtower,
     resolveDefeat,
     restAtInn,

@@ -88,6 +88,7 @@
     discoverCard,
     experienceToNextLevel,
     learnFirstMagic,
+    openDungeonTreasure,
     reachWatchtower,
     resolveDefeat,
     restAtInn,
@@ -95,6 +96,7 @@
   } = pastCampaignApi;
   const {
     CASTLE_NPCS,
+    CROSSROADS_NPCS,
     PAST_AREAS,
     PAST_START,
     STORY_DIALOGUES,
@@ -245,7 +247,9 @@
     ['modern-overworld', [roppongiCrossing.point[0] * maskScale, roppongiCrossing.point[1] * maskScale]],
     ['past-overworld', [PAST_START.point[0] * maskScale, PAST_START.point[1] * maskScale]],
     ['past-castle-town', [...PAST_AREAS['castle-town'].spawn]],
-    ['past-castle', [...PAST_AREAS.castle.spawn]]
+    ['past-castle', [...PAST_AREAS.castle.spawn]],
+    ['past-crossroads-town', [...PAST_AREAS['crossroads-town'].spawn]],
+    ['past-crossroads-dungeon', [...PAST_AREAS['crossroads-dungeon'].spawn]]
   ]);
   let showCollision = false;
   let assetLoadGeneration = 0;
@@ -256,7 +260,8 @@
     ['mist-slime', 'mist-slime.png'],
     ['gutter-goblin', 'gutter-goblin.png'],
     ['rune-wolf', 'rune-wolf.png'],
-    ['mist-watcher', 'rune-wolf.png']
+    ['mist-watcher', 'rune-wolf.png'],
+    ['crossroads-sentinel', 'crossroads-sentinel.png']
   ];
   for (const editionId of editionIds) {
     const images = new Map();
@@ -308,6 +313,22 @@
         sceneAssetKey('castle-town-ground'),
         sceneAssetKey('castle-town-buildings'),
         ...new Set(TOWN_NPCS.map(npc => npcAssetKey(npc.sprite)))
+      ];
+    }
+    if (activeAreaId() === 'crossroads-town') {
+      return [
+        ...playerAssets,
+        sceneAssetKey('crossroads-town'),
+        ...new Set(CROSSROADS_NPCS.map(npc => npcAssetKey(npc.sprite)))
+      ];
+    }
+    if (activeAreaId() === 'crossroads-dungeon') {
+      return [
+        ...playerAssets,
+        sceneAssetKey('crossroads-dungeon'),
+        eventAssetKey('card-chest-frost'),
+        eventAssetKey('card-chest-mend'),
+        enemyAssetKey('crossroads-sentinel')
       ];
     }
     return [
@@ -735,6 +756,10 @@
     if (!storyUnlocksInteraction(storyState, interaction)) return false;
     if (interaction.actionId === 'learn-first-magic') return true;
     if (interaction.cardId) return canDiscoverCard(campaignState, interaction.cardId);
+    if (interaction.actionId?.startsWith('dungeon-treasure:')) {
+      return !campaignState.openedDungeonChests.includes(interaction.actionId.split(':')[1]);
+    }
+    if (interaction.actionId === 'crossroads-boss') return !campaignState.crossroadsBossDefeated;
     return true;
   }
 
@@ -810,6 +835,18 @@
             : discovery.message
         }]
       });
+    }
+    if (result.actionId?.startsWith('dungeon-treasure:')) {
+      const treasureId = result.actionId.split(':')[1];
+      const opened = openDungeonTreasure(campaignState, treasureId);
+      campaignState = opened.state;
+      if (opened.ok) savePastCampaign();
+      updateStoryStatus();
+      updateInteractionPrompt(null);
+      openStoryDialogue({ id: `dungeon-treasure-${treasureId}`, lines: [{ speaker: '地の文', text: opened.message }] });
+    }
+    if (result.actionId === 'crossroads-boss') {
+      openBattle({ id: 'crossroads-boss', enemyId: 'crossroads-sentinel', boss: true });
     }
   }
 
@@ -1138,6 +1175,10 @@
       drawCastleInterior();
       return;
     }
+    if (currentEdition === 'past' && ['crossroads-town', 'crossroads-dungeon'].includes(activeAreaId())) {
+      drawCrossroadsArea();
+      return;
+    }
     for (const tile of editionTiles.get(currentEdition)) {
       if (!imageIsLoaded(tile.image)) continue;
       ctx.drawImage(tile.image, tile.col * tileW, tile.row * tileH, tileW, tileH);
@@ -1165,6 +1206,32 @@
     ctx.drawImage(interior, 0, 0, area.width, area.height);
   }
 
+  function drawCrossroadsArea() {
+    const areaId = activeAreaId();
+    const area = PAST_AREAS[areaId];
+    const background = pastSceneImages.get(areaId);
+    if (!imageIsLoaded(background)) return;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(background, 0, 0, area.width, area.height);
+    if (areaId === 'crossroads-dungeon') drawCrossroadsDungeonEvents();
+  }
+
+  function drawCrossroadsDungeonEvents() {
+    for (const interaction of pastStoryApi.PAST_INTERACTIONS.filter(item => item.area === 'crossroads-dungeon' && item.actionId?.startsWith('dungeon-treasure:'))) {
+      const treasureId = interaction.actionId.split(':')[1];
+      if (campaignState.openedDungeonChests.includes(treasureId)) continue;
+      const assetId = treasureId === 'merchant-cache' ? 'card-chest-mend' : 'card-chest-frost';
+      const image = pastEventImages.get(assetId);
+      const definition = PAST_EVENT_ASSETS[assetId];
+      if (imageIsLoaded(image)) ctx.drawImage(image, interaction.point[0] - definition.width / 2, interaction.point[1] - definition.height + 8, definition.width, definition.height);
+    }
+    if (!campaignState.crossroadsBossDefeated) {
+      const boss = pastEnemyImages.get('crossroads-sentinel');
+      if (imageIsLoaded(boss)) ctx.drawImage(boss, 535, 65, 130, 130 * boss.naturalHeight / boss.naturalWidth);
+    }
+  }
+
   function drawTownBuildingLabel(building) {
     const [x, y] = building.labelPoint;
     const labelWidth = building.type === 'castle' ? 235 : 190;
@@ -1187,6 +1254,7 @@
     if (currentEdition !== 'past') return [];
     if (activeAreaId() === 'castle-town') return TOWN_NPCS;
     if (activeAreaId() === 'castle') return CASTLE_NPCS;
+    if (activeAreaId() === 'crossroads-town') return CROSSROADS_NPCS;
     return [];
   }
 
@@ -1243,6 +1311,29 @@
     ctx.fillStyle = '#ffe0a0';
     ctx.font = '700 14px Georgia, "Yu Mincho", serif';
     ctx.fillText('王都入口', 0, 66);
+    ctx.restore();
+  }
+
+  function drawPastCrossroadsGate() {
+    if (currentEdition !== 'past' || activeAreaId() !== 'overworld') return;
+    const interaction = pastStoryApi.PAST_INTERACTIONS.find(item => item.id === 'crossroads-gate');
+    if (!interaction || !storyUnlocksInteraction(storyState, interaction)) return;
+    const image = pastEventImages.get('capital-gate');
+    if (!imageIsLoaded(image)) return;
+    const x = interaction.point[0] * maskScale;
+    const y = interaction.point[1] * maskScale;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.drawImage(image, -72, -82, 144, 96);
+    roundedRectanglePath(ctx, -72, 20, 144, 32, 7);
+    ctx.fillStyle = '#21131fe8';
+    ctx.fill();
+    ctx.strokeStyle = '#e0ae5c';
+    ctx.stroke();
+    ctx.fillStyle = '#ffe7b5';
+    ctx.font = '700 13px Georgia, "Yu Mincho", serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('交差路の街', 0, 41);
     ctx.restore();
   }
 
@@ -1528,7 +1619,12 @@
     const areaId = activeAreaId();
     if (currentEdition === 'past' && areaId !== 'overworld') {
       const area = PAST_AREAS[areaId];
-      const baseImage = pastSceneImages.get(areaId === 'castle' ? 'castle-interior' : 'castle-town-ground');
+      const baseAssetId = areaId === 'castle'
+        ? 'castle-interior'
+        : areaId === 'castle-town'
+          ? 'castle-town-ground'
+          : areaId;
+      const baseImage = pastSceneImages.get(baseAssetId);
       if (imageIsLoaded(baseImage)) mctx.drawImage(baseImage, 0, 0, 210, 145);
       if (areaId === 'castle-town') {
         const buildings = pastSceneImages.get('castle-town-buildings');
@@ -1617,6 +1713,7 @@
         drawPastCardDiscoveries();
         drawDepthSortedEntities();
         drawPastCapitalGate();
+        drawPastCrossroadsGate();
         drawPastEnemies();
         drawPastMagicTutor();
       }
@@ -1837,6 +1934,7 @@
     const encounter = activeEncounter;
     const practice = encounter?.id === 'practice';
     const bossVictory = result === 'victory' && encounter?.id === 'watchtower-boss';
+    const crossroadsBossVictory = result === 'victory' && encounter?.id === 'crossroads-boss';
     let followUpDialogue = null;
     if (result === 'victory' && encounter && !practice) {
       storyState = addStoryGold(storyState, activeBattle.reward.gold);
@@ -1862,6 +1960,15 @@
           id: 'watchtower-victory-result',
           onComplete: 'watchtower-return-to-king',
           lines: [...levelLines, ...STORY_DIALOGUES['watchtower-cleared'].lines]
+        };
+      } else if (crossroadsBossVictory) {
+        const levelLines = outcome.leveledUp
+          ? [{ speaker: '地の文', text: `レベルが${campaignState.level}に上がった！ HPとMPが全回復した。` }]
+          : [];
+        followUpDialogue = {
+          id: 'crossroads-victory-result',
+          onComplete: 'crossroads-boss-defeated',
+          lines: [...levelLines, ...STORY_DIALOGUES['crossroads-boss-cleared'].lines]
         };
       } else if (outcome.leveledUp) {
         followUpDialogue = {
