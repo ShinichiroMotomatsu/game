@@ -4,5 +4,8 @@
   "scripts": {
     "test": "node --test",
     "test:coverage": "node --experimental-test-coverage --test"
+  },
+  "devDependencies": {
+    "supabase": "^2.114.0"
   }
 }
