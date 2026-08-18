@@ -14,7 +14,8 @@
     feint: Object.freeze({ id: 'feint', name: '陽動', discipline: 'technique', icon: '技', cost: 1, damage: 3, weaken: 2, description: '敵を惑わせ攻撃を弱める' }),
     'flame-edge': Object.freeze({ id: 'flame-edge', name: '炎刃', discipline: 'sword', element: 'fire', icon: '焔', cost: 1, damage: 9, description: '炎をまとわせて斬りつける' }),
     fortress: Object.freeze({ id: 'fortress', name: '城壁', discipline: 'guard', icon: '城', cost: 1, block: 10, description: '堅牢な壁で身を守る' }),
-    mend: Object.freeze({ id: 'mend', name: '癒光', discipline: 'magic', icon: '癒', cost: 1, mpCost: 3, heal: 14, description: 'MP3・HPを14回復する' })
+    mend: Object.freeze({ id: 'mend', name: '癒光', discipline: 'magic', icon: '癒', cost: 1, mpCost: 3, heal: 14, description: 'MP3・HPを14回復する' }),
+    'cross-slash': Object.freeze({ id: 'cross-slash', name: '十字斬り', discipline: 'sword', icon: '十', cost: 1, damage: 10, description: '交差する二筋の剣閃を放つ' })
   });
 
   const ENEMY_LIBRARY = Object.freeze({
@@ -25,6 +26,11 @@
       id: 'mist-watcher', name: '紫霧の番人', maxHp: 70, attack: 8, gold: 120, xp: 80,
       intent: '紫霧の爪', weakness: 'fire', boss: true,
       intentPattern: Object.freeze(['ward', 'grand-spell', 'assault', 'renew'])
+    }),
+    'crossroads-sentinel': Object.freeze({
+      id: 'crossroads-sentinel', name: '交差路の守護機兵', maxHp: 105, attack: 11, gold: 180, xp: 180,
+      intent: '方位の大斧', weakness: 'ice', boss: true,
+      intentPattern: Object.freeze(['assault', 'ward', 'renew', 'grand-spell'])
     })
   });
 

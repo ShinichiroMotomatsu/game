@@ -20,7 +20,25 @@
       path: 'assets/v2/past-scenes/castle-interior.png',
       width: 1000,
       height: 760
+    }),
+    'crossroads-town': Object.freeze({
+      path: 'assets/v2/past-scenes/crossroads-town.png',
+      width: 1200,
+      height: 900
+    }),
+    'crossroads-dungeon': Object.freeze({
+      path: 'assets/v2/past-scenes/crossroads-dungeon.png',
+      width: 1200,
+      height: 900
     })
+  });
+
+  const PAST_EVENT_ASSETS = Object.freeze({
+    'capital-gate': Object.freeze({ path: 'assets/v2/past-events/capital-gate.png', width: 210, height: 140 }),
+    'old-watchtower': Object.freeze({ path: 'assets/v2/past-events/old-watchtower.png', width: 150, height: 225 }),
+    'magic-tutor': Object.freeze({ path: 'assets/v2/past-events/magic-tutor.png', width: 58, height: 72 }),
+    'card-chest-frost': Object.freeze({ path: 'assets/v2/past-events/card-chest-frost.png', width: 66, height: 60 }),
+    'card-chest-mend': Object.freeze({ path: 'assets/v2/past-events/card-chest-mend.png', width: 64, height: 60 })
   });
 
   const NPC_SPRITE_ASSETS = Object.freeze({
@@ -50,5 +68,5 @@
     };
   }
 
-  return { NPC_PATROL_SPEED_SCALE, NPC_SPRITE_ASSETS, PAST_SCENE_ASSETS, npcPoseAt };
+  return { NPC_PATROL_SPEED_SCALE, NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, npcPoseAt };
 });

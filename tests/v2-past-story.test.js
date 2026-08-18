@@ -4,6 +4,8 @@ const fs = require('node:fs');
 
 const {
   CASTLE_NPCS,
+  CASTLE_COLLISION_RECTS,
+  CROSSROADS_NPCS,
   PAST_AREAS,
   PAST_INTERACTIONS,
   PAST_START,
@@ -147,10 +149,73 @@ test('defeating the watchtower boss completes the first investigation', () => {
   assert.equal(storyAllowsEncounters(complete), true);
 });
 
+test('the next royal audience opens the crossroads chapter at Roppongi Crossing', () => {
+  const completedFirstQuest = createPastStory({
+    phase: 'first-mission-complete', royalRewardClaimed: true
+  });
+  const audience = activatePastInteraction({ ...completedFirstQuest, area: 'castle' }, 'king');
+  assert.equal(audience.dialogue.id, 'king-crossroads-mission');
+  const chapterTwo = completeStoryEvent(completedFirstQuest, 'crossroads-mission-start');
+  assert.equal(chapterTwo.phase, 'second-mission');
+  assert.match(storyObjective(chapterTwo), /交差路の街/);
+});
+
+test('the traffic-hub town and dungeon form a reversible route', () => {
+  const chapterTwo = createPastStory({ area: 'overworld', phase: 'second-mission', royalRewardClaimed: true });
+  const town = activatePastInteraction(chapterTwo, 'crossroads-gate');
+  assert.equal(town.state.area, 'crossroads-town');
+  const dungeon = activatePastInteraction(town.state, 'crossroads-dungeon-door');
+  assert.equal(dungeon.state.area, 'crossroads-dungeon');
+  const returnToTown = activatePastInteraction(dungeon.state, 'crossroads-dungeon-exit');
+  assert.equal(returnToTown.state.area, 'crossroads-town');
+  assert.ok(CROSSROADS_NPCS.length >= 3);
+});
+
+test('Roppongi Crossing is represented as a four-road trade hub', () => {
+  const dialogue = STORY_DIALOGUES['crossroads-arrival'].lines.map(line => line.text).join('');
+  assert.match(dialogue, /四つの街道|交通|交易/);
+  const gate = PAST_INTERACTIONS.find(interaction => interaction.id === 'crossroads-gate');
+  assert.deepEqual(gate.point, [416, 354]);
+  assert.equal(gate.unlockAfter, 'first-mission-complete');
+});
+
+test('the dungeon exposes three treasure chests and a final boss altar', () => {
+  const dungeonInteractions = PAST_INTERACTIONS.filter(interaction => interaction.area === 'crossroads-dungeon');
+  assert.equal(dungeonInteractions.filter(interaction => interaction.actionId?.startsWith('dungeon-treasure:')).length, 3);
+  assert.equal(dungeonInteractions.some(interaction => interaction.actionId === 'crossroads-boss'), true);
+  assert.equal(canStandInPastArea('crossroads-dungeon', 600, 450, 10), true);
+  assert.equal(canStandInPastArea('crossroads-dungeon', 50, 450, 10), false);
+});
+
 test('town collision keeps the player outside buildings while leaving streets walkable', () => {
   const weaponShop = TOWN_BUILDINGS.find(building => building.type === 'weapon');
   assert.equal(canStandInPastArea('castle-town', weaponShop.rect[0] + 20, weaponShop.rect[1] + 20, 12), false);
   assert.equal(canStandInPastArea('castle-town', 700, 620, 12), true);
+});
+
+test('shop interactions are anchored on the visible front stairs', () => {
+  const expectedEntrances = new Map([
+    ['castle-door', [700, 515]],
+    ['weapon-shop', [230, 385]],
+    ['armor-shop', [1240, 390]],
+    ['item-shop', [215, 680]],
+    ['inn', [1180, 725]],
+    ['card-shop', [195, 950]]
+  ]);
+  for (const [id, point] of expectedEntrances) {
+    const interaction = PAST_INTERACTIONS.find(candidate => candidate.id === id);
+    assert.deepEqual(interaction?.point, point, `${id} should align with its painted stairs`);
+  }
+});
+
+test('castle collision follows walls, throne dais, pillars, and the open center aisle', () => {
+  assert.ok(CASTLE_COLLISION_RECTS.length >= 7);
+  assert.equal(canStandInPastArea('castle', 500, 400, 10), true, 'center carpet should be walkable');
+  assert.equal(canStandInPastArea('castle', 65, 400, 10), false, 'west wall should block movement');
+  assert.equal(canStandInPastArea('castle', 500, 150, 10), false, 'throne dais should block movement');
+  assert.equal(canStandInPastArea('castle', 165, 310, 10), false, 'painted pillar should block movement');
+  assert.equal(canStandInPastArea('castle', 250, 710, 10), false, 'lower railing should block movement');
+  assert.equal(canStandInPastArea('castle', 500, 710, 10), true, 'center exit stairs should remain open');
 });
 
 test('town walls block their visible perimeter while leaving the south gate open', () => {
@@ -244,11 +309,26 @@ test('the traveling mage remains visible and talkable before and after teaching 
   const tutor = PAST_INTERACTIONS.find(interaction => interaction.actionId === 'learn-first-magic');
 
   assert.doesNotMatch(tutorRenderer, /canLearnFirstMagic/);
-  assert.match(tutorRenderer, /旅の魔導士リゼ/);
+  assert.match(tutorRenderer, /pastEventImages/);
+  assert.match(tutorRenderer, /drawImage/);
   assert.match(availability, /learn-first-magic[^\n]+return true/);
   assert.match(runtime, /first-magic-after/);
   assert.ok(tutor.point[0] < 222, 'the mage should stand west of the castle artwork');
   assert.ok(overworldRenderer.indexOf('drawPastMagicTutor()') > overworldRenderer.indexOf('drawDepthSortedEntities()'), 'the mage should render above landmark art');
+});
+
+test('overworld people and event structures are rendered from raster assets', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  for (const [start, end] of [
+    ['function drawPastCapitalGate', 'function drawPastWatchtower'],
+    ['function drawPastWatchtower', 'function drawPastCardDiscoveries'],
+    ['function drawPastCardDiscoveries', 'function drawPastMagicTutor'],
+    ['function drawPastMagicTutor', 'function roundedRectanglePath']
+  ]) {
+    const renderer = runtime.slice(runtime.indexOf(start), runtime.indexOf(end));
+    assert.match(renderer, /pastEventImages/);
+    assert.match(renderer, /drawImage/);
+  }
 });
 
 test('the capital marker stays visible while enemies wait for the royal mission', () => {

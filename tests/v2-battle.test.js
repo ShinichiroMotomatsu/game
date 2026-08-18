@@ -339,3 +339,13 @@ test('the old watchtower guardian is balanced for an action-one first quest', ()
   assert.ok(battle.enemy.xp >= 70);
   assert.equal(battle.enemy.boss, true);
 });
+
+test('the dungeon weapon card is valid and the crossroads boss can enter battle', () => {
+  assert.equal(CARD_LIBRARY['cross-slash'].discipline, 'sword');
+  const battle = createBattle('crossroads-sentinel', () => 0, {
+    level: 3, maxHp: 52, hp: 52, maxMp: 8, mp: 8, energy: 1,
+    deck: ['slash', 'guard', 'focus', 'cross-slash']
+  });
+  assert.equal(battle.enemy.id, 'crossroads-sentinel');
+  assert.equal(battle.enemy.boss, true);
+});
