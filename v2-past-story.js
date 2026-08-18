@@ -150,8 +150,9 @@
       onComplete: 'crossroads-mission-start',
       lines: Object.freeze([
         Object.freeze({ speaker: 'アルディオン王', text: '見張り台で見つかった方位紋は、四つの街道が交わる交易都市クアドラの紋章でもある。' }),
-        Object.freeze({ speaker: 'アルディオン王', text: 'この数日、六本木の交差路にあたるあの街から、荷馬車も伝令も来なくなった。交通の要所が沈黙すれば国中が分断される。' }),
-        Object.freeze({ speaker: 'アルディオン王', text: '交差路の街へ向かい、街道が止まった原因を調べてほしい。父エルドも四門水路の古い地図を残している。' })
+        Object.freeze({ speaker: 'アルディオン王', text: 'この数日、大陸中央のあの街から荷馬車も伝令も来なくなった。交通の要所が沈黙すれば国中が分断される。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: '道中では紫泥の沼、古樹の山林、霜降りの谷、黄砂の荒野、熔火の裂谷に異なる魔物が現れる。交差路の街へ向かい、街道が止まった原因を調べてほしい。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: '父エルドも、街の地下にある四門水路の古い地図を残している。各地形に合う札を見極めて進むのだ。' })
       ])
     }),
     'crossroads-arrival': Object.freeze({
@@ -256,8 +257,8 @@
     Object.freeze({ id: 'capital-gate', area: 'overworld', point: PAST_START.capitalGatePoint, radius: 46, label: '王都ロプンギアへ入る', targetArea: 'castle-town', spawn: PAST_AREAS['castle-town'].spawn }),
     Object.freeze({ id: 'old-watchtower', area: 'overworld', point: Object.freeze([145, 515]), radius: 46, label: '古い見張り台を調べる', actionId: 'watchtower', unlockAfter: 'king-audience' }),
     Object.freeze({ id: 'road-mage', area: 'overworld', point: Object.freeze([205, 460]), radius: 34, label: '旅の魔導士と話す', actionId: 'learn-first-magic' }),
-    Object.freeze({ id: 'frost-card-chest', area: 'overworld', point: Object.freeze([245, 500]), radius: 28, label: '青い宝箱を開ける', actionId: 'discover-card:frost', cardId: 'frost', unlockAfter: 'watchtower-boss' }),
-    Object.freeze({ id: 'mend-card-chest', area: 'overworld', point: Object.freeze([90, 570]), radius: 28, label: '白い宝箱を開ける', actionId: 'discover-card:mend', cardId: 'mend', unlockAfter: 'watchtower-boss' }),
+    Object.freeze({ id: 'frost-card-chest', area: 'overworld', point: Object.freeze([58, 248]), radius: 28, label: '青い宝箱を開ける', actionId: 'discover-card:frost', cardId: 'frost', unlockAfter: 'watchtower-boss' }),
+    Object.freeze({ id: 'mend-card-chest', area: 'overworld', point: Object.freeze([108, 318]), radius: 28, label: '白い宝箱を開ける', actionId: 'discover-card:mend', cardId: 'mend', unlockAfter: 'watchtower-boss' }),
     Object.freeze({ id: 'crossroads-gate', area: 'overworld', point: Object.freeze([416, 354]), radius: 42, label: '交差路の街クアドラへ入る', targetArea: 'crossroads-town', spawn: PAST_AREAS['crossroads-town'].spawn, unlockAfter: 'first-mission-complete', dialogueOnEnter: 'crossroads-arrival' }),
     Object.freeze({ id: 'castle-door', area: 'castle-town', point: Object.freeze([700, 515]), radius: 72, label: '王城へ入る', targetArea: 'castle', spawn: PAST_AREAS.castle.spawn }),
     Object.freeze({ id: 'capital-exit', area: 'castle-town', point: Object.freeze([700, 950]), radius: 55, label: '新大陸の街道へ戻る', targetArea: 'overworld', spawn: PAST_START.capitalGatePoint }),

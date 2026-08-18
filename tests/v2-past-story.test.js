@@ -149,7 +149,7 @@ test('defeating the watchtower boss completes the first investigation', () => {
   assert.equal(storyAllowsEncounters(complete), true);
 });
 
-test('the next royal audience opens the crossroads chapter at Roppongi Crossing', () => {
+test('the next royal audience opens the crossroads chapter without modern place names', () => {
   const completedFirstQuest = createPastStory({
     phase: 'first-mission-complete', royalRewardClaimed: true
   });
@@ -158,6 +158,17 @@ test('the next royal audience opens the crossroads chapter at Roppongi Crossing'
   const chapterTwo = completeStoryEvent(completedFirstQuest, 'crossroads-mission-start');
   assert.equal(chapterTwo.phase, 'second-mission');
   assert.match(storyObjective(chapterTwo), /交差路の街/);
+});
+
+test('past-edition dialogue and labels never reveal present-day place names', () => {
+  const visiblePastText = JSON.stringify({ STORY_DIALOGUES, PAST_INTERACTIONS, PAST_AREAS });
+  assert.doesNotMatch(visiblePastText, /六本木|東京|麻布|外苑|飯倉|赤坂|国道|都道|県道/);
+});
+
+test('overworld card chests reward a detour near the northwestern harbor', () => {
+  const chests = PAST_INTERACTIONS.filter(interaction => interaction.area === 'overworld' && interaction.actionId?.startsWith('discover-card:'));
+  assert.equal(chests.length, 2);
+  assert.ok(chests.every(chest => chest.point[0] < 150 && chest.point[1] < 360));
 });
 
 test('the traffic-hub town and dungeon form a reversible route', () => {
@@ -317,10 +328,9 @@ test('the traveling mage remains visible and talkable before and after teaching 
   assert.ok(overworldRenderer.indexOf('drawPastMagicTutor()') > overworldRenderer.indexOf('drawDepthSortedEntities()'), 'the mage should render above landmark art');
 });
 
-test('overworld people and event structures are rendered from raster assets', () => {
+test('overworld people and event structures except the capital gate are rendered from raster assets', () => {
   const runtime = fs.readFileSync('v2.js', 'utf8');
   for (const [start, end] of [
-    ['function drawPastCapitalGate', 'function drawPastWatchtower'],
     ['function drawPastWatchtower', 'function drawPastCardDiscoveries'],
     ['function drawPastCardDiscoveries', 'function drawPastMagicTutor'],
     ['function drawPastMagicTutor', 'function roundedRectanglePath']
@@ -331,12 +341,19 @@ test('overworld people and event structures are rendered from raster assets', ()
   }
 });
 
+test('the capital gate uses the original vector marker', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const renderer = runtime.slice(runtime.indexOf('function drawPastCapitalGate'), runtime.indexOf('function drawPastCrossroadsGate'));
+  assert.match(renderer, /ctx\.arc/);
+  assert.doesNotMatch(renderer, /drawImage|pastEventImages/);
+});
+
 test('the capital marker stays visible while enemies wait for the royal mission', () => {
   const runtime = fs.readFileSync('v2.js', 'utf8');
   const gateRenderer = runtime.slice(runtime.indexOf('function drawPastCapitalGate'), runtime.indexOf('function drawPastWatchtower'));
   const enemyRenderer = runtime.slice(runtime.indexOf('function drawPastEnemies'), runtime.indexOf('function drawDepthSortedEntities'));
   assert.doesNotMatch(gateRenderer, /storyAllowsEncounters/);
-  assert.match(enemyRenderer, /storyAllowsEncounters/);
+  assert.doesNotMatch(enemyRenderer, /storyAllowsEncounters/);
 });
 
 test('defeated route enemies stay clear long enough to reach the watchtower', () => {

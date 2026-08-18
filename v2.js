@@ -260,6 +260,12 @@
     ['mist-slime', 'mist-slime.png'],
     ['gutter-goblin', 'gutter-goblin.png'],
     ['rune-wolf', 'rune-wolf.png'],
+    ['bog-mandrake', 'bog-mandrake.png'],
+    ['crag-harpy', 'crag-harpy.png'],
+    ['frost-wisp', 'frost-wisp.png'],
+    ['dune-scorpion', 'dune-scorpion.png'],
+    ['ember-lizard', 'ember-lizard.png'],
+    ['ash-golem', 'ash-golem.png'],
     ['mist-watcher', 'rune-wolf.png'],
     ['crossroads-sentinel', 'crossroads-sentinel.png']
   ];
@@ -1075,7 +1081,7 @@
       if (nearViewport) assetKeys.push(landmarkAssetKey(currentEdition, landmark.id));
     }
 
-    if (currentEdition === 'past' && storyAllowsEncounters(storyState)) {
+    if (currentEdition === 'past') {
       const enemyMargin = 320;
       for (const enemy of pastEnemies) {
         const nearViewport = enemy.active
@@ -1115,7 +1121,7 @@
         : (dy > 0 ? 'down' : 'up');
     }
 
-    if (currentEdition === 'past' && activeAreaId() === 'overworld' && storyAllowsEncounters(storyState)) {
+    if (currentEdition === 'past' && activeAreaId() === 'overworld') {
       const now = performance.now();
       pastEnemies = pastEnemies.map(enemy => {
         if (!enemy.active && now >= enemy.respawnAt) {
@@ -1294,14 +1300,22 @@
     if (currentEdition !== 'past' || activeAreaId() !== 'overworld') return;
     const x = PAST_START.capitalGatePoint[0] * maskScale;
     const y = PAST_START.capitalGatePoint[1] * maskScale;
-    const definition = PAST_EVENT_ASSETS['capital-gate'];
-    const image = pastEventImages.get('capital-gate');
-    if (!imageIsLoaded(image)) return;
     const pulse = 1 + Math.sin(performance.now() / 350) * 0.08;
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(pulse, pulse);
-    ctx.drawImage(image, -definition.width / 2, -definition.height + 18, definition.width, definition.height);
+    ctx.fillStyle = '#210f1ddf';
+    ctx.strokeStyle = '#ffc15d';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(0, 0, 40, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffe3a2';
+    ctx.font = '34px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('♜', 0, 1);
     roundedRectanglePath(ctx, -78, 48, 156, 35, 6);
     ctx.fillStyle = '#21131fe8';
     ctx.fill();
@@ -1578,7 +1592,7 @@
   }
 
   function drawPastEnemies() {
-    if (currentEdition !== 'past' || activeAreaId() !== 'overworld' || !storyAllowsEncounters(storyState)) return;
+    if (currentEdition !== 'past' || activeAreaId() !== 'overworld') return;
     const now = performance.now() / 1000;
     for (const enemy of pastEnemies) {
       if (!enemy.active) continue;
