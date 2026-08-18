@@ -109,6 +109,19 @@
         Object.freeze({ speaker: '地の文', text: '初めての魔法カード「火花」と、MPを回復する「まほうの雫」を手に入れた。' })
       ])
     }),
+    'first-magic-before': Object.freeze({
+      id: 'first-magic-before',
+      lines: Object.freeze([
+        Object.freeze({ speaker: '旅の魔導士リゼ', text: 'その札には、まだ戦いの熱が宿っていないわ。まずは剣と守りで魔物に立ち向かってみなさい。' }),
+        Object.freeze({ speaker: '旅の魔導士リゼ', text: '一度でも自分の力で勝てたなら、ここへ戻ってきて。あなたの札に眠る火花を起こしてあげる。' })
+      ])
+    }),
+    'first-magic-after': Object.freeze({
+      id: 'first-magic-after',
+      lines: Object.freeze([
+        Object.freeze({ speaker: '旅の魔導士リゼ', text: '火花の札は、紫の結界を崩す切り札になるわ。MPが足りないときは、まほうの雫か「集中」の札を使うのよ。' })
+      ])
+    }),
     'soldier-greeting': Object.freeze({
       id: 'soldier-greeting',
       lines: Object.freeze([

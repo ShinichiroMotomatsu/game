@@ -75,7 +75,6 @@
   const { NPC_SPRITE_ASSETS, PAST_SCENE_ASSETS, npcPoseAt } = pastSceneApi;
   const {
     INN_PRICE,
-    FIRST_QUEST_LOADOUT,
     SHOP_CATALOG,
     applyBattleVictory,
     battleProfile,
@@ -628,7 +627,7 @@
         const uniqueOwned = badge === '装備中' || badge === '所持済み';
         entries.push(createServiceButton({
           name: product.name,
-          detail: `${FIRST_QUEST_LOADOUT.includes(product.id) ? '★ 序盤おすすめ　' : ''}${product.description}`,
+          detail: product.description,
           price: product.price,
           badge,
           disabled: uniqueOwned,
@@ -658,9 +657,6 @@
     updateInteractionPrompt(null);
     shopMessage.textContent = serviceId === 'bag' ? '道具を使うか、装備を確認できます。' : '何を買いますか？';
     if (serviceId === 'inn') shopMessage.textContent = '一晩12G。旅の疲れをすっかり癒やします。';
-    if (['weapon', 'armor', 'item'].includes(serviceId) && storyState.royalRewardClaimed) {
-      shopMessage.textContent = '支度金300Gなら、銅の剣・皮の鎧・やくそう2個が序盤のおすすめです。';
-    }
     renderService();
     shopOverlay.setAttribute('aria-hidden', 'false');
   }
@@ -687,7 +683,7 @@
 
   function pastInteractionAvailable(interaction) {
     if (!storyUnlocksInteraction(storyState, interaction)) return false;
-    if (interaction.actionId === 'learn-first-magic') return canLearnFirstMagic(campaignState);
+    if (interaction.actionId === 'learn-first-magic') return true;
     if (interaction.cardId) return canDiscoverCard(campaignState, interaction.cardId);
     return true;
   }
@@ -730,15 +726,16 @@
       }
     }
     if (result.actionId === 'learn-first-magic') {
+      if (campaignState.ownedCards.includes('spark')) {
+        openStoryDialogue(STORY_DIALOGUES['first-magic-after']);
+        return;
+      }
       const learned = learnFirstMagic(campaignState);
       campaignState = learned.state;
       if (learned.ok) savePastCampaign();
       updateStoryStatus();
       updateInteractionPrompt(null);
-      openStoryDialogue(learned.ok ? STORY_DIALOGUES['first-magic'] : {
-        id: 'first-magic-unavailable',
-        lines: [{ speaker: '旅の魔導士リゼ', text: learned.message }]
-      });
+      openStoryDialogue(learned.ok ? STORY_DIALOGUES['first-magic'] : STORY_DIALOGUES['first-magic-before']);
     }
     if (result.actionId?.startsWith('discover-card:')) {
       const cardId = result.actionId.split(':')[1];
@@ -1299,7 +1296,7 @@
   }
 
   function drawPastMagicTutor() {
-    if (currentEdition !== 'past' || activeAreaId() !== 'overworld' || !canLearnFirstMagic(campaignState)) return;
+    if (currentEdition !== 'past' || activeAreaId() !== 'overworld') return;
     const tutor = pastStoryApi.PAST_INTERACTIONS.find(interaction => interaction.actionId === 'learn-first-magic');
     if (!tutor) return;
     const x = tutor.point[0] * maskScale;
@@ -1332,7 +1329,7 @@
     ctx.fillStyle = '#fff0c7';
     ctx.font = '700 12px Georgia, "Yu Mincho", serif';
     ctx.textAlign = 'center';
-    ctx.fillText('旅の魔導士', 0, 18);
+    ctx.fillText('旅の魔導士リゼ', 0, 18);
     ctx.restore();
   }
 

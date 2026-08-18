@@ -47,11 +47,12 @@ test('the recommended first-quest purchases equip attack and defense before leav
   assert.equal(campaign.inventory.herb, 2);
 });
 
-test('the shop runtime tells the player which exact 300G preparation to buy', () => {
+test('a townsperson recommends the exact 300G preparation instead of the shop UI', () => {
   const runtime = fs.readFileSync('v2.js', 'utf8');
-  assert.match(runtime, /支度金300G/);
-  assert.match(runtime, /銅の剣・皮の鎧・やくそう2個/);
-  assert.match(runtime, /序盤おすすめ/);
+  const story = fs.readFileSync('v2-past-story.js', 'utf8');
+  assert.match(story, /買い物帰りの女性/);
+  assert.match(story, /銅の剣と皮の鎧、それにやくそうを二つ/);
+  assert.doesNotMatch(runtime, /支度金300G|序盤おすすめ/);
 });
 
 test('buying equipment deducts gold and automatically equips the stronger item', () => {
