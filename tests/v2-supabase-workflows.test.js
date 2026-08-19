@@ -59,3 +59,20 @@ test('repository guidance keeps hosted database access out of local development'
   assert.match(readme, /SUPABASE_PROJECT_ID/);
   assert.match(gitignore, /supabase\/\.temp\//);
 });
+
+test('GitHub Pages publishing is manual and uploads only the browser game', () => {
+  const workflow = read('.github/workflows/deploy-pages.yml');
+  const triggerBlock = workflow.match(/^on:\r?\n([\s\S]*?)^permissions:/m)?.[1] ?? '';
+  const triggers = Array.from(triggerBlock.matchAll(/^  ([\w-]+):/gm), match => match[1]);
+
+  assert.deepEqual(triggers, ['workflow_dispatch']);
+  assert.match(workflow, /confirmation:[\s\S]*Type DEPLOY/);
+  assert.match(workflow, /if:\s*github\.ref == 'refs\/heads\/main' && inputs\.confirmation == 'DEPLOY'/);
+  assert.match(workflow, /permissions:[\s\S]*pages:\s*write[\s\S]*id-token:\s*write/);
+  assert.match(workflow, /environment:[\s\S]*name:\s*github-pages/);
+  assert.match(workflow, /actions\/upload-pages-artifact@v4/);
+  assert.match(workflow, /actions\/deploy-pages@v4/);
+  assert.match(workflow, /path:\s*\.\/\.pages-site/);
+  assert.match(workflow, /node scripts\/build-pages-site\.js \.pages-site/);
+  assert.doesNotMatch(workflow, /\.env|service_role|sb_secret_|SUPABASE_DB_PASSWORD/i);
+});
