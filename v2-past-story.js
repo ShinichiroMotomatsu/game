@@ -112,6 +112,27 @@
         Object.freeze({ speaker: '地の文', text: '船は新大陸の西の港へたどり着いた。港の先に見える王都ロプンギアで、まず父の手掛かりを探そう。' })
       ])
     }),
+    'capital-arrival': Object.freeze({
+      id: 'capital-arrival',
+      onComplete: 'capital-arrival-complete',
+      lines: Object.freeze([
+        Object.freeze({ speaker: '主人公', text: '港からここへ来る途中に見えた、あの異形の生き物は何だったんだ……。獣とも違う。' }),
+        Object.freeze({ speaker: '王都兵', text: '旅人は魔物を見るのが初めてか。この新大陸では、街道の外だけでなく近ごろは城門の近くにも現れる。' }),
+        Object.freeze({ speaker: '主人公', text: '魔物……。新大陸へ来るまで、あんな生き物は一度も見たことがなかった。' }),
+        Object.freeze({ speaker: '王都兵', text: '詳しい話は王から聞くといい。まずは城下町を抜け、北の王城へ向かうんだ。' })
+      ])
+    }),
+    'capital-rescue': Object.freeze({
+      id: 'capital-rescue',
+      onComplete: 'capital-arrival-complete',
+      lines: Object.freeze([
+        Object.freeze({ speaker: '王都兵', text: '危ないところだったな。港の見回り中に魔物の気配を見つけ、駆けつけたんだ。王都まで運んでおいた。' }),
+        Object.freeze({ speaker: '主人公', text: '魔物……？ あの異形の生き物を、そう呼ぶのか。新大陸へ来るまで一度も見たことがない。' }),
+        Object.freeze({ speaker: '王都兵', text: 'この大陸では昔から知られた存在だ。だが最近は数が増え、街道まで荒らしている。' }),
+        Object.freeze({ speaker: '主人公', text: '父は、こんな生き物がいる土地を一人で進んだのか……。' }),
+        Object.freeze({ speaker: '王都兵', text: '父上の手掛かりを探すなら、まず王に会うといい。北の王城へ案内状を出しておこう。' })
+      ])
+    }),
     'king-audience': Object.freeze({
       id: 'king-audience',
       onComplete: 'king-audience-complete',
@@ -189,6 +210,7 @@
       id: 'first-magic',
       lines: Object.freeze([
         Object.freeze({ speaker: '旅の魔導士リゼ', text: 'ひとりで魔物に立ち向かったの？ なかなかやるじゃない。けれど、あの紫の結界は剣だけでは破れないわ。' }),
+        Object.freeze({ speaker: '主人公', text: '魔法……？ 新大陸へ来るまで、そんな力が本当に存在するなんて知らなかった。' }),
         Object.freeze({ speaker: '旅の魔導士リゼ', text: 'この火花の札をあげる。魔法は力任せに使うものじゃない。心を静めて、誰かを信じたときに応えてくれるの。' }),
         Object.freeze({ speaker: '地の文', text: '初めての魔法カード「火花」と、MPを回復する「まほうの雫」を手に入れた。' })
       ])
@@ -254,7 +276,7 @@
   });
 
   const PAST_INTERACTIONS = Object.freeze([
-    Object.freeze({ id: 'capital-gate', area: 'overworld', point: PAST_START.capitalGatePoint, radius: 46, label: '王都ロプンギアへ入る', targetArea: 'castle-town', spawn: PAST_AREAS['castle-town'].spawn }),
+    Object.freeze({ id: 'capital-gate', area: 'overworld', point: PAST_START.capitalGatePoint, radius: 46, label: '王都ロプンギアへ入る', targetArea: 'castle-town', spawn: PAST_AREAS['castle-town'].spawn, dialogueOnEnter: 'capital-arrival' }),
     Object.freeze({ id: 'old-watchtower', area: 'overworld', point: Object.freeze([145, 515]), radius: 46, label: '古い見張り台を調べる', actionId: 'watchtower', unlockAfter: 'king-audience' }),
     Object.freeze({ id: 'road-mage', area: 'overworld', point: Object.freeze([205, 460]), radius: 34, label: '旅の魔導士と話す', actionId: 'learn-first-magic' }),
     Object.freeze({ id: 'frost-card-chest', area: 'overworld', point: Object.freeze([58, 248]), radius: 28, label: '青い宝箱を開ける', actionId: 'discover-card:frost', cardId: 'frost', unlockAfter: 'watchtower-boss' }),
@@ -287,11 +309,17 @@
     const area = Object.hasOwn(PAST_AREAS, saved.area) ? saved.area : 'overworld';
     const phase = ['arrival', 'seek-king', 'first-mission', 'first-mission-report', 'first-mission-complete', 'second-mission', 'second-mission-report', 'second-mission-complete'].includes(saved.phase) ? saved.phase : 'arrival';
     const parsedGold = Number(saved.gold);
+    const hasCapitalArrivalFlag = Object.hasOwn(saved, 'capitalArrivalSeen');
+    const capitalArrivalSeen = hasCapitalArrivalFlag
+      ? Boolean(saved.capitalArrivalSeen)
+      : area !== 'overworld' || !['arrival', 'seek-king'].includes(phase);
     return {
       area,
       phase,
       gold: Number.isFinite(parsedGold) && parsedGold >= 0 ? Math.floor(parsedGold) : 0,
       arrivalSeen: Boolean(saved.arrivalSeen || phase !== 'arrival'),
+      tutorialRescueSeen: Boolean(saved.tutorialRescueSeen),
+      capitalArrivalSeen,
       royalRewardClaimed: Boolean(saved.royalRewardClaimed || !['arrival', 'seek-king'].includes(phase))
     };
   }
@@ -304,6 +332,12 @@
   function completeStoryEvent(state, eventId) {
     if (eventId === 'arrival-complete' && state.phase === 'arrival') {
       return { ...state, phase: 'seek-king', arrivalSeen: true };
+    }
+    if (eventId === 'arrival-rescue-complete' && state.phase === 'seek-king' && !state.tutorialRescueSeen) {
+      return { ...state, tutorialRescueSeen: true };
+    }
+    if (eventId === 'capital-arrival-complete' && !state.capitalArrivalSeen) {
+      return { ...state, capitalArrivalSeen: true };
     }
     if (eventId === 'king-audience-complete' && !state.royalRewardClaimed) {
       return {
@@ -337,7 +371,20 @@
   }
 
   function storyAllowsEncounters(state) {
-    return state.phase === 'first-mission' || state.phase === 'first-mission-report' || state.phase === 'first-mission-complete';
+    return !['arrival', 'seek-king'].includes(state.phase);
+  }
+
+  function storyEncounterMode(state, encounterId) {
+    if (storyAllowsEncounters(state)) {
+      const laterRegion = encounterId.startsWith('route-');
+      const laterChapterOpen = ['second-mission', 'second-mission-report', 'second-mission-complete'].includes(state.phase);
+      return laterRegion && !laterChapterOpen ? 'hidden' : 'normal';
+    }
+    const isTutorial = state.phase === 'seek-king'
+      && !state.tutorialRescueSeen
+      && !state.capitalArrivalSeen
+      && encounterId === 'road-mist-east';
+    return isTutorial ? 'tutorial' : 'hidden';
   }
 
   function storyUnlocksInteraction(state, interaction) {
@@ -353,10 +400,13 @@
       return { state, spawn: null, dialogue: null, serviceId: null, actionId: null };
     }
     if (interaction.targetArea) {
+      const dialogue = interaction.id === 'capital-gate' && state.capitalArrivalSeen
+        ? null
+        : STORY_DIALOGUES[interaction.dialogueOnEnter] || null;
       return {
         state: { ...state, area: interaction.targetArea },
         spawn: interaction.spawn,
-        dialogue: STORY_DIALOGUES[interaction.dialogueOnEnter] || null,
+        dialogue,
         serviceId: null,
         actionId: null
       };
@@ -459,6 +509,7 @@
     nearestWalkablePoint,
     nearbyPastInteraction,
     storyAllowsEncounters,
+    storyEncounterMode,
     storyUnlocksInteraction,
     storyObjective
   };

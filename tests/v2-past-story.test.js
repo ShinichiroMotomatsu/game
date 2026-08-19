@@ -21,6 +21,7 @@ const {
   nearestWalkablePoint,
   nearbyPastInteraction,
   storyAllowsEncounters,
+  storyEncounterMode,
   storyUnlocksInteraction,
   storyObjective
 } = require('../v2-past-story.js');
@@ -111,13 +112,64 @@ test('battle rewards add to the same story gold purse', () => {
   assert.equal(story.gold, 318);
 });
 
-test('the arrival route stays safe until the king assigns the first mission', () => {
+test('normal encounters stay locked until the king assigns the first mission', () => {
   const arrival = createPastStory();
   const audience = completeStoryEvent(arrival, 'arrival-complete');
   const mission = completeStoryEvent(audience, 'king-audience-complete');
   assert.equal(storyAllowsEncounters(arrival), false);
   assert.equal(storyAllowsEncounters(audience), false);
   assert.equal(storyAllowsEncounters(mission), true);
+});
+
+test('only one harmless-looking tutorial encounter can appear before the capital', () => {
+  const arrival = createPastStory();
+  const roadToCapital = completeStoryEvent(arrival, 'arrival-complete');
+  const rescued = completeStoryEvent(roadToCapital, 'arrival-rescue-complete');
+  const mission = completeStoryEvent(roadToCapital, 'king-audience-complete');
+  const secondMission = createPastStory({ phase: 'second-mission', royalRewardClaimed: true });
+
+  assert.equal(storyEncounterMode(arrival, 'road-mist-east'), 'hidden');
+  assert.equal(storyEncounterMode(roadToCapital, 'road-mist-east'), 'tutorial');
+  assert.equal(storyEncounterMode(roadToCapital, 'road-wolf'), 'hidden');
+  assert.equal(storyEncounterMode(rescued, 'road-mist-east'), 'hidden');
+  assert.equal(storyEncounterMode(mission, 'road-wolf'), 'normal');
+  assert.equal(storyEncounterMode(mission, 'route-bog-mandrake'), 'hidden');
+  assert.equal(storyEncounterMode(secondMission, 'route-bog-mandrake'), 'normal');
+});
+
+test('the first capital arrival acknowledges monsters as unknown creatures', () => {
+  const beforeTown = createPastStory({ phase: 'seek-king' });
+  const entry = activatePastInteraction(beforeTown, 'capital-gate');
+  const acknowledged = completeStoryEvent(entry.state, 'capital-arrival-complete');
+  const repeatedEntry = activatePastInteraction({ ...acknowledged, area: 'overworld' }, 'capital-gate');
+  const arrivalText = [
+    ...STORY_DIALOGUES['capital-arrival'].lines,
+    ...STORY_DIALOGUES['capital-rescue'].lines
+  ].map(line => line.text).join('');
+
+  assert.equal(entry.dialogue.id, 'capital-arrival');
+  assert.equal(acknowledged.capitalArrivalSeen, true);
+  assert.equal(repeatedEntry.dialogue, null);
+  assert.match(arrivalText, /新大陸/);
+  assert.match(arrivalText, /見たこと|知らない/);
+  assert.match(arrivalText, /異形|魔物/);
+});
+
+test('legacy saves already inside the capital migrate past the arrival scene', () => {
+  const legacyInsideTown = createPastStory({ phase: 'seek-king', area: 'castle-town' });
+  const currentDialoguePending = createPastStory({
+    phase: 'seek-king', area: 'castle-town', capitalArrivalSeen: false
+  });
+
+  assert.equal(legacyInsideTown.capitalArrivalSeen, true);
+  assert.equal(currentDialoguePending.capitalArrivalSeen, false);
+});
+
+test('the first magic scene treats magic as a new discovery for the hero', () => {
+  const magicText = STORY_DIALOGUES['first-magic'].lines.map(line => line.text).join('');
+  assert.match(magicText, /魔法/);
+  assert.match(magicText, /初めて|知らなかった|見たこと/);
+  assert.match(magicText, /新大陸/);
 });
 
 test('the king explains the anomaly and assigns the first investigation', () => {
@@ -299,6 +351,28 @@ test('watchtower drawing and minimap visibility use the same first-mission gate'
   assert.match(towerRenderer, /storyAllowsEncounters\(storyState\)/);
   assert.doesNotMatch(towerRenderer, /royalRewardClaimed/);
   assert.match(minimapRenderer, /storyAllowsEncounters\(storyState\)/);
+});
+
+test('the overworld consistently filters enemies and routes the tutorial battle to a soldier rescue', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const updater = runtime.slice(runtime.indexOf('function update(dt)'), runtime.indexOf('function drawMap()'));
+  const enemyRenderer = runtime.slice(runtime.indexOf('function drawPastEnemies'), runtime.indexOf('function drawDepthSortedEntities'));
+  const minimapRenderer = runtime.slice(runtime.indexOf('function drawMini'), runtime.indexOf('function render()'));
+  const battleFlow = runtime.slice(runtime.indexOf('async function openBattle'), runtime.indexOf("battleResolve.addEventListener"));
+
+  assert.match(updater, /storyEncounterMode/);
+  assert.match(enemyRenderer, /storyEncounterMode/);
+  assert.match(minimapRenderer, /storyEncounterMode/);
+  assert.match(battleFlow, /tutorialRescue/);
+  assert.match(battleFlow, /capital-rescue/);
+  assert.match(battleFlow, /area: 'castle-town'/);
+  assert.match(runtime, /!storyState\.capitalArrivalSeen/);
+});
+
+test('the tutorial story and runtime scripts use fresh browser cache versions', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  assert.match(html, /v2-past-story\.js\?edition=9/);
+  assert.match(html, /v2\.js\?edition=12/);
 });
 
 test('the western road contains two visible card discoveries', () => {

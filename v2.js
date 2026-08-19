@@ -110,6 +110,7 @@
     nearestWalkablePoint,
     nearbyPastInteraction,
     storyAllowsEncounters,
+    storyEncounterMode,
     storyUnlocksInteraction,
     storyObjective
   } = pastStoryApi;
@@ -362,7 +363,14 @@
       ready = true;
       loading.classList.add('hidden');
       ensureOverworldAssets();
-      if (currentEdition === 'past' && !storyState.arrivalSeen) openStoryDialogue(STORY_DIALOGUES.arrival);
+      if (currentEdition === 'past' && !storyState.arrivalSeen) {
+        openStoryDialogue(STORY_DIALOGUES.arrival);
+      } else if (currentEdition === 'past'
+        && storyState.area === 'castle-town'
+        && !storyState.capitalArrivalSeen
+        && !activeStoryDialogue) {
+        openStoryDialogue(STORY_DIALOGUES[storyState.tutorialRescueSeen ? 'capital-rescue' : 'capital-arrival']);
+      }
     } catch (error) {
       if (generation !== assetLoadGeneration) return;
       console.error(error);
@@ -1084,7 +1092,8 @@
     if (currentEdition === 'past') {
       const enemyMargin = 320;
       for (const enemy of pastEnemies) {
-        const nearViewport = enemy.active
+        const nearViewport = storyEncounterMode(storyState, enemy.id) !== 'hidden'
+          && enemy.active
           && enemy.x >= viewport.x - enemyMargin
           && enemy.x <= viewportRight + enemyMargin
           && enemy.y >= viewport.y - enemyMargin
@@ -1124,12 +1133,14 @@
     if (currentEdition === 'past' && activeAreaId() === 'overworld') {
       const now = performance.now();
       pastEnemies = pastEnemies.map(enemy => {
+        if (storyEncounterMode(storyState, enemy.id) === 'hidden') return enemy;
         if (!enemy.active && now >= enemy.respawnAt) {
           return { ...enemy, active: true, x: enemy.patrol[0][0], y: enemy.patrol[0][1], patrolIndex: 1 };
         }
         return advancePatrol(enemy, dt);
       });
-      const encounter = pastEnemies.find(enemy => shouldStartEncounter(player, enemy, 23 * maskScale, now));
+      const encounter = pastEnemies.find(enemy => storyEncounterMode(storyState, enemy.id) !== 'hidden'
+        && shouldStartEncounter(player, enemy, 23 * maskScale, now));
       if (encounter) openBattle(encounter);
     }
 
@@ -1595,7 +1606,7 @@
     if (currentEdition !== 'past' || activeAreaId() !== 'overworld') return;
     const now = performance.now() / 1000;
     for (const enemy of pastEnemies) {
-      if (!enemy.active) continue;
+      if (!enemy.active || storyEncounterMode(storyState, enemy.id) === 'hidden') continue;
       const image = pastEnemyImages.get(enemy.enemyId);
       if (!image?.complete || !image.naturalWidth) continue;
       const height = 50;
@@ -1702,7 +1713,7 @@
       }
       mctx.fillStyle = '#e65f58';
       for (const enemy of pastEnemies) {
-        if (!enemy.active) continue;
+        if (!enemy.active || storyEncounterMode(storyState, enemy.id) === 'hidden') continue;
         mctx.beginPath();
         mctx.arc(enemy.x / world.w * 210, enemy.y / world.h * 145, 2.5, 0, Math.PI * 2);
         mctx.fill();
@@ -1752,6 +1763,7 @@
   function renderBattle() {
     if (!activeBattle) return;
     const enemy = activeBattle.enemy;
+    const tutorialRescue = activeBattle.status === 'rescue';
     battleOverlay.classList.toggle('is-boss', Boolean(enemy.boss));
     const intent = ENEMY_INTENTS[enemy.intentId];
     const intentRevealed = activeBattle.intentRevealed;
@@ -1783,9 +1795,12 @@
     document.querySelector('#v2-battle-preview').textContent = `${action.name}${actionDetails ? ` · ${actionDetails}` : ''}`;
     document.querySelector('#v2-battle-log').textContent = activeBattle.log.slice(-2).join('　');
     battleResolve.disabled = activeBattle.status === 'active' && !activeBattle.selected.length;
-    battleResolve.textContent = activeBattle.status === 'victory'
+    battleResolve.textContent = tutorialRescue
+      ? '王都兵が駆けつけた'
+      : activeBattle.status === 'victory'
       ? `勝利 · ${activeBattle.reward.gold}G / ${activeBattle.reward.xp}EXP`
       : activeBattle.status === 'defeat' ? '王都で目覚める' : '行動する';
+    battleFlee.hidden = tutorialRescue;
     battleHand.replaceChildren(...activeBattle.hand.map((cardId, index) => {
       const card = CARD_LIBRARY[cardId];
       const selectedCountBefore = activeBattle.hand.slice(0, index).filter(id => id === cardId).length;
@@ -1934,8 +1949,16 @@
       resetEncounterTransition();
       return;
     }
-    activeEncounter = encounter;
+    const tutorialRescue = storyEncounterMode(storyState, encounter.id) === 'tutorial';
+    activeEncounter = tutorialRescue ? { ...encounter, tutorialRescue: true } : encounter;
     activeBattle = createBattle(encounter.enemyId, Math.random, battleProfile(campaignState));
+    if (tutorialRescue) {
+      activeBattle = {
+        ...activeBattle,
+        status: 'rescue',
+        log: ['見たことのない異形が道を塞いだ。背後から王都兵の声が響く！']
+      };
+    }
     resetBattleEffects();
     battleOverlay.setAttribute('aria-hidden', 'false');
     renderBattle();
@@ -1950,7 +1973,14 @@
     const bossVictory = result === 'victory' && encounter?.id === 'watchtower-boss';
     const crossroadsBossVictory = result === 'victory' && encounter?.id === 'crossroads-boss';
     let followUpDialogue = null;
-    if (result === 'victory' && encounter && !practice) {
+    if (result === 'rescued' && encounter?.tutorialRescue) {
+      const rescuedStory = completeStoryEvent(storyState, 'arrival-rescue-complete');
+      transitionStoryArea({
+        state: { ...rescuedStory, area: 'castle-town' },
+        spawn: PAST_AREAS['castle-town'].spawn
+      });
+      followUpDialogue = STORY_DIALOGUES['capital-rescue'];
+    } else if (result === 'victory' && encounter && !practice) {
       storyState = addStoryGold(storyState, activeBattle.reward.gold);
       const outcome = applyBattleVictory(campaignState, {
         xp: activeBattle.reward.xp,
@@ -2022,12 +2052,14 @@
     resetBattleEffects();
     battleOverlay.classList.remove('is-boss');
     battleOverlay.setAttribute('aria-hidden', 'true');
+    battleFlee.hidden = false;
     updateStoryStatus();
     if (followUpDialogue) openStoryDialogue(followUpDialogue);
   }
 
   battleResolve.addEventListener('click', () => {
     if (!activeBattle) return;
+    if (activeBattle.status === 'rescue') return closeBattle('rescued');
     if (activeBattle.status === 'victory') return closeBattle('victory');
     if (activeBattle.status === 'defeat') return closeBattle('defeat');
     resolveSelectedAction();
