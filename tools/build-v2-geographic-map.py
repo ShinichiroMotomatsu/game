@@ -6,6 +6,8 @@ from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw
 
+from v2_runtime_tiles import build_runtime_tiles
+
 
 ROOT = Path(__file__).resolve().parent.parent
 LAYOUT_PATH = ROOT / "assets" / "v2" / "map-layout.json"
@@ -394,6 +396,7 @@ def main() -> None:
     }
     map_image = render_map(layout, BACKGROUND_PATH, MAP_PATH, modern_palette)
     past_map_image = render_map(layout, PAST_BACKGROUND_PATH, PAST_MAP_PATH, past_palette)
+    build_runtime_tiles(PAST_MAP_PATH, assets_path=ROOT / "assets" / "v2")
     width, height = layout["width"], layout["height"]
 
     render_landmark_preview(map_image, layout, "landmarks", LANDMARK_PREVIEW_PATH)

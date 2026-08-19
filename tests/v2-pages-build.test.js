@@ -19,6 +19,9 @@ test('Pages build contains the playable game without authoring source assets', (
       'assets/v2/map-layout-data.js',
       'assets/v2/day-runtime-tiles/0-0.png',
       'assets/v2/past-evening-runtime-tiles/0-0.png',
+      'assets/v2/past-evening-runtime-tiles/0-1.png',
+      'assets/v2/past-evening-runtime-tiles/1-0.png',
+      'assets/v2/past-evening-runtime-tiles/1-1.png',
       'assets/v2/landmarks/roppongi-hills.png',
       'assets/v2/past-scenes/castle-interior.png'
     ]) assert.equal(fs.existsSync(path.join(output, required)), true, required);
