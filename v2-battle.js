@@ -31,6 +31,9 @@
     'dune-scorpion': Object.freeze({ id: 'dune-scorpion', name: '砂鎧のサソリ', maxHp: 43, attack: 13, gold: 19, xp: 25, intent: '砂針' }),
     'ember-lizard': Object.freeze({ id: 'ember-lizard', name: '熾火トカゲ', maxHp: 46, attack: 14, gold: 21, xp: 28, intent: '火の尾', weakness: 'ice' }),
     'ash-golem': Object.freeze({ id: 'ash-golem', name: '灰岩のゴーレム', maxHp: 55, attack: 15, gold: 25, xp: 34, intent: '岩塊の拳', weakness: 'ice' }),
+    'veil-moth': Object.freeze({ id: 'veil-moth', name: '帳霧の蛾', maxHp: 50, attack: 14, gold: 23, xp: 32, intent: '眠り鱗粉', weakness: 'fire' }),
+    'fog-knight': Object.freeze({ id: 'fog-knight', name: '霧甲の騎士', maxHp: 62, attack: 16, gold: 29, xp: 42, intent: '無音の剣', weakness: 'ice' }),
+    'bell-wraith': Object.freeze({ id: 'bell-wraith', name: '鐘音の亡霊', maxHp: 56, attack: 15, gold: 26, xp: 38, intent: '反響する叫び', weakness: 'fire' }),
     'mist-watcher': Object.freeze({
       id: 'mist-watcher', name: '紫霧の番人', maxHp: 70, attack: 8, gold: 120, xp: 80,
       intent: '紫霧の爪', weakness: 'fire', boss: true,
@@ -40,6 +43,11 @@
       id: 'crossroads-sentinel', name: '交差路の守護機兵', maxHp: 105, attack: 11, gold: 180, xp: 180,
       intent: '方位の大斧', weakness: 'ice', boss: true,
       intentPattern: Object.freeze(['assault', 'ward', 'renew', 'grand-spell'])
+    }),
+    'mist-bell-warden': Object.freeze({
+      id: 'mist-bell-warden', name: '霧鐘の番人', maxHp: 165, attack: 14, gold: 260, xp: 300,
+      intent: '忘却の鐘', boss: true,
+      intentPattern: Object.freeze(['grand-spell', 'ward', 'assault', 'renew', 'assault'])
     })
   });
 
@@ -115,10 +123,11 @@
   }
 
   function expandedBattleDeck(cardIds) {
-    const expanded = [];
-    const targetSize = Math.max(6, cardIds.length);
-    while (expanded.length < targetSize) expanded.push(...cardIds);
-    return expanded.slice(0, targetSize);
+    const expanded = [...cardIds];
+    const targetSize = Math.max(10, cardIds.length);
+    const basicAttack = cardIds.includes('slash') ? 'slash' : cardIds[0];
+    while (expanded.length < targetSize) expanded.push(basicAttack);
+    return expanded;
   }
 
   function createBattle(enemyId, random = Math.random, profile = {}) {
@@ -201,21 +210,26 @@
     return { ...battle, selected, selectedIndices: [...selectedIndices, handIndex], selectedCost, selectedMp, readyToResolve: selectedCost === battle.energy };
   }
 
-  function redrawOpeningCard(battle, handIndex, random = Math.random) {
+  function redrawOpeningCards(battle, handIndices, random = Math.random) {
     if (battle.status !== 'active' || battle.turn !== 1 || !battle.openingRedrawAvailable || battle.selected.length) return battle;
-    if (!Number.isInteger(handIndex) || handIndex < 0 || handIndex >= battle.hand.length) return battle;
-    const replacedCard = battle.hand[handIndex];
-    const nextDraw = drawCards(battle.deck, [], 1, random);
-    if (!nextDraw.cards.length) return battle;
+    const indices = [...new Set(Array.isArray(handIndices) ? handIndices : [])]
+      .filter(index => Number.isInteger(index) && index >= 0 && index < battle.hand.length)
+      .sort((left, right) => left - right);
+    if (!indices.length) return battle;
+    const replacedCards = indices.map(index => battle.hand[index]);
+    const nextDraw = drawCards(battle.deck, battle.discard, indices.length, random);
+    if (nextDraw.cards.length !== indices.length) return battle;
     const hand = [...battle.hand];
-    hand[handIndex] = nextDraw.cards[0];
+    indices.forEach((handIndex, replacementIndex) => {
+      hand[handIndex] = nextDraw.cards[replacementIndex];
+    });
     return {
       ...battle,
       deck: nextDraw.deck,
-      discard: [...battle.discard, replacedCard],
+      discard: [...nextDraw.discard, ...replacedCards],
       hand,
       openingRedrawAvailable: false,
-      log: [...battle.log, `${CARD_LIBRARY[replacedCard].name}を手放し、新しい札を引き直した。`].slice(-6)
+      log: [...battle.log, `${replacedCards.length}枚の札を手放し、同じ枚数を引き直した。`].slice(-6)
     };
   }
 
@@ -390,7 +404,7 @@
     defaultDeck,
     hpCondition,
     previewAction,
-    redrawOpeningCard,
+    redrawOpeningCards,
     resolveTurn,
     toggleCard
   };

@@ -20,11 +20,20 @@ test('the royal capital is rendered as ground, building, and character raster la
     'castle-interior',
     'castle-town-buildings',
     'castle-town-ground',
-    'crossroads-town'
+    'crossroads-town',
+    'mist-citadel'
   ]);
   for (const asset of Object.values(PAST_SCENE_ASSETS)) {
     assert.match(asset.path, /^assets\/v2\/past-scenes\/.+\.png$/);
     assert.equal(fs.existsSync(asset.path), true, `${asset.path} is missing`);
+  }
+});
+
+test('watergate artwork is square and explicitly safe to rotate into all four directions', () => {
+  for (const id of ['watergate-closed', 'watergate-open']) {
+    const asset = PAST_EVENT_ASSETS[id];
+    assert.equal(asset.width, asset.height);
+    assert.equal(asset.rotationSafe, true);
   }
 });
 
@@ -51,6 +60,7 @@ test('waterway props load only when the dungeon is active', () => {
   assert.match(dungeon, /watergate-open/);
   assert.match(dungeon, /compass-altar-corrupted/);
   assert.match(dungeon, /compass-altar-restored/);
+  assert.match(resolver, /sceneAssetKey\('mist-citadel'\)/);
 });
 
 test('the crossroads town stays raster-backed while its dungeon is generated from tiles', () => {

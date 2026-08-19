@@ -36,7 +36,10 @@
     Object.freeze({ id: 'route-frost-wisp', chapter: 'crossroads-route', biome: 'cold', enemyId: 'frost-wisp', sprite: 'frost-wisp.png', speed: 17, patrol: Object.freeze([[276, 420], [290, 411], [303, 407]]) }),
     Object.freeze({ id: 'route-dune-scorpion', chapter: 'crossroads-route', biome: 'desert', enemyId: 'dune-scorpion', sprite: 'dune-scorpion.png', speed: 16, patrol: Object.freeze([[324, 398], [340, 391], [354, 386]]) }),
     Object.freeze({ id: 'route-ember-lizard', chapter: 'crossroads-route', biome: 'lava', enemyId: 'ember-lizard', sprite: 'ember-lizard.png', speed: 19, patrol: Object.freeze([[365, 382], [379, 375], [391, 369]]) }),
-    Object.freeze({ id: 'route-ash-golem', chapter: 'crossroads-route', biome: 'lava', enemyId: 'ash-golem', sprite: 'ash-golem.png', speed: 12, patrol: Object.freeze([[393, 344], [405, 338], [416, 344]]) })
+    Object.freeze({ id: 'route-ash-golem', chapter: 'crossroads-route', biome: 'lava', enemyId: 'ash-golem', sprite: 'ash-golem.png', speed: 12, patrol: Object.freeze([[393, 344], [405, 338], [416, 344]]) }),
+    Object.freeze({ id: 'route-mist-veil-moth', chapter: 'mist-citadel-route', biome: 'cold', enemyId: 'veil-moth', sprite: 'frost-wisp.png', speed: 18, patrol: Object.freeze([[385, 300], [374, 287], [365, 278]]) }),
+    Object.freeze({ id: 'route-mist-fog-knight', chapter: 'mist-citadel-route', biome: 'mountain-forest', enemyId: 'fog-knight', sprite: 'gutter-goblin.png', speed: 15, patrol: Object.freeze([[330, 255], [316, 248], [305, 240]]) }),
+    Object.freeze({ id: 'route-mist-bell-wraith', chapter: 'mist-citadel-route', biome: 'poison-swamp', enemyId: 'bell-wraith', sprite: 'mist-slime.png', speed: 19, patrol: Object.freeze([[265, 205], [252, 196], [242, 184]]) })
   ]);
 
   function createPastEnemies(scale = 1) {

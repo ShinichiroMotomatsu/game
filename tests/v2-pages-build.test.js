@@ -24,6 +24,7 @@ test('Pages build contains the playable game without authoring source assets', (
       'assets/v2/past-evening-runtime-tiles/1-1.png',
       'assets/v2/landmarks/roppongi-hills.png',
       'assets/v2/past-scenes/castle-interior.png',
+      'assets/v2/past-scenes/mist-citadel.png',
       'assets/v2/past-events/watergate-closed.png',
       'assets/v2/past-events/watergate-open.png',
       'assets/v2/past-events/compass-altar-corrupted.png',

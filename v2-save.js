@@ -14,15 +14,21 @@
 
   function consumePastRestart(search, storage) {
     const params = new URLSearchParams(search || '');
-    const restarted = params.get('newGame') === 'past';
+    const restartMode = params.get('newGame');
+    const inherited = restartMode === 'inherit';
+    const restarted = restartMode === 'past' || inherited;
     if (restarted) {
-      for (const key of PAST_SAVE_KEYS) storage.removeItem(key);
+      for (const key of PAST_SAVE_KEYS) {
+        if (inherited && ['roppongi-past-campaign', 'roppongi-past-story'].includes(key)) continue;
+        storage.removeItem(key);
+      }
       params.delete('newGame');
       params.set('edition', 'past');
     }
     const serialized = params.toString();
     return {
       restarted,
+      inherited,
       edition: params.get('edition'),
       search: serialized ? `?${serialized}` : ''
     };

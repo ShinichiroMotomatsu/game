@@ -17,6 +17,7 @@
   const battleHand = document.querySelector('#v2-battle-hand');
   const battleResolve = document.querySelector('#v2-battle-resolve');
   const battleRedraw = document.querySelector('#v2-battle-redraw');
+  const battleRedrawCancel = document.querySelector('#v2-battle-redraw-cancel');
   const battleFlee = document.querySelector('#v2-battle-flee');
   const battlePractice = document.querySelector('#v2-battle-practice');
   const battleEffects = document.querySelector('#v2-battle-effects');
@@ -51,6 +52,7 @@
   const shopConfirmAccept = document.querySelector('#v2-shop-confirm-accept');
   const shopConfirmCancel = document.querySelector('#v2-shop-confirm-cancel');
   const restTransition = document.querySelector('#v2-rest-transition');
+  const inheritedRestart = document.querySelector('#v2-inherited-restart');
   const dragGuide = document.querySelector('#v2-drag-guide');
   const dragGuideKnob = dragGuide.querySelector('span');
   const landmarkGeometry = window.V2_LANDMARK_GEOMETRY;
@@ -80,7 +82,7 @@
     tileCoordinateForPoint,
     visibleTileCoordinates
   } = assetApi;
-  const { CARD_ATTRIBUTE_LABELS, CARD_LIBRARY, DISCIPLINE_LABELS, ENEMY_INTENTS, createBattle, hpCondition, previewAction, redrawOpeningCard, resolveTurn, toggleCard } = battleApi;
+  const { CARD_ATTRIBUTE_LABELS, CARD_LIBRARY, DISCIPLINE_LABELS, ENEMY_INTENTS, createBattle, hpCondition, previewAction, redrawOpeningCards, resolveTurn, toggleCard } = battleApi;
   const { FIELD_ENCOUNTER_GRACE_MS, FIELD_ENCOUNTER_RADIUS, FIELD_EXIT_SAFE_RADIUS, advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, respawnPastEnemies, shouldStartEncounter } = pastWorldApi;
   const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
@@ -106,6 +108,7 @@
     productsOwnedForSale,
     productsForShop,
     reachWatchtower,
+    restartCampaignKeepingGrowth,
     resolveDefeat,
     restAtInn,
     salePrice,
@@ -118,6 +121,9 @@
     CROSSROADS_DUNGEON_LAYOUT,
     CROSSROADS_NPCS,
     CROSSROADS_WATERGATES,
+    MIST_BUILDINGS,
+    MIST_CITADEL_NPCS,
+    MIST_TOWER_COLLISION_RECTS,
     PAST_AREAS,
     PAST_START,
     STORY_DIALOGUES,
@@ -130,6 +136,7 @@
     createPastStory,
     nearestWalkablePoint,
     nearbyPastInteraction,
+    mistInvestigationResult,
     setDebugQuestCompletion,
     storyAllowsEncounters,
     storyEncounterMode,
@@ -273,6 +280,7 @@
   let activeBattle = null;
   let activeEncounter = null;
   let battleRedrawSelecting = false;
+  let battleRedrawIndices = new Set();
   let battleEffectTimer = 0;
   let encounterTransitioning = false;
   let encounterGraceUntil = 0;
@@ -282,6 +290,12 @@
   let storyPanelVisible = localStorage.getItem('roppongi-past-story-panel') !== 'hidden';
   let storyState = loadPastStory();
   let campaignState = loadPastCampaign();
+  if (restartRequest.inherited) {
+    storyState = createPastStory({ gold: storyState.gold });
+    campaignState = restartCampaignKeepingGrowth(campaignState);
+    savePastStory();
+    savePastCampaign();
+  }
   pastEnemies = pastEnemies.map(enemy => campaignState.defeatedRoadEnemies.includes(enemy.id)
     ? { ...enemy, active: false, respawnAt: performance.now() + 300000 }
     : enemy);
@@ -303,7 +317,9 @@
     ['past-castle-town', [...PAST_AREAS['castle-town'].spawn]],
     ['past-castle', [...PAST_AREAS.castle.spawn]],
     ['past-crossroads-town', [...PAST_AREAS['crossroads-town'].spawn]],
-    ['past-crossroads-dungeon', [...PAST_AREAS['crossroads-dungeon'].spawn]]
+    ['past-crossroads-dungeon', [...PAST_AREAS['crossroads-dungeon'].spawn]],
+    ['past-mist-citadel', [...PAST_AREAS['mist-citadel'].spawn]],
+    ['past-mist-bell-tower', [...PAST_AREAS['mist-bell-tower'].spawn]]
   ]);
   let showCollision = false;
   let assetLoadGeneration = 0;
@@ -321,7 +337,11 @@
     ['ember-lizard', 'ember-lizard.png'],
     ['ash-golem', 'ash-golem.png'],
     ['mist-watcher', 'rune-wolf.png'],
-    ['crossroads-sentinel', 'crossroads-sentinel.png']
+    ['crossroads-sentinel', 'crossroads-sentinel.png'],
+    ['veil-moth', 'frost-wisp.png'],
+    ['fog-knight', 'gutter-goblin.png'],
+    ['bell-wraith', 'mist-slime.png'],
+    ['mist-bell-warden', 'crossroads-sentinel.png']
   ];
   const overworldEventAssetIds = Object.freeze([
     'capital-gate', 'old-watchtower', 'magic-tutor', 'card-chest-frost', 'card-chest-mend'
@@ -394,6 +414,20 @@
         eventAssetKey('watergate-open'),
         eventAssetKey('compass-altar-corrupted'),
         eventAssetKey('compass-altar-restored')
+      ];
+    }
+    if (activeAreaId() === 'mist-citadel') {
+      return [
+        ...playerAssets,
+        sceneAssetKey('mist-citadel'),
+        ...new Set(MIST_CITADEL_NPCS.map(npc => npcAssetKey(npc.sprite)))
+      ];
+    }
+    if (activeAreaId() === 'mist-bell-tower') {
+      return [
+        ...playerAssets,
+        eventAssetKey('card-chest-frost'),
+        eventAssetKey('card-chest-mend')
       ];
     }
     return [
@@ -561,16 +595,24 @@
   function updateQuestDebugControls() {
     questDebug.hidden = currentEdition !== 'past';
     document.querySelectorAll('[data-debug-quest]').forEach(button => {
-      const completed = button.dataset.debugQuest === 'watchtower'
-        ? campaignState.bossDefeated
-        : campaignState.crossroadsBossDefeated;
+      const completionFlags = {
+        watchtower: campaignState.bossDefeated,
+        crossroads: campaignState.crossroadsBossDefeated,
+        'mist-citadel': campaignState.mistBossDefeated
+      };
+      const completed = Boolean(completionFlags[button.dataset.debugQuest]);
       button.setAttribute('aria-pressed', String(completed));
       button.textContent = completed ? 'クリア済み' : '未クリア';
     });
   }
 
   function toggleDebugQuest(questId) {
-    const completed = questId === 'watchtower' ? campaignState.bossDefeated : campaignState.crossroadsBossDefeated;
+    const completionFlags = {
+      watchtower: campaignState.bossDefeated,
+      crossroads: campaignState.crossroadsBossDefeated,
+      'mist-citadel': campaignState.mistBossDefeated
+    };
+    const completed = Boolean(completionFlags[questId]);
     const result = setDebugQuestCompletion(storyState, campaignState, questId, !completed);
     storyState = createPastStory(result.story);
     campaignState = createPastCampaign(result.campaign);
@@ -580,7 +622,8 @@
     updateStoryStatus();
     updateInteractionPrompt(null);
     prepareActiveLocation();
-    const questName = questId === 'watchtower' ? '古い見張り台' : '四門水路';
+    const questNames = { watchtower: '古い見張り台', crossroads: '四門水路', 'mist-citadel': '霧の城塞都市' };
+    const questName = questNames[questId] || questId;
     questDebugStatus.textContent = `${questName}を${!completed ? 'クリア済み' : '未クリア'}へ変更しました。`;
   }
 
@@ -691,6 +734,11 @@
     dialogueOverlay.setAttribute('aria-hidden', 'true');
     if (complete && eventId === 'crossroads-altar-awaken') {
       openBattle({ id: 'crossroads-boss', enemyId: 'crossroads-sentinel', boss: true, altarAwakening: true });
+    } else if (complete && eventId === 'mist-bell-awaken') {
+      openBattle({ id: 'mist-bell-boss', enemyId: 'mist-bell-warden', boss: true, altarAwakening: true });
+    } else if (complete && eventId === 'mist-boss-defeated') {
+      commitStoryEvent(eventId);
+      completeMemoryEvent('midtown-memory-restored');
     } else if (complete && eventId === 'watchtower-return-to-king') {
       transitionStoryArea({ state: { ...storyState, area: 'castle' }, spawn: [500, 430] });
     } else if (complete && eventId) commitStoryEvent(eventId);
@@ -698,7 +746,11 @@
 
   function serviceTitle(serviceId) {
     if (serviceId === 'bag') return 'もちもの・装備';
-    const buildings = activeServiceArea === 'crossroads-town' ? CROSSROADS_BUILDINGS : TOWN_BUILDINGS;
+    const buildings = activeServiceArea === 'crossroads-town'
+      ? CROSSROADS_BUILDINGS
+      : activeServiceArea === 'mist-citadel'
+        ? MIST_BUILDINGS
+        : TOWN_BUILDINGS;
     return buildings.find(building => building.type === serviceId)?.label || '街の店';
   }
 
@@ -1011,6 +1063,19 @@
   function performStoryInteraction() {
     if (currentEdition !== 'past' || !activeInteraction || activeStoryDialogue || activeBattle || activeServiceId) return;
     const result = activatePastInteraction(storyState, activeInteraction.id);
+    if (activeInteraction.id === 'mist-bell-tower-door' && result.dialogue) {
+      const investigation = mistInvestigationResult(storyState);
+      result.dialogue = {
+        ...result.dialogue,
+        lines: [
+          ...result.dialogue.lines,
+          {
+            speaker: '地の文',
+            text: `${investigation.approach}。${investigation.ally}が霧の外から道を示す。番人には${investigation.bossWeakness}の力が有効だろう。`
+          }
+        ]
+      };
+    }
     if (result.state.area !== storyState.area) transitionStoryArea(result);
     if (result.dialogue) openStoryDialogue(result.dialogue);
     if (result.serviceId) openService(result.serviceId);
@@ -1068,6 +1133,11 @@
       openStoryDialogue(campaignState.crossroadsBossDefeated
         ? STORY_DIALOGUES['crossroads-altar-stable']
         : STORY_DIALOGUES['crossroads-altar-awakening']);
+    }
+    if (result.actionId === 'mist-bell-boss') {
+      openStoryDialogue(campaignState.mistBossDefeated
+        ? STORY_DIALOGUES['mist-boss-cleared']
+        : STORY_DIALOGUES['mist-bell-awakening']);
     }
   }
 
@@ -1145,6 +1215,11 @@
   settingsClose.addEventListener('click', () => setSettingsOpen(false));
   infoToggle.addEventListener('click', () => setStoryPanelVisible(!storyPanelVisible));
   collisionToggle.addEventListener('click', () => setCollisionDisplay(!showCollision));
+  inheritedRestart.addEventListener('click', () => {
+    const confirmed = window.confirm('レベル・経験値・装備・カードを引き継ぎ、物語と宝箱を最初から始めますか？');
+    if (!confirmed) return;
+    location.href = 'v2.html?edition=past&newGame=inherit';
+  });
   document.querySelectorAll('[data-debug-quest]').forEach(button => {
     button.addEventListener('click', () => toggleDebugQuest(button.dataset.debugQuest));
   });
@@ -1425,6 +1500,14 @@
       drawCrossroadsArea();
       return;
     }
+    if (currentEdition === 'past' && activeAreaId() === 'mist-citadel') {
+      drawMistCitadel();
+      return;
+    }
+    if (currentEdition === 'past' && activeAreaId() === 'mist-bell-tower') {
+      drawMistBellTower();
+      return;
+    }
     for (const tile of editionTiles.get(currentEdition)) {
       if (!imageIsLoaded(tile.image)) continue;
       ctx.drawImage(tile.image, tile.col * tileW, tile.row * tileH, tileW, tileH);
@@ -1466,6 +1549,96 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(background, 0, 0, area.width, area.height);
     for (const building of CROSSROADS_BUILDINGS) drawTownBuildingLabel(building);
+  }
+
+  function drawMistCitadel() {
+    const area = PAST_AREAS['mist-citadel'];
+    const background = pastSceneImages.get('mist-citadel');
+    if (!imageIsLoaded(background)) return;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(background, 0, 0, area.width, area.height);
+    for (const building of MIST_BUILDINGS) drawTownBuildingLabel(building);
+    ctx.save();
+    ctx.fillStyle = '#edf5ff';
+    ctx.font = '700 15px Georgia, "Yu Mincho", serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#171426';
+    ctx.shadowBlur = 5;
+    ctx.fillText('無響の鐘楼', 800, 400);
+    ctx.restore();
+  }
+
+  function drawMistBellTower() {
+    const area = PAST_AREAS['mist-bell-tower'];
+    const tileSize = 64;
+    const firstColumn = Math.max(0, Math.floor(camera.x / tileSize) - 1);
+    const lastColumn = Math.min(Math.ceil(area.width / tileSize), Math.ceil((camera.x + innerWidth / camera.zoom) / tileSize) + 1);
+    const firstRow = Math.max(0, Math.floor(camera.y / tileSize) - 1);
+    const lastRow = Math.min(Math.ceil(area.height / tileSize), Math.ceil((camera.y + innerHeight / camera.zoom) / tileSize) + 1);
+    ctx.fillStyle = '#171827';
+    ctx.fillRect(0, 0, area.width, area.height);
+    for (let row = firstRow; row <= lastRow; row += 1) {
+      for (let column = firstColumn; column <= lastColumn; column += 1) {
+        const left = column * tileSize;
+        const top = row * tileSize;
+        ctx.fillStyle = (row + column) % 2 ? '#39384a' : '#424052';
+        ctx.fillRect(left, top, tileSize, tileSize);
+        ctx.strokeStyle = '#242433';
+        ctx.strokeRect(left + 0.5, top + 0.5, tileSize - 1, tileSize - 1);
+      }
+    }
+    ctx.save();
+    for (const [left, top, width, height] of MIST_TOWER_COLLISION_RECTS) {
+      const gradient = ctx.createLinearGradient(left, top, left, top + height);
+      gradient.addColorStop(0, '#282b38');
+      gradient.addColorStop(1, '#11131c');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(left, top, width, height);
+      ctx.strokeStyle = '#746c82';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(left + 2, top + 2, width - 4, height - 4);
+    }
+    ctx.strokeStyle = '#8a72bd88';
+    ctx.lineWidth = 8;
+    ctx.setLineDash([18, 14]);
+    ctx.beginPath();
+    ctx.moveTo(900, 1240);
+    ctx.lineTo(900, 900);
+    ctx.quadraticCurveTo(690, 700, 900, 480);
+    ctx.lineTo(900, 220);
+    ctx.stroke();
+    ctx.restore();
+
+    for (const interaction of pastStoryApi.PAST_INTERACTIONS.filter(item => item.area === 'mist-bell-tower' && item.actionId?.startsWith('dungeon-treasure:'))) {
+      const treasureId = interaction.actionId.split(':')[1];
+      if (campaignState.openedDungeonChests.includes(treasureId)) continue;
+      const assetId = treasureId === 'fog-cache' ? 'card-chest-mend' : 'card-chest-frost';
+      const image = pastEventImages.get(assetId);
+      const definition = PAST_EVENT_ASSETS[assetId];
+      if (imageIsLoaded(image)) ctx.drawImage(image, interaction.point[0] - definition.width / 2, interaction.point[1] - definition.height + 8, definition.width, definition.height);
+    }
+    const altar = pastStoryApi.PAST_INTERACTIONS.find(interaction => interaction.id === 'mist-bell-altar');
+    if (altar) {
+      ctx.save();
+      const glow = ctx.createRadialGradient(altar.point[0], altar.point[1], 8, altar.point[0], altar.point[1], 95);
+      glow.addColorStop(0, campaignState.mistBossDefeated ? '#a9fff2cc' : '#bc8cffcc');
+      glow.addColorStop(1, 'transparent');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(altar.point[0], altar.point[1], 95, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = campaignState.mistBossDefeated ? '#bfffee' : '#dcb2ff';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(altar.point[0], altar.point[1], 58, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#f6e9ff';
+      ctx.font = '700 14px Georgia, "Yu Mincho", serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(campaignState.mistBossDefeated ? '澄んだ霧鐘' : '眠る霧鐘', altar.point[0], altar.point[1] + 5);
+      ctx.restore();
+    }
   }
 
   function dungeonDetail(seed, index, range) {
@@ -1647,9 +1820,9 @@
     const definition = PAST_EVENT_ASSETS[assetId];
     ctx.save();
     ctx.translate(x, y);
-    if (gate.orientation === 'vertical') ctx.rotate(Math.PI / 2);
+    ctx.rotate(gate.rotationQuarterTurns * Math.PI / 2);
     if (imageIsLoaded(image)) {
-      ctx.drawImage(image, -definition.width / 2, -definition.height + 34, definition.width, definition.height);
+      ctx.drawImage(image, -definition.width / 2, -definition.height / 2, definition.width, definition.height);
     }
     ctx.restore();
     ctx.save();
@@ -1718,6 +1891,7 @@
     if (activeAreaId() === 'castle-town') return TOWN_NPCS;
     if (activeAreaId() === 'castle') return CASTLE_NPCS;
     if (activeAreaId() === 'crossroads-town') return CROSSROADS_NPCS;
+    if (activeAreaId() === 'mist-citadel') return MIST_CITADEL_NPCS;
     return [];
   }
 
@@ -2092,6 +2266,12 @@
       const area = PAST_AREAS[areaId];
       if (areaId === 'crossroads-dungeon') {
         mctx.drawImage(crossroadsDungeonMini, 0, 0);
+      } else if (areaId === 'mist-bell-tower') {
+        mctx.fillStyle = '#28293a';
+        mctx.fillRect(0, 0, 210, 145);
+        mctx.strokeStyle = '#9a82c4';
+        mctx.lineWidth = 3;
+        mctx.strokeRect(12, 8, 186, 129);
       } else {
         const baseAssetId = areaId === 'castle' ? 'castle-interior' : areaId === 'castle-town' ? 'castle-town-ground' : areaId;
         const baseImage = pastSceneImages.get(baseAssetId);
@@ -2264,12 +2444,16 @@
       ? `勝利 · ${activeBattle.reward.gold}G / ${activeBattle.reward.xp}EXP`
       : activeBattle.status === 'defeat' ? '王都で目覚める' : '行動する';
     battleFlee.hidden = tutorialRescue;
-    const canRedraw = activeBattle.status === 'active' && activeBattle.turn === 1
+    const redrawWindowOpen = activeBattle.status === 'active' && activeBattle.turn === 1
       && activeBattle.openingRedrawAvailable && !activeBattle.selected.length;
+    const canRedraw = redrawWindowOpen && (!battleRedrawSelecting || battleRedrawIndices.size > 0);
     battleRedraw.hidden = tutorialRescue || activeBattle.status !== 'active' || activeBattle.turn !== 1 || !activeBattle.openingRedrawAvailable;
     battleRedraw.disabled = !canRedraw;
     battleRedraw.setAttribute('aria-pressed', String(battleRedrawSelecting));
-    battleRedraw.textContent = battleRedrawSelecting ? '交換する札を1枚選ぶ' : '最初の1枚を引き直す';
+    battleRedraw.textContent = battleRedrawSelecting
+      ? `選んだ${battleRedrawIndices.size}枚を交換`
+      : '手札を選んで交換';
+    battleRedrawCancel.hidden = !battleRedrawSelecting;
     battleHand.replaceChildren(...activeBattle.hand.map((cardId, index) => {
       const card = CARD_LIBRARY[cardId];
       const selectedCountBefore = activeBattle.hand.slice(0, index).filter(id => id === cardId).length;
@@ -2281,9 +2465,10 @@
       button.dataset.card = cardId;
       button.dataset.discipline = card.discipline;
       button.dataset.attribute = card.attribute;
-      button.classList.toggle('is-redraw-choice', battleRedrawSelecting);
+      const redrawSelected = battleRedrawSelecting && battleRedrawIndices.has(index);
+      button.classList.toggle('is-redraw-choice', redrawSelected);
       if (card.element) button.dataset.element = card.element;
-      button.setAttribute('aria-pressed', String(selectedOccurrence));
+      button.setAttribute('aria-pressed', String(battleRedrawSelecting ? redrawSelected : selectedOccurrence));
       const remainingMp = activeBattle.player.mp - action.mpCost;
       const remainingEnergy = activeBattle.energy - spentEnergy;
       const canAffordMp = selectedOccurrence || (card.mpCost || 0) <= remainingMp;
@@ -2296,13 +2481,13 @@
         <span class="v2-card-frame" aria-hidden="true"></span>
         <span class="v2-card-cost" aria-label="消費行動力 ${card.cost}">◆${card.cost}</span>
         ${mpCost}
-        <span class="v2-card-tags"><b class="v2-card-type">種別 ${DISCIPLINE_LABELS[card.discipline]}</b><b class="v2-card-attribute" data-attribute="${card.attribute}">属性 ${CARD_ATTRIBUTE_LABELS[card.attribute]}</b></span>
+        <span class="v2-card-kindbar"><b class="v2-card-type"><small>種別</small>${DISCIPLINE_LABELS[card.discipline]}</b><b class="v2-card-attribute" data-attribute="${card.attribute}"><small>属性</small>${CARD_ATTRIBUTE_LABELS[card.attribute]}</b></span>
         <span class="v2-card-art" aria-hidden="true"><i>${card.icon}</i></span>
         <span class="v2-card-copy"><strong>${card.name}</strong><small>${card.description}</small></span>`;
       button.addEventListener('click', () => {
         if (battleRedrawSelecting) {
-          activeBattle = redrawOpeningCard(activeBattle, index);
-          battleRedrawSelecting = false;
+          if (battleRedrawIndices.has(index)) battleRedrawIndices.delete(index);
+          else battleRedrawIndices.add(index);
           renderBattle();
           return;
         }
@@ -2400,7 +2585,7 @@
   function playEncounterTransition(altarAwakening = false) {
     const transitionTitle = encounterTransition.querySelector('strong');
     encounterTransition.classList.toggle('is-altar-awakening', altarAwakening);
-    transitionTitle.textContent = altarAwakening ? '方位核が目覚める' : 'ENCOUNTER';
+    transitionTitle.textContent = altarAwakening ? '封印が目覚める' : 'ENCOUNTER';
     encounterTransition.setAttribute('aria-hidden', 'false');
     encounterTransition.classList.remove('is-active', 'is-revealing');
     void encounterTransition.offsetWidth;
@@ -2418,6 +2603,7 @@
   function resolveSelectedAction() {
     if (!activeBattle || activeBattle.status !== 'active' || !activeBattle.selected.length) return;
     battleRedrawSelecting = false;
+    battleRedrawIndices.clear();
     activeBattle = resolveTurn(activeBattle);
     renderBattle();
     playBattleEffects(activeBattle.effects);
@@ -2427,6 +2613,7 @@
     if (activeBattle || encounterTransitioning) return;
     encounterTransitioning = true;
     battleRedrawSelecting = false;
+    battleRedrawIndices.clear();
     keys.clear();
     resetMapDrag();
     try {
@@ -2446,6 +2633,16 @@
     const tutorialRescue = storyEncounterMode(storyState, encounter.id) === 'tutorial';
     activeEncounter = tutorialRescue ? { ...encounter, tutorialRescue: true } : encounter;
     activeBattle = createBattle(encounter.enemyId, Math.random, battleProfile(campaignState));
+    if (encounter.id === 'mist-bell-boss') {
+      const investigation = mistInvestigationResult(storyState);
+      const weakness = investigation.bossWeakness === '氷' ? 'ice' : 'fire';
+      activeBattle = {
+        ...activeBattle,
+        player: { ...activeBattle.player, block: 4 },
+        enemy: { ...activeBattle.enemy, weakness },
+        log: [`${investigation.ally}の援護で侵入に成功。${investigation.bossWeakness}属性が霧鐘へ響く！`]
+      };
+    }
     if (tutorialRescue) {
       activeBattle = {
         ...activeBattle,
@@ -2463,10 +2660,12 @@
   function closeBattle(result) {
     if (!activeBattle) return;
     battleRedrawSelecting = false;
+    battleRedrawIndices.clear();
     const encounter = activeEncounter;
     const practice = encounter?.id === 'practice';
     const bossVictory = result === 'victory' && encounter?.id === 'watchtower-boss';
     const crossroadsBossVictory = result === 'victory' && encounter?.id === 'crossroads-boss';
+    const mistBossVictory = result === 'victory' && encounter?.id === 'mist-bell-boss';
     let followUpDialogue = null;
     if (result === 'rescued' && encounter?.tutorialRescue) {
       const rescuedStory = completeStoryEvent(storyState, 'arrival-rescue-complete');
@@ -2508,6 +2707,15 @@
           id: 'crossroads-victory-result',
           onComplete: 'crossroads-boss-defeated',
           lines: [...levelLines, ...STORY_DIALOGUES['crossroads-boss-cleared'].lines]
+        };
+      } else if (mistBossVictory) {
+        const levelLines = outcome.leveledUp
+          ? [{ speaker: '地の文', text: `レベルが${campaignState.level}に上がった！ HPとMPが全回復した。` }]
+          : [];
+        followUpDialogue = {
+          id: 'mist-bell-victory-result',
+          onComplete: 'mist-boss-defeated',
+          lines: [...levelLines, ...STORY_DIALOGUES['mist-boss-cleared'].lines]
         };
       } else if (outcome.leveledUp) {
         followUpDialogue = {
@@ -2564,7 +2772,19 @@
   });
   battleRedraw.addEventListener('click', () => {
     if (!activeBattle || battleRedraw.disabled) return;
-    battleRedrawSelecting = !battleRedrawSelecting;
+    if (!battleRedrawSelecting) {
+      battleRedrawSelecting = true;
+      battleRedrawIndices.clear();
+    } else {
+      activeBattle = redrawOpeningCards(activeBattle, [...battleRedrawIndices]);
+      battleRedrawSelecting = false;
+      battleRedrawIndices.clear();
+    }
+    renderBattle();
+  });
+  battleRedrawCancel.addEventListener('click', () => {
+    battleRedrawSelecting = false;
+    battleRedrawIndices.clear();
     renderBattle();
   });
   battleFlee.addEventListener('click', () => closeBattle('fled'));

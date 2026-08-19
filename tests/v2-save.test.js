@@ -35,6 +35,24 @@ test('restart entry clears every Past Evening progress key and consumes the URL 
   assert.ok(PAST_SAVE_KEYS.every(key => storage.getItem(key) === null));
 });
 
+test('inherited restart keeps growth-bearing campaign and story data for runtime normalization', () => {
+  const storage = memoryStorage({
+    'roppongi-past-story': '{"phase":"third-mission"}',
+    'roppongi-past-campaign': '{"level":8,"equipment":{"weapon":"steel-sword"}}',
+    'roppongi-past-memory-stage': '1',
+    'roppongi-past-story-panel': 'hidden'
+  });
+  const result = consumePastRestart('?edition=past&newGame=inherit', storage);
+
+  assert.equal(result.restarted, true);
+  assert.equal(result.inherited, true);
+  assert.equal(result.search, '?edition=past');
+  assert.equal(storage.getItem('roppongi-past-campaign'), '{"level":8,"equipment":{"weapon":"steel-sword"}}');
+  assert.equal(storage.getItem('roppongi-past-story'), '{"phase":"third-mission"}');
+  assert.equal(storage.getItem('roppongi-past-memory-stage'), null);
+  assert.equal(storage.getItem('roppongi-past-story-panel'), null);
+});
+
 test('cloud save envelope contains only allowlisted game keys', () => {
   const storage = memoryStorage({
     'roppongi-past-story': '{"phase":"arrival"}',

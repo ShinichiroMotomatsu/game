@@ -81,6 +81,13 @@ test('the route to the crossroads crosses distinct fantasy biomes with expanded 
   assert.ok(PAST_ENCOUNTERS.some(enemy => enemy.chapter === 'crossroads-route'));
 });
 
+test('chapter three adds avoidable fog-region patrols around the northern city', () => {
+  const fogRoute = PAST_ENCOUNTERS.filter(encounter => encounter.chapter === 'mist-citadel-route');
+  assert.ok(fogRoute.length >= 3);
+  assert.ok(fogRoute.every(encounter => encounter.patrol.every(([x, y]) => x >= 240 && x <= 390 && y >= 175 && y <= 315)));
+  assert.ok(fogRoute.every(encounter => encounter.speed <= 20));
+});
+
 test('overworld actors and movement are reduced to half scale', () => {
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.deepEqual(PAST_ENCOUNTERS.filter(enemy => enemy.chapter === 'west-road').map(enemy => enemy.speed), [15, 16, 18, 20]);

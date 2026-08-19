@@ -26,12 +26,79 @@ const {
   productsOwnedForSale,
   productsForShop,
   reachWatchtower,
+  restartCampaignKeepingGrowth,
   resolveDefeat,
   restAtInn,
   salePrice,
   sellProduct,
   useItem
 } = require('../v2-past-campaign.js');
+
+test('inherited restart preserves growth and possessions but resets every quest and chest flag', () => {
+  const original = createPastCampaign({
+    level: 8,
+    exp: 1400,
+    currentHp: 12,
+    currentMp: 3,
+    equipment: { weapon: 'steel-sword', armor: 'scale-armor' },
+    ownedEquipment: ['steel-sword', 'scale-armor', 'crossroads-blade'],
+    ownedCards: ['spark', 'frost', 'cross-slash'],
+    inventory: { herb: 4, 'magic-water': 2 },
+    defeatedRoadEnemies: ['road-mist-east'],
+    watchtowerReached: true,
+    sealFragments: ['road-mist-east'],
+    bossDefeated: true,
+    openedDungeonChests: ['armory-coffer'],
+    crossroadsBossDefeated: true,
+    mistBossDefeated: true,
+    schemaVersion: 6
+  });
+  const restarted = restartCampaignKeepingGrowth(original);
+
+  assert.equal(restarted.level, 8);
+  assert.equal(restarted.exp, 1400);
+  assert.deepEqual(restarted.equipment, original.equipment);
+  assert.deepEqual(restarted.ownedEquipment, original.ownedEquipment);
+  assert.deepEqual(restarted.ownedCards, original.ownedCards);
+  assert.deepEqual(restarted.inventory, original.inventory);
+  assert.equal(restarted.currentHp, LEVEL_TABLE[7].maxHp);
+  assert.equal(restarted.currentMp, LEVEL_TABLE[7].maxMp);
+  assert.deepEqual(restarted.defeatedRoadEnemies, []);
+  assert.deepEqual(restarted.sealFragments, []);
+  assert.deepEqual(restarted.openedDungeonChests, []);
+  assert.equal(restarted.bossDefeated, false);
+  assert.equal(restarted.crossroadsBossDefeated, false);
+  assert.equal(restarted.mistBossDefeated, false);
+});
+
+test('a revived unique treasure never duplicates or forcibly re-equips its existing reward', () => {
+  const campaign = createPastCampaign({
+    equipment: { weapon: 'steel-sword' },
+    ownedEquipment: ['steel-sword', 'crossroads-blade'],
+    openedDungeonChests: [],
+    schemaVersion: 6
+  });
+  const opened = openDungeonTreasure(campaign, 'armory-coffer');
+
+  assert.equal(opened.ok, true);
+  assert.equal(opened.state.ownedEquipment.filter(id => id === 'crossroads-blade').length, 1);
+  assert.equal(opened.state.equipment.weapon, 'steel-sword');
+  assert.match(opened.message, /すでに持っている/);
+});
+
+test('revived supply chests grant consumables again after an inherited restart', () => {
+  const original = createPastCampaign({
+    inventory: { herb: 2, 'magic-water': 1 },
+    openedDungeonChests: ['merchant-cache'],
+    schemaVersion: 6
+  });
+  const restarted = restartCampaignKeepingGrowth(original);
+  const opened = openDungeonTreasure(restarted, 'merchant-cache');
+
+  assert.equal(opened.ok, true);
+  assert.equal(opened.state.inventory.herb, 5);
+  assert.equal(opened.state.inventory['magic-water'], 3);
+});
 
 test('every merchant can receive one shared list of owned equipment and consumables', () => {
   const bronze = buyProduct(createPastCampaign({ inventory: { herb: 2 }, ownedCards: ['cleave'], schemaVersion: 4 }), 1000, 'bronze-sword');
@@ -218,7 +285,8 @@ test('dungeon treasure grants unique equipment, supplies, and a combat card once
     assert.equal(opened.ok, true, treasure.id);
     campaign = opened.state;
   }
-  assert.equal(campaign.equipment.weapon, 'crossroads-blade');
+  assert.equal(campaign.equipment.weapon, 'bellsteel-sword');
+  assert.ok(campaign.ownedEquipment.includes('crossroads-blade'));
   assert.equal(campaign.inventory.herb, 3);
   assert.equal(campaign.inventory['magic-water'], 2);
   assert.equal(campaign.ownedCards.includes('cross-slash'), true);
@@ -288,6 +356,18 @@ test('crossroads shops retire starter goods and add stronger chapter-two stock',
   assert.ok(DUNGEON_TREASURES.find(treasure => treasure.weaponId).weaponId === 'crossroads-blade');
 });
 
+test('the fog citadel upgrades stock again and charges more than the crossroads inn', () => {
+  const weapons = productsForShop('mist-citadel', 'weapon');
+  const armor = productsForShop('mist-citadel', 'armor');
+  const cards = productsForShop('mist-citadel', 'card');
+
+  assert.ok(weapons.some(product => product.attack >= 9));
+  assert.ok(armor.some(product => product.defense >= 9));
+  assert.ok(cards.length >= 2);
+  assert.equal(weapons.some(product => product.id === 'iron-sword'), false);
+  assert.ok(INN_DEFINITIONS['mist-citadel'].price > INN_DEFINITIONS['crossroads-town'].price);
+});
+
 test('experience remaining is calculated from the next level threshold', () => {
   assert.equal(experienceToNextLevel(createPastCampaign({ exp: 0 })), 40);
   assert.equal(experienceToNextLevel(createPastCampaign({ exp: 39 })), 1);
@@ -322,9 +402,12 @@ test('the mid-boss durability targets roughly eight action-one turns', () => {
 
 function slashUntilBattleEnds(profile, turnLimit = 20, enemyId = 'mist-watcher') {
   let battle = createBattle(enemyId, () => 0, profile);
-  while (battle.status === 'active' && battle.turn <= turnLimit) {
-    battle = toggleCard(battle, 'slash');
+  let actions = 0;
+  while (battle.status === 'active' && battle.turn <= turnLimit && actions < turnLimit) {
+    const cardId = battle.hand.includes('slash') ? 'slash' : battle.hand[0];
+    battle = toggleCard(battle, cardId);
     battle = resolveTurn(battle, () => 0);
+    actions += 1;
   }
   return battle;
 }
