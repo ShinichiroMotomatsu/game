@@ -12,5 +12,7 @@ tmp/
 .env
 .env.*
 v2-supabase-config.js
+supabase/.temp/
+supabase/.branches/
 .DS_Store
 Thumbs.db
