@@ -4,6 +4,7 @@
   if (root) root.V2_AUTH = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
   const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const EMAIL_CONFIRMATION_REDIRECT = 'https://shinichiromotomatsu.github.io/game/v2.html';
 
   function normalizeEmail(email) {
     return typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -43,9 +44,28 @@
       if (!validEmail(normalized)) return failure('invalid-email');
       if (!validPassword(password)) return failure('invalid-password');
       try {
-        const { data, error } = await client.auth.signUp({ email: normalized, password });
+        const { data, error } = await client.auth.signUp({
+          email: normalized,
+          password,
+          options: { emailRedirectTo: EMAIL_CONFIRMATION_REDIRECT }
+        });
         if (error || !data?.user) return failure('signup-failed');
         return { ok: true, confirmationRequired: !data.session };
+      } catch {
+        return failure('remote-error');
+      }
+    }
+
+    async function resendConfirmation(email) {
+      const normalized = normalizeEmail(email);
+      if (!validEmail(normalized)) return failure('invalid-email');
+      try {
+        const { error } = await client.auth.resend({
+          type: 'signup',
+          email: normalized,
+          options: { emailRedirectTo: EMAIL_CONFIRMATION_REDIRECT }
+        });
+        return error ? failure('resend-failed') : { ok: true };
       } catch {
         return failure('remote-error');
       }
@@ -74,8 +94,8 @@
       return () => data?.subscription?.unsubscribe?.();
     }
 
-    return Object.freeze({ session, signIn, signOut, signUp, subscribe });
+    return Object.freeze({ resendConfirmation, session, signIn, signOut, signUp, subscribe });
   }
 
-  return { createAuthService, normalizeEmail, validEmail, validPassword };
+  return { EMAIL_CONFIRMATION_REDIRECT, createAuthService, normalizeEmail, validEmail, validPassword };
 });

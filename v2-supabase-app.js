@@ -6,6 +6,7 @@
   const passwordInput = document.querySelector('#v2-cloud-password');
   const signInButton = document.querySelector('#v2-cloud-sign-in');
   const signUpButton = document.querySelector('#v2-cloud-sign-up');
+  const resendButton = document.querySelector('#v2-cloud-resend');
   const signOutButton = document.querySelector('#v2-cloud-sign-out');
   const uploadButton = document.querySelector('#v2-cloud-upload');
   const downloadButton = document.querySelector('#v2-cloud-download');
@@ -21,7 +22,7 @@
   }
 
   function setBusy(busy) {
-    [signInButton, signUpButton, signOutButton, uploadButton, downloadButton]
+    [signInButton, signUpButton, resendButton, signOutButton, uploadButton, downloadButton]
       .forEach(button => { button.disabled = busy; });
   }
 
@@ -50,7 +51,7 @@
   }
 
   const client = globalThis.supabase.createClient(config.url, config.publishableKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
   });
   const auth = authApi.createAuthService(client);
   const cloud = cloudApi.createCloudSaveService(client);
@@ -77,6 +78,18 @@
 
   signInButton.addEventListener('click', () => submitAuth('signIn'));
   signUpButton.addEventListener('click', () => submitAuth('signUp'));
+  resendButton.addEventListener('click', async () => {
+    setBusy(true);
+    const result = await auth.resendConfirmation(emailInput.value);
+    setBusy(false);
+    if (result.ok) {
+      setStatus('確認メールを再送しました。新しいメール内のリンクを開いてください。', 'success');
+    } else if (result.reason === 'invalid-email') {
+      setStatus('メールアドレスを確認してください。', 'error');
+    } else {
+      setStatus('確認メールを再送できませんでした。しばらくしてから再試行してください。', 'error');
+    }
+  });
   signOutButton.addEventListener('click', async () => {
     setBusy(true);
     const result = await auth.signOut();
