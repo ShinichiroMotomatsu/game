@@ -55,8 +55,8 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const css = fs.readFileSync('v2.css', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
-  assert.match(html, /v2\.js\?edition=14/);
-  assert.match(html, /v2\.css\?edition=8/);
+  assert.match(html, /v2\.js\?edition=16/);
+  assert.match(html, /v2\.css\?edition=10/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);
   assert.match(runtime, /shell\.addEventListener\('pointerdown'/);
@@ -114,6 +114,56 @@ test('settings expose compact authenticated cloud save controls', () => {
   assert.doesNotMatch(runtime, /innerHTML\s*=/);
 });
 
+test('battle cards label type and attribute separately and offer one opening redraw', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const css = fs.readFileSync('v2.css', 'utf8');
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+
+  assert.match(html, /id="v2-battle-redraw"/);
+  assert.match(runtime, /DISCIPLINE_LABELS/);
+  assert.match(runtime, /CARD_ATTRIBUTE_LABELS/);
+  assert.match(runtime, /v2-card-type/);
+  assert.match(runtime, /v2-card-attribute/);
+  assert.match(runtime, /redrawOpeningCard/);
+  assert.match(css, /\.v2-card-tags/);
+  assert.match(css, /\.v2-battle-actions \{ display: grid; grid-template-columns: minmax\(0, 1\.35fr\) repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.v2-battle-actions button \{ min-width: 0;/);
+  assert.match(css, /\.v2-battle-vital strong[^}]*font-size:\s*clamp\(/);
+  assert.match(css, /\.v2-card[^}]*min-height:\s*118px/);
+  assert.match(css, /\.v2-card-art[^}]*height:\s*60px/);
+});
+
+test('all merchants share the sell list, highlight equipped gear, and ask before selling', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const css = fs.readFileSync('v2.css', 'utf8');
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+
+  assert.match(html, /id="v2-shop-confirm"/);
+  assert.match(html, /id="v2-shop-confirm-accept"/);
+  assert.match(html, /id="v2-shop-confirm-cancel"/);
+  assert.match(runtime, /productsOwnedForSale\(campaignState\)/);
+  assert.match(runtime, /requestSaleConfirmation/);
+  assert.doesNotMatch(runtime, /shopSell\.disabled = activeServiceId === 'card'/);
+  assert.match(runtime, /is-equipped/);
+  assert.match(css, /\.v2-shop-item\.is-equipped/);
+  const request = runtime.match(/function requestSaleConfirmation\([\s\S]*?\n  function confirmPendingSale/)?.[0] || '';
+  const confirm = runtime.match(/function confirmPendingSale\([\s\S]*?\n  function renderService/)?.[0] || '';
+  assert.doesNotMatch(request, /sellProduct\(/);
+  assert.match(confirm, /sellProduct\(/);
+});
+
+test('settings include past-quest debug completion controls', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+
+  assert.match(html, /id="v2-quest-debug"/);
+  assert.match(html, /data-debug-quest="watchtower"/);
+  assert.match(html, /data-debug-quest="crossroads"/);
+  assert.match(runtime, /setDebugQuestCompletion/);
+  assert.match(runtime, /savePastCampaign\(\)/);
+  assert.match(runtime, /savePastStory\(\)/);
+});
+
 test('shop tabs and inn fade remain touch-sized on mobile', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
   const css = fs.readFileSync('v2.css', 'utf8');
@@ -135,7 +185,7 @@ test('the bag exposes every owned weapon and armor as an equipment action', () =
   assert.match(runtime, /装備する/);
 });
 
-test('the waterway draws detailed tiles, a visible altar, and four stateful watergates without showing the boss early', () => {
+test('the waterway draws detailed tiles and raster altar and watergates without showing the boss early', () => {
   const runtime = fs.readFileSync('v2.js', 'utf8');
   const eventsRenderer = runtime.match(/function drawCrossroadsDungeonEvents\(\)[\s\S]*?\n  function drawTownBuildingLabel/)?.[0] || '';
   const locationAssets = runtime.match(/function requiredAssetKeysForLocation\(\)[\s\S]*?\n  function loadAssetsInBackground/)?.[0] || '';
@@ -144,6 +194,10 @@ test('the waterway draws detailed tiles, a visible altar, and four stateful wate
   assert.match(eventsRenderer, /drawDungeonAltar/);
   assert.match(eventsRenderer, /CROSSROADS_WATERGATES/);
   assert.match(eventsRenderer, /campaignState\.crossroadsBossDefeated/);
+  assert.match(runtime, /pastEventImages\.get\(`watergate-\$\{open \? 'open' : 'closed'\}`\)/);
+  assert.match(runtime, /pastEventImages\.get\(`compass-altar-\$\{restored \? 'restored' : 'corrupted'\}`\)/);
+  assert.doesNotMatch(runtime.match(/function drawWatergate\([\s\S]*?\n  function drawDungeonAltar/)?.[0] || '', /fillRect|strokeRect/);
+  assert.doesNotMatch(runtime.match(/function drawDungeonAltar\([\s\S]*?\n  function drawCrossroadsDungeonEvents/)?.[0] || '', /ellipse|fillRect|strokeRect/);
   assert.doesNotMatch(eventsRenderer, /crossroads-sentinel/);
   assert.doesNotMatch(locationAssets, /enemyAssetKey\('crossroads-sentinel'\)/);
   assert.match(runtime, /crossroads-altar-awaken/);

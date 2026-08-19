@@ -4,19 +4,22 @@
   if (root) root.V2_BATTLE = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
   const CARD_LIBRARY = Object.freeze({
-    slash: Object.freeze({ id: 'slash', name: '斬る', discipline: 'sword', icon: '剣', cost: 1, damage: 7, description: '剣で素早く斬りつける' }),
-    cleave: Object.freeze({ id: 'cleave', name: '薙ぐ', discipline: 'sword', icon: '刃', cost: 1, damage: 6, description: '大きく踏み込み薙ぎ払う' }),
-    spark: Object.freeze({ id: 'spark', name: '火花', discipline: 'magic', element: 'fire', icon: '炎', cost: 1, mpCost: 2, damage: 6, description: 'MP2・小さな炎を放つ' }),
-    frost: Object.freeze({ id: 'frost', name: '霜結', discipline: 'magic', element: 'ice', icon: '氷', cost: 1, mpCost: 3, damage: 7, description: 'MP3・冷気で敵を貫く' }),
-    guard: Object.freeze({ id: 'guard', name: '防ぐ', discipline: 'guard', icon: '盾', cost: 1, block: 7, description: '盾を構えて身を守る' }),
-    parry: Object.freeze({ id: 'parry', name: '受流', discipline: 'guard', icon: '受', cost: 1, block: 5, damage: 2, description: '受け流しながら反撃する' }),
-    focus: Object.freeze({ id: 'focus', name: '集中', discipline: 'technique', icon: '眼', cost: 1, draw: 1, mpRestore: 2, description: '3ターン予兆を見抜きMPを2回復' }),
-    feint: Object.freeze({ id: 'feint', name: '陽動', discipline: 'technique', icon: '技', cost: 1, damage: 3, weaken: 2, description: '敵を惑わせ攻撃を弱める' }),
-    'flame-edge': Object.freeze({ id: 'flame-edge', name: '炎刃', discipline: 'sword', element: 'fire', icon: '焔', cost: 1, damage: 9, description: '炎をまとわせて斬りつける' }),
-    fortress: Object.freeze({ id: 'fortress', name: '城壁', discipline: 'guard', icon: '城', cost: 1, block: 10, description: '堅牢な壁で身を守る' }),
-    mend: Object.freeze({ id: 'mend', name: '癒光', discipline: 'magic', icon: '癒', cost: 1, mpCost: 3, heal: 14, description: 'MP3・HPを14回復する' }),
-    'cross-slash': Object.freeze({ id: 'cross-slash', name: '十字斬り', discipline: 'sword', icon: '十', cost: 1, damage: 10, description: '交差する二筋の剣閃を放つ' })
+    slash: Object.freeze({ id: 'slash', name: '斬る', discipline: 'sword', attribute: 'neutral', icon: '剣', cost: 1, damage: 7, description: '剣で素早く斬りつける' }),
+    cleave: Object.freeze({ id: 'cleave', name: '薙ぐ', discipline: 'sword', attribute: 'neutral', icon: '刃', cost: 1, damage: 6, description: '大きく踏み込み薙ぎ払う' }),
+    spark: Object.freeze({ id: 'spark', name: '火花', discipline: 'magic', element: 'fire', attribute: 'fire', icon: '炎', cost: 1, mpCost: 2, damage: 6, description: 'MP2・小さな炎を放つ' }),
+    frost: Object.freeze({ id: 'frost', name: '霜結', discipline: 'magic', element: 'ice', attribute: 'ice', icon: '氷', cost: 1, mpCost: 3, damage: 7, description: 'MP3・冷気で敵を貫く' }),
+    guard: Object.freeze({ id: 'guard', name: '防ぐ', discipline: 'guard', attribute: 'neutral', icon: '盾', cost: 1, block: 7, description: '盾を構えて身を守る' }),
+    parry: Object.freeze({ id: 'parry', name: '受流', discipline: 'guard', attribute: 'neutral', icon: '受', cost: 1, block: 5, damage: 2, description: '受け流しながら反撃する' }),
+    focus: Object.freeze({ id: 'focus', name: '集中', discipline: 'technique', attribute: 'insight', icon: '眼', cost: 1, draw: 1, mpRestore: 2, description: '3ターン予兆を見抜きMPを2回復' }),
+    feint: Object.freeze({ id: 'feint', name: '陽動', discipline: 'technique', attribute: 'insight', icon: '技', cost: 1, damage: 3, weaken: 2, description: '敵を惑わせ攻撃を弱める' }),
+    'flame-edge': Object.freeze({ id: 'flame-edge', name: '炎刃', discipline: 'sword', element: 'fire', attribute: 'fire', icon: '焔', cost: 1, damage: 9, description: '炎をまとわせて斬りつける' }),
+    fortress: Object.freeze({ id: 'fortress', name: '城壁', discipline: 'guard', attribute: 'neutral', icon: '城', cost: 1, block: 10, description: '堅牢な壁で身を守る' }),
+    mend: Object.freeze({ id: 'mend', name: '癒光', discipline: 'magic', attribute: 'heal', icon: '癒', cost: 1, mpCost: 3, heal: 14, description: 'MP3・HPを14回復する' }),
+    'cross-slash': Object.freeze({ id: 'cross-slash', name: '十字斬り', discipline: 'sword', attribute: 'neutral', icon: '十', cost: 1, damage: 10, description: '交差する二筋の剣閃を放つ' })
   });
+
+  const DISCIPLINE_LABELS = Object.freeze({ sword: '剣', technique: '技', guard: '守', magic: '魔法' });
+  const CARD_ATTRIBUTE_LABELS = Object.freeze({ neutral: '無', fire: '炎', ice: '氷', heal: '癒', insight: '心' });
 
   const ENEMY_LIBRARY = Object.freeze({
     'mist-slime': Object.freeze({ id: 'mist-slime', name: '宵霧のスライム', maxHp: 26, attack: 9, gold: 8, xp: 12, intent: '体当たり', weakness: 'fire' }),
@@ -42,6 +45,14 @@
 
   const ELEMENT_LABELS = Object.freeze({ fire: '炎', ice: '氷' });
   const WEAKNESS_MULTIPLIER = 1.5;
+
+  function hpCondition(hp, maxHp) {
+    const safeMax = Math.max(1, Number(maxHp) || 1);
+    const ratio = Math.max(0, Number(hp) || 0) / safeMax;
+    if (ratio <= 0.25) return 'danger';
+    if (ratio <= 0.5) return 'warning';
+    return 'normal';
+  }
 
   const ENEMY_INTENTS = Object.freeze({
     assault: Object.freeze({
@@ -103,12 +114,19 @@
     return { cards, deck: drawPile, discard: discardPile };
   }
 
+  function expandedBattleDeck(cardIds) {
+    const expanded = [];
+    const targetSize = Math.max(6, cardIds.length);
+    while (expanded.length < targetSize) expanded.push(...cardIds);
+    return expanded.slice(0, targetSize);
+  }
+
   function createBattle(enemyId, random = Math.random, profile = {}) {
     const enemyDefinition = ENEMY_LIBRARY[enemyId] || ENEMY_LIBRARY['mist-slime'];
     const configuredDeck = Array.isArray(profile.deck)
       ? profile.deck.filter(cardId => CARD_LIBRARY[cardId])
       : defaultDeck();
-    const battleDeck = configuredDeck.length ? configuredDeck : defaultDeck();
+    const battleDeck = expandedBattleDeck(configuredDeck.length ? configuredDeck : defaultDeck());
     const opening = drawCards(shuffled(battleDeck, random), [], 5, random);
     const maxHp = Math.max(1, Math.floor(Number(profile.maxHp) || 42));
     const hp = Math.max(1, Math.min(maxHp, Math.floor(Number(profile.hp) || maxHp)));
@@ -142,9 +160,11 @@
       discard: opening.discard,
       hand: opening.cards,
       selected: [],
+      selectedIndices: [],
       selectedCost: 0,
       selectedMp: 0,
       readyToResolve: false,
+      openingRedrawAvailable: true,
       intentRevealed: false,
       intentRevealTurns: 0,
       effects: [],
@@ -161,20 +181,42 @@
     return selected.reduce((sum, cardId) => sum + (CARD_LIBRARY[cardId]?.mpCost || 0), 0);
   }
 
-  function toggleCard(battle, cardId) {
+  function toggleCard(battle, cardId, handIndex = battle.hand.indexOf(cardId)) {
     if (battle.status !== 'active' || !battle.hand.includes(cardId)) return battle;
-    if (battle.selected.includes(cardId)) {
-      const index = battle.selected.indexOf(cardId);
+    if (!Number.isInteger(handIndex) || handIndex < 0 || battle.hand[handIndex] !== cardId) return battle;
+    const selectedIndices = Array.isArray(battle.selectedIndices) ? battle.selectedIndices : [];
+    const selectedIndex = selectedIndices.indexOf(handIndex);
+    if (selectedIndex >= 0) {
+      const index = selectedIndex;
       const selected = battle.selected.filter((_, cardIndex) => cardIndex !== index);
+      const nextSelectedIndices = selectedIndices.filter((_, cardIndex) => cardIndex !== index);
       const selectedCost = totalCost(selected);
       const selectedMp = totalMpCost(selected);
-      return { ...battle, selected, selectedCost, selectedMp, readyToResolve: selectedCost === battle.energy };
+      return { ...battle, selected, selectedIndices: nextSelectedIndices, selectedCost, selectedMp, readyToResolve: selectedCost === battle.energy };
     }
     const selected = [...battle.selected, cardId];
     const selectedCost = totalCost(selected);
     const selectedMp = totalMpCost(selected);
     if (battle.selected.length >= 4 || selectedCost > battle.energy || selectedMp > battle.player.mp) return battle;
-    return { ...battle, selected, selectedCost, selectedMp, readyToResolve: selectedCost === battle.energy };
+    return { ...battle, selected, selectedIndices: [...selectedIndices, handIndex], selectedCost, selectedMp, readyToResolve: selectedCost === battle.energy };
+  }
+
+  function redrawOpeningCard(battle, handIndex, random = Math.random) {
+    if (battle.status !== 'active' || battle.turn !== 1 || !battle.openingRedrawAvailable || battle.selected.length) return battle;
+    if (!Number.isInteger(handIndex) || handIndex < 0 || handIndex >= battle.hand.length) return battle;
+    const replacedCard = battle.hand[handIndex];
+    const nextDraw = drawCards(battle.deck, [], 1, random);
+    if (!nextDraw.cards.length) return battle;
+    const hand = [...battle.hand];
+    hand[handIndex] = nextDraw.cards[0];
+    return {
+      ...battle,
+      deck: nextDraw.deck,
+      discard: [...battle.discard, replacedCard],
+      hand,
+      openingRedrawAvailable: false,
+      log: [...battle.log, `${CARD_LIBRARY[replacedCard].name}を手放し、新しい札を引き直した。`].slice(-6)
+    };
   }
 
   function combinationFor(selected) {
@@ -267,9 +309,11 @@
         player: { ...battle.player, hp: healedPlayerHp, mp: playerMp },
         enemy: { ...battle.enemy, hp: 0 },
         selected: [],
+        selectedIndices: [],
         selectedCost: 0,
         selectedMp: 0,
         readyToResolve: false,
+        openingRedrawAvailable: false,
         effects,
         log: [...battle.log, ...log, `${battle.enemy.name}を倒した。`],
         reward: { gold: battle.enemy.gold, xp: battle.enemy.xp || 0 }
@@ -289,9 +333,11 @@
         player: { ...battle.player, hp: 0, mp: playerMp },
         enemy: { ...battle.enemy, hp: enemyHp },
         selected: [],
+        selectedIndices: [],
         selectedCost: 0,
         selectedMp: 0,
         readyToResolve: false,
+        openingRedrawAvailable: false,
         effects,
         log: [...battle.log, ...log, '力尽きた……。'],
         reward: { gold: 0 }
@@ -322,9 +368,11 @@
       discard: nextDraw.discard,
       hand: [...remainingHand, ...nextDraw.cards].slice(0, 7),
       selected: [],
+      selectedIndices: [],
       selectedCost: 0,
       selectedMp: 0,
       readyToResolve: false,
+      openingRedrawAvailable: false,
       intentRevealed: intentRevealTurns > 0,
       intentRevealTurns,
       effects,
@@ -333,12 +381,16 @@
   }
 
   return {
+    CARD_ATTRIBUTE_LABELS,
     CARD_LIBRARY,
+    DISCIPLINE_LABELS,
     ENEMY_LIBRARY,
     ENEMY_INTENTS,
     createBattle,
     defaultDeck,
+    hpCondition,
     previewAction,
+    redrawOpeningCard,
     resolveTurn,
     toggleCard
   };

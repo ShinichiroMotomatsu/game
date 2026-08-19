@@ -26,9 +26,29 @@ const {
   nearbyPastInteraction,
   storyAllowsEncounters,
   storyEncounterMode,
+  setDebugQuestCompletion,
   storyUnlocksInteraction,
   storyObjective
 } = require('../v2-past-story.js');
+
+test('debug quest controls keep story and boss flags consistent in both directions', () => {
+  const initialStory = createPastStory({ phase: 'first-mission', area: 'castle-town' });
+  const initialCampaign = { bossDefeated: false, crossroadsBossDefeated: false, watchtowerReached: false, sealFragments: [] };
+  const firstCleared = setDebugQuestCompletion(initialStory, initialCampaign, 'watchtower', true);
+  const secondCleared = setDebugQuestCompletion(firstCleared.story, firstCleared.campaign, 'crossroads', true);
+  const secondReopened = setDebugQuestCompletion(secondCleared.story, secondCleared.campaign, 'crossroads', false);
+  const firstReopened = setDebugQuestCompletion(secondReopened.story, secondReopened.campaign, 'watchtower', false);
+
+  assert.equal(firstCleared.story.phase, 'first-mission-complete');
+  assert.equal(firstCleared.campaign.bossDefeated, true);
+  assert.equal(secondCleared.story.phase, 'second-mission-complete');
+  assert.equal(secondCleared.campaign.crossroadsBossDefeated, true);
+  assert.equal(secondReopened.story.phase, 'second-mission');
+  assert.equal(secondReopened.campaign.crossroadsBossDefeated, false);
+  assert.equal(firstReopened.story.phase, 'first-mission');
+  assert.equal(firstReopened.campaign.bossDefeated, false);
+  assert.equal(firstReopened.campaign.crossroadsBossDefeated, false);
+});
 
 function reachableAreaInteractions(areaId, interactions, step = 8) {
   const start = PAST_AREAS[areaId].spawn;
@@ -479,8 +499,8 @@ test('the overworld consistently filters enemies and routes the tutorial battle 
 
 test('the tutorial story and runtime scripts use fresh browser cache versions', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
-  assert.match(html, /v2-past-story\.js\?edition=11/);
-  assert.match(html, /v2\.js\?edition=14/);
+  assert.match(html, /v2-past-story\.js\?edition=12/);
+  assert.match(html, /v2\.js\?edition=16/);
 });
 
 test('the western road contains two visible card discoveries', () => {

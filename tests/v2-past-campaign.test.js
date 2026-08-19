@@ -23,6 +23,7 @@ const {
   equipProduct,
   learnFirstMagic,
   openDungeonTreasure,
+  productsOwnedForSale,
   productsForShop,
   reachWatchtower,
   resolveDefeat,
@@ -31,6 +32,14 @@ const {
   sellProduct,
   useItem
 } = require('../v2-past-campaign.js');
+
+test('every merchant can receive one shared list of owned equipment and consumables', () => {
+  const bronze = buyProduct(createPastCampaign({ inventory: { herb: 2 }, ownedCards: ['cleave'], schemaVersion: 4 }), 1000, 'bronze-sword');
+  const owned = productsOwnedForSale(bronze.state);
+
+  assert.deepEqual(owned.map(product => product.id).sort(), ['bronze-sword', 'herb']);
+  assert.equal(owned.some(product => product.type === 'card'), false);
+});
 const { ENEMY_LIBRARY } = require('../v2-battle.js');
 const { createBattle, resolveTurn, toggleCard } = require('../v2-battle.js');
 const { PAST_ENCOUNTERS } = require('../v2-past-world.js');

@@ -596,6 +596,35 @@
     return [...point];
   }
 
+  function setDebugQuestCompletion(story, campaign, questId, completed) {
+    const nextStory = { ...story };
+    const nextCampaign = { ...campaign };
+    if (questId === 'watchtower') {
+      if (completed) {
+        nextCampaign.bossDefeated = true;
+        nextCampaign.watchtowerReached = true;
+        if (!['second-mission', 'second-mission-report', 'second-mission-complete'].includes(nextStory.phase)) {
+          nextStory.phase = 'first-mission-complete';
+        }
+      } else {
+        nextStory.phase = 'first-mission';
+        nextCampaign.bossDefeated = false;
+        nextCampaign.crossroadsBossDefeated = false;
+        nextCampaign.watchtowerReached = false;
+        nextCampaign.sealFragments = [];
+      }
+      return { story: nextStory, campaign: nextCampaign };
+    }
+    if (questId === 'crossroads') {
+      nextCampaign.bossDefeated = true;
+      nextCampaign.watchtowerReached = true;
+      nextCampaign.crossroadsBossDefeated = Boolean(completed);
+      nextStory.phase = completed ? 'second-mission-complete' : 'second-mission';
+      return { story: nextStory, campaign: nextCampaign };
+    }
+    return { story, campaign };
+  }
+
   return {
     CASTLE_COLLISION_RECTS,
     CASTLE_NPCS,
@@ -618,6 +647,7 @@
     dungeonPointIsWalkable,
     nearestWalkablePoint,
     nearbyPastInteraction,
+    setDebugQuestCompletion,
     storyAllowsEncounters,
     storyEncounterMode,
     storyUnlocksInteraction,

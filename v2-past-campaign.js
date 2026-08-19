@@ -245,6 +245,14 @@
     return (inventory[shopType] || []).map(productId => PRODUCTS.get(productId)).filter(Boolean);
   }
 
+  function productsOwnedForSale(state) {
+    const equipment = state.ownedEquipment
+      .map(productId => PRODUCTS.get(productId))
+      .filter(product => product?.type === 'weapon' || product?.type === 'armor');
+    const items = SHOP_CATALOG.item.filter(product => (state.inventory[product.id] || 0) > 0);
+    return [...equipment, ...items];
+  }
+
   function equipProduct(state, productId) {
     const product = PRODUCTS.get(productId);
     if (!product || !['weapon', 'armor'].includes(product.type)) {
@@ -512,6 +520,7 @@
     experienceToNextLevel,
     learnFirstMagic,
     openDungeonTreasure,
+    productsOwnedForSale,
     productsForShop,
     reachWatchtower,
     resolveDefeat,

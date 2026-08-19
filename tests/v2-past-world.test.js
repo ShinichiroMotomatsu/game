@@ -5,7 +5,9 @@ const fs = require('node:fs');
 const {
   PAST_ENCOUNTERS,
   PAST_BIOMES,
+  FIELD_ENCOUNTER_RADIUS,
   FIELD_ENCOUNTER_GRACE_MS,
+  FIELD_EXIT_SAFE_RADIUS,
   advancePatrol,
   createPastEnemies,
   landmarkMemoryState,
@@ -38,11 +40,24 @@ test('the capital exit has meaningful travel time before a western-road encounte
   const travelSecondsBeforeCollision = (closest - 23) * 4 / 190;
 
   assert.ok(travelSecondsBeforeCollision >= 1, `encounter begins after only ${travelSecondsBeforeCollision.toFixed(2)} seconds`);
-  assert.ok(FIELD_ENCOUNTER_GRACE_MS >= 1800);
+  assert.ok(FIELD_ENCOUNTER_GRACE_MS >= 4000);
+  assert.ok(FIELD_EXIT_SAFE_RADIUS >= 50);
   assert.match(runtime, /encounterGraceUntil = performance\.now\(\) \+ FIELD_ENCOUNTER_GRACE_MS/);
+  assert.match(runtime, /encounterSafeCenter = enteringField \? \[\.\.\.safeSpawn\] : null/);
+  assert.match(runtime, /FIELD_EXIT_SAFE_RADIUS \* maskScale/);
   assert.match(runtime, /now >= encounterGraceUntil && pastEnemies\.find/);
   assert.match(runtime, /\['victory', 'fled'\]\.includes\(result\)/);
   assert.ok(westernRoad.every(encounter => encounter.patrol.every(([x]) => x > PAST_START.point[0] && x < PAST_START.capitalGatePoint[0])));
+});
+
+test('every town exit to the field receives distance and time based encounter protection', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const transition = runtime.slice(runtime.indexOf('function transitionStoryArea'), runtime.indexOf('function performStoryInteraction'));
+  const fieldExits = require('../v2-past-story.js').PAST_INTERACTIONS.filter(interaction => interaction.targetArea === 'overworld');
+
+  assert.ok(fieldExits.length >= 2);
+  assert.match(transition, /const enteringField = previousArea !== 'overworld' && result\.state\.area === 'overworld'/);
+  assert.match(transition, /encounterSafeCenter = enteringField \? \[\.\.\.safeSpawn\] : null/);
 });
 
 test('second-chapter patrols do not overlap the earlier western-road encounters', () => {
@@ -73,7 +88,7 @@ test('overworld actors and movement are reduced to half scale', () => {
   assert.match(runtime, /speed:\s*190/);
   assert.match(runtime, /const displayHeight = 48/);
   assert.match(runtime, /const height = 50/);
-  assert.match(runtime, /shouldStartEncounter\(player, enemy, 23 \* maskScale/);
+  assert.match(runtime, /shouldStartEncounter\(player, enemy, FIELD_ENCOUNTER_RADIUS \* maskScale/);
 });
 
 test('patrol movement stays on the configured segment', () => {
@@ -89,6 +104,17 @@ test('a nearby active enemy starts an encounter but a defeated enemy does not', 
   const enemy = { x: 100, y: 100, active: true, respawnAt: 0 };
   assert.equal(shouldStartEncounter({ x: 118, y: 110 }, enemy, 40, 1000), true);
   assert.equal(shouldStartEncounter({ x: 118, y: 110 }, { ...enemy, active: false, respawnAt: 2000 }, 40, 1000), false);
+});
+
+test('the encounter radius is narrow enough to sidestep a visible monster', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const enemy = { x: 100, y: 100, active: true, respawnAt: 0 };
+
+  assert.ok(FIELD_ENCOUNTER_RADIUS <= 14);
+  assert.equal(shouldStartEncounter({ x: 100 + FIELD_ENCOUNTER_RADIUS - 0.1, y: 100 }, enemy, FIELD_ENCOUNTER_RADIUS, 1000), true);
+  assert.equal(shouldStartEncounter({ x: 100 + FIELD_ENCOUNTER_RADIUS + 0.1, y: 100 }, enemy, FIELD_ENCOUNTER_RADIUS, 1000), false);
+  assert.match(runtime, /shouldStartEncounter\(player, enemy, FIELD_ENCOUNTER_RADIUS \* maskScale/);
+  assert.doesNotMatch(runtime, /shouldStartEncounter\(player, enemy, 23 \* maskScale/);
 });
 
 test('entering a building restores every field monster at its patrol origin', () => {

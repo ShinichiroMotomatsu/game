@@ -10,10 +10,13 @@
   const settingsPanel = document.querySelector('#v2-settings');
   const settingsToggle = document.querySelector('#v2-settings-toggle');
   const settingsClose = document.querySelector('#v2-settings-close');
+  const questDebug = document.querySelector('#v2-quest-debug');
+  const questDebugStatus = document.querySelector('#v2-quest-debug-status');
   const infoToggle = document.querySelector('#v2-info-toggle');
   const battleOverlay = document.querySelector('#v2-battle');
   const battleHand = document.querySelector('#v2-battle-hand');
   const battleResolve = document.querySelector('#v2-battle-resolve');
+  const battleRedraw = document.querySelector('#v2-battle-redraw');
   const battleFlee = document.querySelector('#v2-battle-flee');
   const battlePractice = document.querySelector('#v2-battle-practice');
   const battleEffects = document.querySelector('#v2-battle-effects');
@@ -43,6 +46,10 @@
   const shopTabs = document.querySelector('.v2-shop-tabs');
   const shopBuy = document.querySelector('#v2-shop-buy');
   const shopSell = document.querySelector('#v2-shop-sell');
+  const shopConfirm = document.querySelector('#v2-shop-confirm');
+  const shopConfirmMessage = document.querySelector('#v2-shop-confirm-message');
+  const shopConfirmAccept = document.querySelector('#v2-shop-confirm-accept');
+  const shopConfirmCancel = document.querySelector('#v2-shop-confirm-cancel');
   const restTransition = document.querySelector('#v2-rest-transition');
   const dragGuide = document.querySelector('#v2-drag-guide');
   const dragGuideKnob = dragGuide.querySelector('span');
@@ -73,8 +80,8 @@
     tileCoordinateForPoint,
     visibleTileCoordinates
   } = assetApi;
-  const { CARD_LIBRARY, ENEMY_INTENTS, createBattle, previewAction, resolveTurn, toggleCard } = battleApi;
-  const { FIELD_ENCOUNTER_GRACE_MS, advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, respawnPastEnemies, shouldStartEncounter } = pastWorldApi;
+  const { CARD_ATTRIBUTE_LABELS, CARD_LIBRARY, DISCIPLINE_LABELS, ENEMY_INTENTS, createBattle, hpCondition, previewAction, redrawOpeningCard, resolveTurn, toggleCard } = battleApi;
+  const { FIELD_ENCOUNTER_GRACE_MS, FIELD_ENCOUNTER_RADIUS, FIELD_EXIT_SAFE_RADIUS, advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, respawnPastEnemies, shouldStartEncounter } = pastWorldApi;
   const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
   const { NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, npcPoseAt } = pastSceneApi;
@@ -96,6 +103,7 @@
     experienceToNextLevel,
     learnFirstMagic,
     openDungeonTreasure,
+    productsOwnedForSale,
     productsForShop,
     reachWatchtower,
     resolveDefeat,
@@ -122,6 +130,7 @@
     createPastStory,
     nearestWalkablePoint,
     nearbyPastInteraction,
+    setDebugQuestCompletion,
     storyAllowsEncounters,
     storyEncounterMode,
     storyUnlocksInteraction,
@@ -263,9 +272,11 @@
   if (!Number.isFinite(memoryStage)) memoryStage = 0;
   let activeBattle = null;
   let activeEncounter = null;
+  let battleRedrawSelecting = false;
   let battleEffectTimer = 0;
   let encounterTransitioning = false;
   let encounterGraceUntil = 0;
+  let encounterSafeCenter = null;
   let ready = false;
   let currentEdition = normalizeEdition(restartRequest.edition);
   let storyPanelVisible = localStorage.getItem('roppongi-past-story-panel') !== 'hidden';
@@ -282,6 +293,7 @@
   let activeServiceId = null;
   let activeServiceArea = null;
   let activeServiceMode = 'buy';
+  let pendingSaleProductId = null;
   let serviceEntryPosition = null;
   let restTransitioning = false;
   let activeLocationKey = 'modern-overworld';
@@ -311,6 +323,9 @@
     ['mist-watcher', 'rune-wolf.png'],
     ['crossroads-sentinel', 'crossroads-sentinel.png']
   ];
+  const overworldEventAssetIds = Object.freeze([
+    'capital-gate', 'old-watchtower', 'magic-tutor', 'card-chest-frost', 'card-chest-mend'
+  ]);
   for (const editionId of editionIds) {
     const images = new Map();
     for (const landmark of landmarks) {
@@ -333,7 +348,7 @@
     pastNpcImages.set(spriteId, image);
   }
   for (const [eventId, definition] of Object.entries(PAST_EVENT_ASSETS)) {
-    const image = assetLoader.register(eventAssetKey(eventId), `${definition.path}?event=1`);
+    const image = assetLoader.register(eventAssetKey(eventId), `${definition.path}?event=2`);
     pastEventImages.set(eventId, image);
   }
 
@@ -352,7 +367,7 @@
       return [
         tileAssetKey(currentEdition, tile.col, tile.row),
         ...playerAssets,
-        ...Object.keys(PAST_EVENT_ASSETS).map(eventAssetKey)
+        ...overworldEventAssetIds.map(eventAssetKey)
       ];
     }
     if (activeAreaId() === 'castle-town') {
@@ -374,7 +389,11 @@
       return [
         ...playerAssets,
         eventAssetKey('card-chest-frost'),
-        eventAssetKey('card-chest-mend')
+        eventAssetKey('card-chest-mend'),
+        eventAssetKey('watergate-closed'),
+        eventAssetKey('watergate-open'),
+        eventAssetKey('compass-altar-corrupted'),
+        eventAssetKey('compass-altar-restored')
       ];
     }
     return [
@@ -536,6 +555,33 @@
     storyStatus.dataset.energy = String(profile.energy);
     storyStatus.dataset.roadVictories = String(campaignState.roadVictories);
     storyStatus.dataset.bossDefeated = String(campaignState.bossDefeated);
+    updateQuestDebugControls();
+  }
+
+  function updateQuestDebugControls() {
+    questDebug.hidden = currentEdition !== 'past';
+    document.querySelectorAll('[data-debug-quest]').forEach(button => {
+      const completed = button.dataset.debugQuest === 'watchtower'
+        ? campaignState.bossDefeated
+        : campaignState.crossroadsBossDefeated;
+      button.setAttribute('aria-pressed', String(completed));
+      button.textContent = completed ? 'クリア済み' : '未クリア';
+    });
+  }
+
+  function toggleDebugQuest(questId) {
+    const completed = questId === 'watchtower' ? campaignState.bossDefeated : campaignState.crossroadsBossDefeated;
+    const result = setDebugQuestCompletion(storyState, campaignState, questId, !completed);
+    storyState = createPastStory(result.story);
+    campaignState = createPastCampaign(result.campaign);
+    pastEnemies = respawnPastEnemies(pastEnemies);
+    savePastStory();
+    savePastCampaign();
+    updateStoryStatus();
+    updateInteractionPrompt(null);
+    prepareActiveLocation();
+    const questName = questId === 'watchtower' ? '古い見張り台' : '四門水路';
+    questDebugStatus.textContent = `${questName}を${!completed ? 'クリア済み' : '未クリア'}へ変更しました。`;
   }
 
   function updateMemoryLabels() {
@@ -665,10 +711,11 @@
     return '';
   }
 
-  function createServiceButton({ name, detail, price = null, badge = '', disabled = false, onClick }) {
+  function createServiceButton({ name, detail, price = null, badge = '', equipped = false, disabled = false, onClick }) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'v2-shop-item';
+    button.classList.toggle('is-equipped', equipped);
     button.disabled = disabled;
     const title = document.createElement('strong');
     title.textContent = name;
@@ -686,6 +733,36 @@
     return button;
   }
 
+  function closeSaleConfirmation() {
+    pendingSaleProductId = null;
+    shopConfirm.hidden = true;
+  }
+
+  function requestSaleConfirmation(product) {
+    const equipped = campaignState.equipment[product.type] === product.id;
+    pendingSaleProductId = product.id;
+    shopConfirmMessage.textContent = equipped
+      ? `${product.name}は装備中です。${salePrice(product.id)}Gで売りますか？ 売却後は手持ちの装備へ自動で持ち替えます。`
+      : `${product.name}を${salePrice(product.id)}Gで売りますか？`;
+    shopConfirm.hidden = false;
+    shopConfirmCancel.focus();
+  }
+
+  function confirmPendingSale() {
+    if (!pendingSaleProductId) return;
+    const result = sellProduct(campaignState, storyState.gold, pendingSaleProductId);
+    campaignState = result.state;
+    storyState = { ...storyState, gold: result.gold };
+    if (result.ok) {
+      savePastCampaign();
+      savePastStory();
+    }
+    closeSaleConfirmation();
+    shopMessage.textContent = result.message;
+    updateStoryStatus();
+    renderService();
+  }
+
   function renderService() {
     if (!activeServiceId) return;
     shopTitle.textContent = serviceTitle(activeServiceId);
@@ -694,7 +771,7 @@
     shopTabs.hidden = !supportsTrading;
     shopBuy.setAttribute('aria-selected', String(activeServiceMode === 'buy'));
     shopSell.setAttribute('aria-selected', String(activeServiceMode === 'sell'));
-    shopSell.disabled = activeServiceId === 'card';
+    shopSell.disabled = false;
     const entries = [];
     if (activeServiceId === 'bag') {
       const weapon = campaignProducts.get(campaignState.equipment.weapon)?.name || 'なし';
@@ -714,6 +791,7 @@
           name: `${product.type === 'weapon' ? '武器' : '防具'}　${product.name}`,
           detail: `${product.description}　${equipped ? '現在装備中' : 'タップして装備する'}`,
           badge: equipped ? '装備中' : '装備する',
+          equipped,
           disabled: equipped,
           onClick: () => {
             const result = equipProduct(campaignState, product.id);
@@ -773,31 +851,19 @@
         }
       }));
     } else if (activeServiceMode === 'sell') {
-      const products = activeServiceId === 'item'
-        ? SHOP_CATALOG.item.filter(product => campaignState.inventory[product.id] > 0)
-        : campaignState.ownedEquipment
-          .map(productId => campaignProducts.get(productId))
-          .filter(product => product?.type === activeServiceId);
+      const products = productsOwnedForSale(campaignState);
       if (!products.length) {
-        entries.push(createServiceButton({ name: '売れる品を持っていない', detail: '装備品と道具は、買値の半額で一つずつ買い取ります。', disabled: true }));
+        entries.push(createServiceButton({ name: '売れる品を持っていない', detail: 'どの店でも、武器・防具・道具を買値の半額で一つずつ買い取ります。', disabled: true }));
       }
       for (const product of products) {
+        const equipped = campaignState.equipment[product.type] === product.id;
         entries.push(createServiceButton({
           name: product.name,
           detail: `${product.description}　${itemOwnedLabel(product)}`,
           price: salePrice(product.id),
-          onClick: () => {
-            const result = sellProduct(campaignState, storyState.gold, product.id);
-            campaignState = result.state;
-            storyState = { ...storyState, gold: result.gold };
-            if (result.ok) {
-              savePastCampaign();
-              savePastStory();
-            }
-            shopMessage.textContent = result.message;
-            updateStoryStatus();
-            renderService();
-          }
+          badge: equipped ? '装備中' : '',
+          equipped,
+          onClick: () => requestSaleConfirmation(product)
         }));
       }
     } else {
@@ -830,6 +896,7 @@
 
   function openService(serviceId) {
     if (currentEdition !== 'past' || activeBattle || activeStoryDialogue) return;
+    closeSaleConfirmation();
     activeServiceId = serviceId;
     activeServiceArea = activeAreaId();
     activeServiceMode = 'buy';
@@ -847,6 +914,7 @@
   }
 
   function closeService() {
+    closeSaleConfirmation();
     activeServiceId = null;
     activeServiceArea = null;
     serviceEntryPosition = null;
@@ -911,9 +979,10 @@
 
   function transitionStoryArea(result) {
     const previousArea = storyState.area;
+    const enteringField = previousArea !== 'overworld' && result.state.area === 'overworld';
     locationPositions.set(activeLocationKey, [player.x, player.y]);
     storyState = result.state;
-    if (previousArea !== 'overworld' && storyState.area === 'overworld') {
+    if (enteringField) {
       encounterGraceUntil = performance.now() + FIELD_ENCOUNTER_GRACE_MS;
     }
     if (storyState.area !== previousArea && storyState.area !== 'overworld') {
@@ -927,6 +996,7 @@
     const safeSpawn = storyState.area === 'overworld'
       ? nearestWalkablePoint(intendedSpawn, (x, y) => canStandAt(x, y))
       : intendedSpawn;
+    encounterSafeCenter = enteringField ? [...safeSpawn] : null;
     player.x = safeSpawn[0];
     player.y = safeSpawn[1];
     player.facing = storyState.area === 'castle' ? 'up' : 'down';
@@ -1075,18 +1145,25 @@
   settingsClose.addEventListener('click', () => setSettingsOpen(false));
   infoToggle.addEventListener('click', () => setStoryPanelVisible(!storyPanelVisible));
   collisionToggle.addEventListener('click', () => setCollisionDisplay(!showCollision));
+  document.querySelectorAll('[data-debug-quest]').forEach(button => {
+    button.addEventListener('click', () => toggleDebugQuest(button.dataset.debugQuest));
+  });
   interactionPrompt.addEventListener('click', performStoryInteraction);
   dialogueOverlay.addEventListener('click', advanceStoryDialogue);
   openBagButton.addEventListener('click', () => openService('bag'));
   shopClose.addEventListener('click', closeService);
+  shopConfirmAccept.addEventListener('click', confirmPendingSale);
+  shopConfirmCancel.addEventListener('click', closeSaleConfirmation);
   shopBuy.addEventListener('click', () => {
     if (!activeServiceId) return;
+    closeSaleConfirmation();
     activeServiceMode = 'buy';
     shopMessage.textContent = '何を買いますか？';
     renderService();
   });
   shopSell.addEventListener('click', () => {
-    if (!activeServiceId || activeServiceId === 'card') return;
+    if (!activeServiceId) return;
+    closeSaleConfirmation();
     activeServiceMode = 'sell';
     shopMessage.textContent = '買値の半額で買い取ります。';
     renderService();
@@ -1281,6 +1358,9 @@
 
     if (currentEdition === 'past' && activeAreaId() === 'overworld') {
       const now = performance.now();
+      if (encounterSafeCenter && Math.hypot(player.x - encounterSafeCenter[0], player.y - encounterSafeCenter[1]) >= FIELD_EXIT_SAFE_RADIUS * maskScale) {
+        encounterSafeCenter = null;
+      }
       pastEnemies = pastEnemies.map(enemy => {
         if (storyEncounterMode(storyState, enemy.id) === 'hidden') return enemy;
         if (!enemy.active && now >= enemy.respawnAt) {
@@ -1288,8 +1368,8 @@
         }
         return advancePatrol(enemy, dt);
       });
-      const encounter = now >= encounterGraceUntil && pastEnemies.find(enemy => storyEncounterMode(storyState, enemy.id) !== 'hidden'
-        && shouldStartEncounter(player, enemy, 23 * maskScale, now));
+      const encounter = now >= encounterGraceUntil && pastEnemies.find(enemy => !encounterSafeCenter && storyEncounterMode(storyState, enemy.id) !== 'hidden'
+        && shouldStartEncounter(player, enemy, FIELD_ENCOUNTER_RADIUS * maskScale, now));
       if (encounter) openBattle(encounter);
     }
 
@@ -1562,46 +1642,14 @@
 
   function drawWatergate(gate, open) {
     const [x, y] = gate.point;
+    const assetId = `watergate-${open ? 'open' : 'closed'}`;
+    const image = pastEventImages.get(`watergate-${open ? 'open' : 'closed'}`);
+    const definition = PAST_EVENT_ASSETS[assetId];
     ctx.save();
     ctx.translate(x, y);
     if (gate.orientation === 'vertical') ctx.rotate(Math.PI / 2);
-    ctx.shadowColor = '#000b';
-    ctx.shadowBlur = 12;
-    ctx.fillStyle = '#34383a';
-    ctx.strokeStyle = '#a58a5b';
-    ctx.lineWidth = 3;
-    for (const side of [-1, 1]) {
-      ctx.fillRect(side * 43 - 10, -30, 20, 60);
-      ctx.strokeRect(side * 43 - 10, -30, 20, 60);
-      ctx.fillStyle = '#66645f';
-      ctx.fillRect(side * 43 - 7, -25, 14, 16);
-      ctx.fillStyle = '#34383a';
-    }
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = open ? '#86d7c2' : '#c58f58';
-    ctx.lineWidth = 4;
-    if (open) {
-      for (const side of [-1, 1]) {
-        for (let bar = -19; bar <= 19; bar += 9) {
-          ctx.beginPath();
-          ctx.moveTo(side * 33, bar);
-          ctx.lineTo(side * 24, bar);
-          ctx.stroke();
-        }
-      }
-    } else {
-      for (let bar = -27; bar <= 27; bar += 9) {
-        ctx.beginPath();
-        ctx.moveTo(bar, -23);
-        ctx.lineTo(bar, 23);
-        ctx.stroke();
-      }
-      ctx.beginPath();
-      ctx.moveTo(-31, -21);
-      ctx.lineTo(31, 21);
-      ctx.moveTo(31, -21);
-      ctx.lineTo(-31, 21);
-      ctx.stroke();
+    if (imageIsLoaded(image)) {
+      ctx.drawImage(image, -definition.width / 2, -definition.height + 34, definition.width, definition.height);
     }
     ctx.restore();
     ctx.save();
@@ -1618,51 +1666,17 @@
 
   function drawDungeonAltar(point, restored) {
     const [x, y] = point;
-    const pulse = 1 + Math.sin(performance.now() / 260) * 0.08;
+    const assetId = `compass-altar-${restored ? 'restored' : 'corrupted'}`;
+    const image = pastEventImages.get(`compass-altar-${restored ? 'restored' : 'corrupted'}`);
+    const definition = PAST_EVENT_ASSETS[assetId];
+    if (imageIsLoaded(image)) {
+      ctx.drawImage(image, x - definition.width / 2, y - definition.height + 58, definition.width, definition.height);
+    }
     ctx.save();
-    ctx.translate(x, y + 5);
-    ctx.fillStyle = '#19171f99';
-    ctx.beginPath();
-    ctx.ellipse(0, 46, 88, 30, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#5b585a';
-    ctx.strokeStyle = '#28272c';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.ellipse(0, 30, 74, 29, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = '#74706c';
-    ctx.beginPath();
-    ctx.ellipse(0, 18, 56, 23, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = '#45434a';
-    ctx.fillRect(-26, -24, 52, 45);
-    ctx.strokeRect(-26, -24, 52, 45);
-    ctx.fillStyle = '#69666a';
-    ctx.fillRect(-20, -36, 40, 18);
-    ctx.strokeRect(-20, -36, 40, 18);
-    ctx.strokeStyle = restored ? '#70ebdb' : '#c65af0';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(0, -27, 13 * pulse, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = restored ? '#b9fff0' : '#f0a8ff';
-    ctx.shadowColor = restored ? '#59e6d5' : '#c34cf0';
-    ctx.shadowBlur = 18;
-    ctx.beginPath();
-    ctx.moveTo(0, -42);
-    ctx.lineTo(11, -27);
-    ctx.lineTo(0, -12);
-    ctx.lineTo(-11, -27);
-    ctx.closePath();
-    ctx.fill();
-    ctx.shadowBlur = 0;
     ctx.fillStyle = '#ead59e';
     ctx.font = '700 12px Georgia, "Yu Mincho", serif';
     ctx.textAlign = 'center';
-    ctx.fillText(restored ? '方位核の祭壇・安定' : '方位核の祭壇', 0, 75);
+    ctx.fillText(restored ? '方位核の祭壇・安定' : '方位核の祭壇', x, y + 76);
     ctx.restore();
   }
 
@@ -2225,7 +2239,10 @@
     enemyImage.src = enemyImageAsset?.src || '';
     enemyImage.alt = enemy.name;
     document.querySelector('#v2-battle-enemy-hp').style.width = `${enemy.hp / enemy.maxHp * 100}%`;
-    document.querySelector('#v2-battle-player-hp').textContent = `${activeBattle.player.hp} / ${activeBattle.player.maxHp}`;
+    const playerHp = document.querySelector('#v2-battle-player-hp');
+    const playerHpVital = playerHp.closest('[data-vital="hp"]');
+    playerHp.textContent = `${activeBattle.player.hp} / ${activeBattle.player.maxHp}`;
+    playerHpVital.dataset.hpState = hpCondition(activeBattle.player.hp, activeBattle.player.maxHp);
     document.querySelector('#v2-battle-player-mp').textContent = `${activeBattle.player.mp} / ${activeBattle.player.maxMp}`;
     document.querySelector('#v2-battle-player-level').textContent = `Lv ${campaignState.level}`;
     const spentEnergy = activeBattle.selectedCost || 0;
@@ -2247,22 +2264,31 @@
       ? `勝利 · ${activeBattle.reward.gold}G / ${activeBattle.reward.xp}EXP`
       : activeBattle.status === 'defeat' ? '王都で目覚める' : '行動する';
     battleFlee.hidden = tutorialRescue;
+    const canRedraw = activeBattle.status === 'active' && activeBattle.turn === 1
+      && activeBattle.openingRedrawAvailable && !activeBattle.selected.length;
+    battleRedraw.hidden = tutorialRescue || activeBattle.status !== 'active' || activeBattle.turn !== 1 || !activeBattle.openingRedrawAvailable;
+    battleRedraw.disabled = !canRedraw;
+    battleRedraw.setAttribute('aria-pressed', String(battleRedrawSelecting));
+    battleRedraw.textContent = battleRedrawSelecting ? '交換する札を1枚選ぶ' : '最初の1枚を引き直す';
     battleHand.replaceChildren(...activeBattle.hand.map((cardId, index) => {
       const card = CARD_LIBRARY[cardId];
       const selectedCountBefore = activeBattle.hand.slice(0, index).filter(id => id === cardId).length;
-      const selectedOccurrence = activeBattle.selected.filter(id => id === cardId).length > selectedCountBefore;
+      const selectedOccurrence = activeBattle.selectedIndices?.includes(index)
+        || (!activeBattle.selectedIndices?.length && activeBattle.selected.filter(id => id === cardId).length > selectedCountBefore);
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'v2-card';
       button.dataset.card = cardId;
       button.dataset.discipline = card.discipline;
+      button.dataset.attribute = card.attribute;
+      button.classList.toggle('is-redraw-choice', battleRedrawSelecting);
       if (card.element) button.dataset.element = card.element;
       button.setAttribute('aria-pressed', String(selectedOccurrence));
       const remainingMp = activeBattle.player.mp - action.mpCost;
       const remainingEnergy = activeBattle.energy - spentEnergy;
       const canAffordMp = selectedOccurrence || (card.mpCost || 0) <= remainingMp;
       const canAffordEnergy = selectedOccurrence || card.cost <= remainingEnergy;
-      button.disabled = activeBattle.status !== 'active' || !canAffordMp || !canAffordEnergy;
+      button.disabled = activeBattle.status !== 'active' || (!battleRedrawSelecting && (!canAffordMp || !canAffordEnergy));
       const mpCost = card.mpCost
         ? `<span class="v2-card-mp-cost" aria-label="消費MP ${card.mpCost}">MP${card.mpCost}</span>`
         : '';
@@ -2270,10 +2296,17 @@
         <span class="v2-card-frame" aria-hidden="true"></span>
         <span class="v2-card-cost" aria-label="消費行動力 ${card.cost}">◆${card.cost}</span>
         ${mpCost}
+        <span class="v2-card-tags"><b class="v2-card-type">種別 ${DISCIPLINE_LABELS[card.discipline]}</b><b class="v2-card-attribute" data-attribute="${card.attribute}">属性 ${CARD_ATTRIBUTE_LABELS[card.attribute]}</b></span>
         <span class="v2-card-art" aria-hidden="true"><i>${card.icon}</i></span>
         <span class="v2-card-copy"><strong>${card.name}</strong><small>${card.description}</small></span>`;
       button.addEventListener('click', () => {
-        activeBattle = toggleCard(activeBattle, cardId);
+        if (battleRedrawSelecting) {
+          activeBattle = redrawOpeningCard(activeBattle, index);
+          battleRedrawSelecting = false;
+          renderBattle();
+          return;
+        }
+        activeBattle = toggleCard(activeBattle, cardId, index);
         if (activeBattle.readyToResolve) resolveSelectedAction();
         else renderBattle();
       });
@@ -2290,6 +2323,13 @@
     battleDamageFlash.classList.remove('is-active');
     battleEffects.replaceChildren();
     battleEffects.removeAttribute('aria-label');
+  }
+
+  function addCombatImpact(target) {
+    const impact = document.createElement('i');
+    impact.className = `v2-combat-impact v2-combat-impact--${target}`;
+    impact.setAttribute('aria-hidden', 'true');
+    battleEffects.append(impact);
   }
 
   function playBattleEffects(effects = []) {
@@ -2322,6 +2362,7 @@
     }
     if (enemyDamage) {
       enemyPanel.classList.add('is-hit');
+      addCombatImpact('enemy');
       const label = document.createElement('strong');
       label.className = 'v2-combat-effect v2-combat-effect--enemy-damage';
       label.textContent = `-${enemyDamage.amount}`;
@@ -2331,6 +2372,7 @@
     if (playerDamage) {
       battleOverlay.classList.add('is-player-hit');
       battleDamageFlash.classList.add('is-active');
+      addCombatImpact('player');
       const label = document.createElement('strong');
       label.className = 'v2-combat-effect v2-combat-effect--player-damage';
       label.textContent = `-${playerDamage.amount} HP`;
@@ -2375,6 +2417,7 @@
 
   function resolveSelectedAction() {
     if (!activeBattle || activeBattle.status !== 'active' || !activeBattle.selected.length) return;
+    battleRedrawSelecting = false;
     activeBattle = resolveTurn(activeBattle);
     renderBattle();
     playBattleEffects(activeBattle.effects);
@@ -2383,6 +2426,7 @@
   async function openBattle(encounter) {
     if (activeBattle || encounterTransitioning) return;
     encounterTransitioning = true;
+    battleRedrawSelecting = false;
     keys.clear();
     resetMapDrag();
     try {
@@ -2418,6 +2462,7 @@
 
   function closeBattle(result) {
     if (!activeBattle) return;
+    battleRedrawSelecting = false;
     const encounter = activeEncounter;
     const practice = encounter?.id === 'practice';
     const bossVictory = result === 'victory' && encounter?.id === 'watchtower-boss';
@@ -2516,6 +2561,11 @@
     if (activeBattle.status === 'victory') return closeBattle('victory');
     if (activeBattle.status === 'defeat') return closeBattle('defeat');
     resolveSelectedAction();
+  });
+  battleRedraw.addEventListener('click', () => {
+    if (!activeBattle || battleRedraw.disabled) return;
+    battleRedrawSelecting = !battleRedrawSelecting;
+    renderBattle();
   });
   battleFlee.addEventListener('click', () => closeBattle('fled'));
   battlePractice.addEventListener('click', () => {
