@@ -55,8 +55,8 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const css = fs.readFileSync('v2.css', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
-  assert.match(html, /v2\.js\?edition=13/);
-  assert.match(html, /v2\.css\?edition=7/);
+  assert.match(html, /v2\.js\?edition=14/);
+  assert.match(html, /v2\.css\?edition=8/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);
   assert.match(runtime, /shell\.addEventListener\('pointerdown'/);
@@ -125,6 +125,29 @@ test('shop tabs and inn fade remain touch-sized on mobile', () => {
   assert.match(runtime, /playInnRestTransition/);
   assert.match(runtime, /productsForShop/);
   assert.match(runtime, /sellProduct/);
+});
+
+test('the bag exposes every owned weapon and armor as an equipment action', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+
+  assert.match(runtime, /campaignState\.ownedEquipment/);
+  assert.match(runtime, /equipProduct\(campaignState, product\.id\)/);
+  assert.match(runtime, /装備する/);
+});
+
+test('the waterway draws detailed tiles, a visible altar, and four stateful watergates without showing the boss early', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const eventsRenderer = runtime.match(/function drawCrossroadsDungeonEvents\(\)[\s\S]*?\n  function drawTownBuildingLabel/)?.[0] || '';
+  const locationAssets = runtime.match(/function requiredAssetKeysForLocation\(\)[\s\S]*?\n  function loadAssetsInBackground/)?.[0] || '';
+
+  assert.match(runtime, /buildDungeonTileSprite/);
+  assert.match(eventsRenderer, /drawDungeonAltar/);
+  assert.match(eventsRenderer, /CROSSROADS_WATERGATES/);
+  assert.match(eventsRenderer, /campaignState\.crossroadsBossDefeated/);
+  assert.doesNotMatch(eventsRenderer, /crossroads-sentinel/);
+  assert.doesNotMatch(locationAssets, /enemyAssetKey\('crossroads-sentinel'\)/);
+  assert.match(runtime, /crossroads-altar-awaken/);
+  assert.match(runtime, /is-altar-awakening/);
 });
 
 test('browser Supabase config contains only the project URL and publishable key', () => {

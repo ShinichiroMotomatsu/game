@@ -8,6 +8,7 @@ const {
   CROSSROADS_BUILDINGS,
   CROSSROADS_DUNGEON_LAYOUT,
   CROSSROADS_NPCS,
+  CROSSROADS_WATERGATES,
   PAST_AREAS,
   PAST_INTERACTIONS,
   PAST_START,
@@ -250,6 +251,19 @@ test('the crossroads town offers all five businesses used by the capital', () =>
   assert.ok(CROSSROADS_BUILDINGS.every(building => building.label && building.labelPoint.length === 2));
 });
 
+test('townspeople explain the waterway failure and change their reports after it is restored', () => {
+  const investigating = createPastStory({ area: 'crossroads-town', phase: 'second-mission' });
+  const restored = createPastStory({ area: 'crossroads-town', phase: 'second-mission-report' });
+
+  for (const npc of CROSSROADS_NPCS) {
+    const before = activatePastInteraction(investigating, npc.id).dialogue.lines.map(line => line.text).join('');
+    const after = activatePastInteraction(restored, npc.id).dialogue.lines.map(line => line.text).join('');
+    assert.match(before, /水路|水門|方位核|祭壇/);
+    assert.match(after, /開|戻|正常|静か/);
+    assert.notEqual(before, after);
+  }
+});
+
 test('every crossroads shop can be approached from the south gate', () => {
   const services = PAST_INTERACTIONS.filter(interaction => interaction.area === 'crossroads-town' && interaction.serviceId);
   const reached = reachableAreaInteractions('crossroads-town', services);
@@ -284,6 +298,35 @@ test('the four-gate waterway is a large tile dungeon with water bridges and bran
   assert.equal(PAST_AREAS['crossroads-dungeon'].height, 2700);
   assert.ok(layout.rows.every(row => row.length === layout.columns));
   assert.ok(['#', '.', '~', '=', '>', 'A'].every(tile => tileKinds.has(tile)));
+});
+
+test('four named watergates surround the central altar route', () => {
+  const directions = CROSSROADS_WATERGATES.map(gate => gate.direction).sort();
+  const ids = new Set(CROSSROADS_WATERGATES.map(gate => gate.id));
+
+  assert.equal(CROSSROADS_WATERGATES.length, 4);
+  assert.equal(ids.size, 4);
+  assert.deepEqual(directions, ['east', 'north', 'south', 'west']);
+  assert.ok(CROSSROADS_WATERGATES.every(gate => gate.name.includes('水門')));
+  assert.ok(CROSSROADS_WATERGATES.every(gate => dungeonPointIsWalkable(gate.point[0], gate.point[1], 8)));
+});
+
+test('the altar explains the runaway waterway before awakening the hidden guardian', () => {
+  const altar = STORY_DIALOGUES['crossroads-altar-awakening'];
+  const text = altar.lines.map(line => line.text).join('');
+
+  assert.equal(altar.onComplete, 'crossroads-altar-awaken');
+  assert.match(text, /方位核/);
+  assert.match(text, /逆流|水圧|暴れ/);
+  assert.match(text, /四つの水門/);
+});
+
+test('the restored waterway has separate altar and town dialogue', () => {
+  const stable = STORY_DIALOGUES['crossroads-altar-stable'].lines.map(line => line.text).join('');
+  const cleared = STORY_DIALOGUES['crossroads-boss-cleared'].lines.map(line => line.text).join('');
+
+  assert.match(stable, /正常|穏やか/);
+  assert.match(cleared, /四つの水門/);
 });
 
 test('every waterway treasure and the boss altar are reachable from the entrance by walkable tiles', () => {
@@ -436,8 +479,8 @@ test('the overworld consistently filters enemies and routes the tutorial battle 
 
 test('the tutorial story and runtime scripts use fresh browser cache versions', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
-  assert.match(html, /v2-past-story\.js\?edition=10/);
-  assert.match(html, /v2\.js\?edition=13/);
+  assert.match(html, /v2-past-story\.js\?edition=11/);
+  assert.match(html, /v2\.js\?edition=14/);
 });
 
 test('the western road contains two visible card discoveries', () => {

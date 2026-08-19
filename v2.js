@@ -92,6 +92,7 @@
     canLearnFirstMagic,
     createPastCampaign,
     discoverCard,
+    equipProduct,
     experienceToNextLevel,
     learnFirstMagic,
     openDungeonTreasure,
@@ -108,6 +109,7 @@
     CROSSROADS_BUILDINGS,
     CROSSROADS_DUNGEON_LAYOUT,
     CROSSROADS_NPCS,
+    CROSSROADS_WATERGATES,
     PAST_AREAS,
     PAST_START,
     STORY_DIALOGUES,
@@ -133,6 +135,7 @@
   crossroadsDungeonMini.width = 210;
   crossroadsDungeonMini.height = 145;
   const crossroadsDungeonMiniContext = crossroadsDungeonMini.getContext('2d');
+  const dungeonTileSprites = new Map();
   {
     const { columns, rows } = CROSSROADS_DUNGEON_LAYOUT;
     const miniTileWidth = crossroadsDungeonMini.width / columns;
@@ -371,8 +374,7 @@
       return [
         ...playerAssets,
         eventAssetKey('card-chest-frost'),
-        eventAssetKey('card-chest-mend'),
-        enemyAssetKey('crossroads-sentinel')
+        eventAssetKey('card-chest-mend')
       ];
     }
     return [
@@ -641,7 +643,9 @@
     activeTypewriterLine = null;
     storyDialogueIndex = 0;
     dialogueOverlay.setAttribute('aria-hidden', 'true');
-    if (complete && eventId === 'watchtower-return-to-king') {
+    if (complete && eventId === 'crossroads-altar-awaken') {
+      openBattle({ id: 'crossroads-boss', enemyId: 'crossroads-sentinel', boss: true, altarAwakening: true });
+    } else if (complete && eventId === 'watchtower-return-to-king') {
       transitionStoryArea({ state: { ...storyState, area: 'castle' }, spawn: [500, 430] });
     } else if (complete && eventId) commitStoryEvent(eventId);
   }
@@ -701,6 +705,26 @@
         detail: `攻撃＋${profile.attackBonus}　守備＋${profile.defenseBonus}　行動力${profile.energy}`,
         disabled: true
       }));
+      const equipmentProducts = campaignState.ownedEquipment
+        .map(productId => campaignProducts.get(productId))
+        .filter(product => ['weapon', 'armor'].includes(product?.type));
+      for (const product of equipmentProducts) {
+        const equipped = campaignState.equipment[product.type] === product.id;
+        entries.push(createServiceButton({
+          name: `${product.type === 'weapon' ? '武器' : '防具'}　${product.name}`,
+          detail: `${product.description}　${equipped ? '現在装備中' : 'タップして装備する'}`,
+          badge: equipped ? '装備中' : '装備する',
+          disabled: equipped,
+          onClick: () => {
+            const result = equipProduct(campaignState, product.id);
+            campaignState = result.state;
+            if (result.ok) savePastCampaign();
+            shopMessage.textContent = result.message;
+            updateStoryStatus();
+            renderService();
+          }
+        }));
+      }
       const deckNames = profile.deck.map(cardId => CARD_LIBRARY[cardId]?.name).filter(Boolean);
       entries.push(createServiceButton({
         name: `カード　${deckNames.length}枚 / ${new Set(profile.deck).size}種類`,
@@ -881,7 +905,7 @@
     if (interaction.actionId?.startsWith('dungeon-treasure:')) {
       return !campaignState.openedDungeonChests.includes(interaction.actionId.split(':')[1]);
     }
-    if (interaction.actionId === 'crossroads-boss') return !campaignState.crossroadsBossDefeated;
+    if (interaction.actionId === 'crossroads-boss') return true;
     return true;
   }
 
@@ -971,7 +995,9 @@
       openStoryDialogue({ id: `dungeon-treasure-${treasureId}`, lines: [{ speaker: '地の文', text: opened.message }] });
     }
     if (result.actionId === 'crossroads-boss') {
-      openBattle({ id: 'crossroads-boss', enemyId: 'crossroads-sentinel', boss: true });
+      openStoryDialogue(campaignState.crossroadsBossDefeated
+        ? STORY_DIALOGUES['crossroads-altar-stable']
+        : STORY_DIALOGUES['crossroads-altar-awakening']);
     }
   }
 
@@ -1362,92 +1388,289 @@
     for (const building of CROSSROADS_BUILDINGS) drawTownBuildingLabel(building);
   }
 
+  function dungeonDetail(seed, index, range) {
+    let value = Math.imul(seed + index * 977, 2654435761);
+    value ^= value >>> 13;
+    return Math.abs(value) % range;
+  }
+
+  function buildDungeonTileSprite(tile, variant = 0, restored = false) {
+    const key = `${tile}:${variant}:${restored ? 'restored' : 'wild'}`;
+    if (dungeonTileSprites.has(key)) return dungeonTileSprites.get(key);
+    const tileSize = CROSSROADS_DUNGEON_LAYOUT.tileSize;
+    const sprite = document.createElement('canvas');
+    sprite.width = tileSize * 2;
+    sprite.height = tileSize * 2;
+    const tileContext = sprite.getContext('2d');
+    tileContext.scale(2, 2);
+    const seed = variant * 101 + tile.charCodeAt(0) * 17 + (restored ? 409 : 0);
+
+    const paintWater = () => {
+      const gradient = tileContext.createLinearGradient(0, 0, tileSize, tileSize);
+      gradient.addColorStop(0, restored ? '#17677a' : '#173b59');
+      gradient.addColorStop(0.55, restored ? '#21889a' : '#245172');
+      gradient.addColorStop(1, restored ? '#134e67' : '#142d4b');
+      tileContext.fillStyle = gradient;
+      tileContext.fillRect(0, 0, tileSize, tileSize);
+      tileContext.strokeStyle = restored ? '#7ad5d8aa' : '#709ab4aa';
+      tileContext.lineWidth = 1;
+      for (let stripe = 0; stripe < 5; stripe += 1) {
+        const y = 7 + stripe * 12 + dungeonDetail(seed, stripe, 5);
+        tileContext.beginPath();
+        tileContext.moveTo(-4, y);
+        for (let x = 4; x <= 64; x += 12) {
+          tileContext.quadraticCurveTo(x, y - 3 + (stripe % 2) * 6, x + 6, y);
+        }
+        tileContext.stroke();
+      }
+      tileContext.fillStyle = restored ? '#b8f4e866' : '#9cc7df45';
+      for (let detail = 0; detail < 11; detail += 1) {
+        tileContext.fillRect(dungeonDetail(seed, detail + 20, 57), dungeonDetail(seed, detail + 40, 57), 2, 1);
+      }
+    };
+
+    if (tile === '#') {
+      tileContext.fillStyle = variant % 2 ? '#292a2d' : '#303136';
+      tileContext.fillRect(0, 0, tileSize, tileSize);
+      for (let row = 0; row < 4; row += 1) {
+        for (let column = 0; column < 4; column += 1) {
+          const detail = row * 4 + column;
+          const left = column * 15 + dungeonDetail(seed, detail, 4) - 2;
+          const top = row * 15 + dungeonDetail(seed, detail + 20, 4) - 2;
+          const width = 15 + dungeonDetail(seed, detail + 40, 6);
+          const height = 14 + dungeonDetail(seed, detail + 60, 6);
+          tileContext.fillStyle = ['#48474a', '#555256', '#3e4142'][dungeonDetail(seed, detail + 80, 3)];
+          tileContext.fillRect(left, top, width, height);
+          tileContext.strokeStyle = '#202225';
+          tileContext.lineWidth = 1;
+          tileContext.strokeRect(left + 0.5, top + 0.5, width - 1, height - 1);
+          tileContext.fillStyle = '#74706d55';
+          tileContext.fillRect(left + 2, top + 2, Math.max(3, width - 5), 1);
+        }
+      }
+      tileContext.strokeStyle = '#17191bbb';
+      tileContext.beginPath();
+      tileContext.moveTo(9 + variant * 3, 4);
+      tileContext.lineTo(18 + variant, 19);
+      tileContext.lineTo(13 + variant * 2, 31);
+      tileContext.lineTo(25, 40 + variant);
+      tileContext.stroke();
+      tileContext.fillStyle = '#557b3c';
+      for (let moss = 0; moss < 9; moss += 1) {
+        if ((moss + variant) % 3 === 0) tileContext.fillRect(dungeonDetail(seed, moss + 120, 58), dungeonDetail(seed, moss + 140, 58), 2, 2);
+      }
+    } else if (tile === '~') {
+      paintWater();
+    } else if (tile.startsWith('bridge-')) {
+      paintWater();
+      const horizontal = tile === 'bridge-horizontal';
+      tileContext.fillStyle = '#4a4542';
+      if (horizontal) tileContext.fillRect(0, 11, tileSize, 38);
+      else tileContext.fillRect(11, 0, 38, tileSize);
+      tileContext.fillStyle = '#77706a';
+      for (let slab = 0; slab < 5; slab += 1) {
+        const offset = slab * 12;
+        if (horizontal) tileContext.fillRect(offset + 1, 14 + (slab % 2), 10, 32 - (slab % 2) * 2);
+        else tileContext.fillRect(14 + (slab % 2), offset + 1, 32 - (slab % 2) * 2, 10);
+      }
+      tileContext.strokeStyle = '#272527';
+      tileContext.lineWidth = 1;
+      if (horizontal) {
+        tileContext.beginPath();
+        tileContext.moveTo(0, 11);
+        tileContext.lineTo(60, 11);
+        tileContext.moveTo(0, 49);
+        tileContext.lineTo(60, 49);
+        tileContext.stroke();
+      } else {
+        tileContext.beginPath();
+        tileContext.moveTo(11, 0);
+        tileContext.lineTo(11, 60);
+        tileContext.moveTo(49, 0);
+        tileContext.lineTo(49, 60);
+        tileContext.stroke();
+      }
+    } else {
+      const gradient = tileContext.createLinearGradient(0, 0, 0, tileSize);
+      gradient.addColorStop(0, variant % 2 ? '#777471' : '#817d77');
+      gradient.addColorStop(1, variant % 2 ? '#5c5b59' : '#65625f');
+      tileContext.fillStyle = gradient;
+      tileContext.fillRect(0, 0, tileSize, tileSize);
+      tileContext.strokeStyle = '#474644aa';
+      tileContext.lineWidth = 1;
+      tileContext.strokeRect(2.5, 2.5, 55, 55);
+      tileContext.fillStyle = '#36373788';
+      for (let pebble = 0; pebble < 28; pebble += 1) {
+        const size = 1 + dungeonDetail(seed, pebble + 50, 2);
+        tileContext.fillRect(dungeonDetail(seed, pebble, 58), dungeonDetail(seed, pebble + 90, 58), size, size);
+      }
+      tileContext.strokeStyle = '#42414199';
+      tileContext.beginPath();
+      tileContext.moveTo(7 + variant * 4, 12);
+      tileContext.lineTo(19 + variant * 2, 20);
+      tileContext.lineTo(15 + variant * 5, 32);
+      tileContext.stroke();
+      if (tile === '>') {
+        tileContext.fillStyle = '#34343a';
+        for (let step = 0; step < 6; step += 1) {
+          tileContext.fillRect(8 + step * 3, 6 + step * 8, 44 - step * 6, 6);
+        }
+      } else if (tile === 'A') {
+        tileContext.strokeStyle = restored ? '#7fe7dc' : '#d48ce9';
+        tileContext.lineWidth = 2;
+        tileContext.beginPath();
+        tileContext.arc(30, 30, 22, 0, Math.PI * 2);
+        tileContext.stroke();
+        tileContext.beginPath();
+        tileContext.moveTo(30, 5);
+        tileContext.lineTo(30, 55);
+        tileContext.moveTo(5, 30);
+        tileContext.lineTo(55, 30);
+        tileContext.stroke();
+      }
+    }
+
+    dungeonTileSprites.set(key, sprite);
+    return sprite;
+  }
+
+  function dungeonBridgeKind(rows, row, column) {
+    const waterAboveOrBelow = rows[row - 1]?.[column] === '~' || rows[row + 1]?.[column] === '~';
+    return waterAboveOrBelow ? 'bridge-horizontal' : 'bridge-vertical';
+  }
+
   function drawCrossroadsDungeonTiles() {
     const { columns, rows, tileSize } = CROSSROADS_DUNGEON_LAYOUT;
     const firstColumn = Math.max(0, Math.floor(camera.x / tileSize) - 1);
     const lastColumn = Math.min(columns - 1, Math.ceil((camera.x + innerWidth / camera.zoom) / tileSize) + 1);
     const firstRow = Math.max(0, Math.floor(camera.y / tileSize) - 1);
     const lastRow = Math.min(rows.length - 1, Math.ceil((camera.y + innerHeight / camera.zoom) / tileSize) + 1);
-    const waveOffset = (performance.now() / 120) % 16;
+    const restored = campaignState.crossroadsBossDefeated;
     ctx.save();
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     for (let row = firstRow; row <= lastRow; row += 1) {
       for (let column = firstColumn; column <= lastColumn; column += 1) {
-        const tile = rows[row][column];
-        const x = column * tileSize;
-        const y = row * tileSize;
-        if (tile === '#') {
-          ctx.fillStyle = (row + column) % 2 ? '#25232f' : '#2b2936';
-          ctx.fillRect(x, y, tileSize + 1, tileSize + 1);
-          ctx.fillStyle = '#403b4b';
-          ctx.fillRect(x + 5, y + 6, tileSize - 10, tileSize - 12);
-          ctx.strokeStyle = '#171620';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x + 5, y + 6, tileSize - 10, tileSize - 12);
-          ctx.beginPath();
-          ctx.moveTo(x + 6, y + 30);
-          ctx.lineTo(x + tileSize - 6, y + 30);
-          ctx.moveTo(x + (row % 2 ? 24 : 38), y + 7);
-          ctx.lineTo(x + (row % 2 ? 24 : 38), y + 29);
-          ctx.moveTo(x + (row % 2 ? 38 : 24), y + 31);
-          ctx.lineTo(x + (row % 2 ? 38 : 24), y + tileSize - 7);
-          ctx.stroke();
-          continue;
-        }
-        if (tile === '~') {
-          ctx.fillStyle = (row + column) % 2 ? '#17364d' : '#1b4058';
-          ctx.fillRect(x, y, tileSize + 1, tileSize + 1);
-          ctx.strokeStyle = '#4c8294';
-          ctx.lineWidth = 2;
-          for (let stripe = -1; stripe < 4; stripe += 1) {
-            const lineY = y + stripe * 18 + waveOffset;
-            ctx.beginPath();
-            ctx.moveTo(x + 4, lineY);
-            ctx.quadraticCurveTo(x + 18, lineY - 5, x + 31, lineY);
-            ctx.quadraticCurveTo(x + 44, lineY + 5, x + 57, lineY);
-            ctx.stroke();
-          }
-          continue;
-        }
-        ctx.fillStyle = (row + column) % 2 ? '#47404a' : '#4e4650';
-        ctx.fillRect(x, y, tileSize + 1, tileSize + 1);
-        ctx.strokeStyle = '#302b34';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(x + 3, y + 3, tileSize - 6, tileSize - 6);
-        if (tile === '=') {
-          ctx.fillStyle = '#765137';
-          ctx.fillRect(x + 3, y, tileSize - 6, tileSize);
-          ctx.strokeStyle = '#33251e';
-          ctx.lineWidth = 2;
-          for (let plank = 8; plank < tileSize; plank += 12) {
-            ctx.beginPath();
-            ctx.moveTo(x + 4, y + plank);
-            ctx.lineTo(x + tileSize - 4, y + plank);
-            ctx.stroke();
-          }
-        } else if (tile === '>') {
-          ctx.fillStyle = '#292631';
-          for (let step = 0; step < 5; step += 1) ctx.fillRect(x + 10 + step * 3, y + 12 + step * 8, 40 - step * 6, 5);
-        } else if (tile === 'A') {
-          ctx.fillStyle = '#6c2f56';
-          ctx.beginPath();
-          ctx.arc(x + tileSize / 2, y + tileSize / 2, 20, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = '#e2a85c';
-          ctx.lineWidth = 3;
-          ctx.stroke();
-          ctx.fillStyle = '#ffe2a1';
-          ctx.font = '26px Georgia, serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('✦', x + tileSize / 2, y + tileSize / 2 + 1);
-        }
+        const mapTile = rows[row][column];
+        const tile = mapTile === '=' ? dungeonBridgeKind(rows, row, column) : mapTile;
+        const sprite = buildDungeonTileSprite(tile, (row * 7 + column * 11) % 4, restored);
+        ctx.drawImage(sprite, column * tileSize, row * tileSize, tileSize + 0.5, tileSize + 0.5);
       }
     }
     ctx.restore();
   }
 
+  function drawWatergate(gate, open) {
+    const [x, y] = gate.point;
+    ctx.save();
+    ctx.translate(x, y);
+    if (gate.orientation === 'vertical') ctx.rotate(Math.PI / 2);
+    ctx.shadowColor = '#000b';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = '#34383a';
+    ctx.strokeStyle = '#a58a5b';
+    ctx.lineWidth = 3;
+    for (const side of [-1, 1]) {
+      ctx.fillRect(side * 43 - 10, -30, 20, 60);
+      ctx.strokeRect(side * 43 - 10, -30, 20, 60);
+      ctx.fillStyle = '#66645f';
+      ctx.fillRect(side * 43 - 7, -25, 14, 16);
+      ctx.fillStyle = '#34383a';
+    }
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = open ? '#86d7c2' : '#c58f58';
+    ctx.lineWidth = 4;
+    if (open) {
+      for (const side of [-1, 1]) {
+        for (let bar = -19; bar <= 19; bar += 9) {
+          ctx.beginPath();
+          ctx.moveTo(side * 33, bar);
+          ctx.lineTo(side * 24, bar);
+          ctx.stroke();
+        }
+      }
+    } else {
+      for (let bar = -27; bar <= 27; bar += 9) {
+        ctx.beginPath();
+        ctx.moveTo(bar, -23);
+        ctx.lineTo(bar, 23);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.moveTo(-31, -21);
+      ctx.lineTo(31, 21);
+      ctx.moveTo(31, -21);
+      ctx.lineTo(-31, 21);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.save();
+    ctx.fillStyle = '#17131ddd';
+    roundedRectanglePath(ctx, x - 45, y - 54, 90, 22, 6);
+    ctx.fill();
+    ctx.fillStyle = open ? '#aef5db' : '#ffd29b';
+    ctx.font = '700 11px Georgia, "Yu Mincho", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${gate.name}・${open ? '開' : '閉'}`, x, y - 43);
+    ctx.restore();
+  }
+
+  function drawDungeonAltar(point, restored) {
+    const [x, y] = point;
+    const pulse = 1 + Math.sin(performance.now() / 260) * 0.08;
+    ctx.save();
+    ctx.translate(x, y + 5);
+    ctx.fillStyle = '#19171f99';
+    ctx.beginPath();
+    ctx.ellipse(0, 46, 88, 30, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#5b585a';
+    ctx.strokeStyle = '#28272c';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(0, 30, 74, 29, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#74706c';
+    ctx.beginPath();
+    ctx.ellipse(0, 18, 56, 23, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#45434a';
+    ctx.fillRect(-26, -24, 52, 45);
+    ctx.strokeRect(-26, -24, 52, 45);
+    ctx.fillStyle = '#69666a';
+    ctx.fillRect(-20, -36, 40, 18);
+    ctx.strokeRect(-20, -36, 40, 18);
+    ctx.strokeStyle = restored ? '#70ebdb' : '#c65af0';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, -27, 13 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = restored ? '#b9fff0' : '#f0a8ff';
+    ctx.shadowColor = restored ? '#59e6d5' : '#c34cf0';
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.moveTo(0, -42);
+    ctx.lineTo(11, -27);
+    ctx.lineTo(0, -12);
+    ctx.lineTo(-11, -27);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ead59e';
+    ctx.font = '700 12px Georgia, "Yu Mincho", serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(restored ? '方位核の祭壇・安定' : '方位核の祭壇', 0, 75);
+    ctx.restore();
+  }
+
   function drawCrossroadsDungeonEvents() {
+    const restored = campaignState.crossroadsBossDefeated;
+    for (const gate of CROSSROADS_WATERGATES) drawWatergate(gate, restored);
+    const altar = pastStoryApi.PAST_INTERACTIONS.find(interaction => interaction.id === 'crossroads-boss-altar');
+    if (altar) drawDungeonAltar(altar.point, restored);
     for (const interaction of pastStoryApi.PAST_INTERACTIONS.filter(item => item.area === 'crossroads-dungeon' && item.actionId?.startsWith('dungeon-treasure:'))) {
       const treasureId = interaction.actionId.split(':')[1];
       if (campaignState.openedDungeonChests.includes(treasureId)) continue;
@@ -1455,15 +1678,6 @@
       const image = pastEventImages.get(assetId);
       const definition = PAST_EVENT_ASSETS[assetId];
       if (imageIsLoaded(image)) ctx.drawImage(image, interaction.point[0] - definition.width / 2, interaction.point[1] - definition.height + 8, definition.width, definition.height);
-    }
-    if (!campaignState.crossroadsBossDefeated) {
-      const boss = pastEnemyImages.get('crossroads-sentinel');
-      const altar = pastStoryApi.PAST_INTERACTIONS.find(interaction => interaction.id === 'crossroads-boss-altar');
-      if (imageIsLoaded(boss) && altar) {
-        const width = 130;
-        const height = width * boss.naturalHeight / boss.naturalWidth;
-        ctx.drawImage(boss, altar.point[0] - width / 2, altar.point[1] - height + 26, width, height);
-      }
     }
   }
 
@@ -1875,6 +2089,20 @@
       }
       mctx.save();
       mctx.scale(210 / area.width, 145 / area.height);
+      if (areaId === 'crossroads-dungeon') {
+        mctx.fillStyle = campaignState.crossroadsBossDefeated ? '#7ee8cb' : '#e4a15f';
+        for (const gate of CROSSROADS_WATERGATES) {
+          mctx.fillRect(gate.point[0] - 30, gate.point[1] - 30, 60, 60);
+        }
+        const altar = pastStoryApi.PAST_INTERACTIONS.find(interaction => interaction.id === 'crossroads-boss-altar');
+        if (altar) {
+          mctx.strokeStyle = campaignState.crossroadsBossDefeated ? '#b9fff0' : '#e8a2ff';
+          mctx.lineWidth = 12;
+          mctx.beginPath();
+          mctx.arc(altar.point[0], altar.point[1], 46, 0, Math.PI * 2);
+          mctx.stroke();
+        }
+      }
       mctx.fillStyle = '#fff';
       mctx.beginPath();
       mctx.arc(player.x, player.y, 24, 0, Math.PI * 2);
@@ -2127,7 +2355,10 @@
     battleEffectTimer = window.setTimeout(resetBattleEffects, 1050);
   }
 
-  function playEncounterTransition() {
+  function playEncounterTransition(altarAwakening = false) {
+    const transitionTitle = encounterTransition.querySelector('strong');
+    encounterTransition.classList.toggle('is-altar-awakening', altarAwakening);
+    transitionTitle.textContent = altarAwakening ? '方位核が目覚める' : 'ENCOUNTER';
     encounterTransition.setAttribute('aria-hidden', 'false');
     encounterTransition.classList.remove('is-active', 'is-revealing');
     void encounterTransition.offsetWidth;
@@ -2136,7 +2367,8 @@
   }
 
   function resetEncounterTransition() {
-    encounterTransition.classList.remove('is-active', 'is-revealing');
+    encounterTransition.classList.remove('is-active', 'is-revealing', 'is-altar-awakening');
+    encounterTransition.querySelector('strong').textContent = 'ENCOUNTER';
     encounterTransition.setAttribute('aria-hidden', 'true');
     encounterTransitioning = false;
   }
@@ -2155,7 +2387,7 @@
     resetMapDrag();
     try {
       await Promise.all([
-        playEncounterTransition(),
+        playEncounterTransition(Boolean(encounter.altarAwakening)),
         assetLoader.load(enemyAssetKey(encounter.enemyId))
       ]);
     } catch (error) {

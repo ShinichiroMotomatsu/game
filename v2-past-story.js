@@ -57,6 +57,13 @@
     });
   })();
 
+  const CROSSROADS_WATERGATES = Object.freeze([
+    Object.freeze({ id: 'north-watergate', direction: 'north', name: '北の水門', point: Object.freeze([1830, 1050]), orientation: 'vertical' }),
+    Object.freeze({ id: 'east-watergate', direction: 'east', name: '東の水門', point: Object.freeze([2490, 1410]), orientation: 'horizontal' }),
+    Object.freeze({ id: 'south-watergate', direction: 'south', name: '南の水門', point: Object.freeze([1830, 1770]), orientation: 'vertical' }),
+    Object.freeze({ id: 'west-watergate', direction: 'west', name: '西の水門', point: Object.freeze([1110, 1410]), orientation: 'horizontal' })
+  ]);
+
   const PAST_START = Object.freeze({
     area: 'overworld',
     point: Object.freeze([70, 540]),
@@ -240,16 +247,37 @@
       ])
     }),
     'crossroads-merchant': Object.freeze({ id: 'crossroads-merchant', lines: Object.freeze([
-      Object.freeze({ speaker: '東西商会の番頭', text: '地下水路が暴れ出してから四方の門が閉じた。武具庫には昔の街道守が使った剣が残っているはずだ。' })
+      Object.freeze({ speaker: '東西商会の番頭', text: '三日前、地下水路の流れが突然逆向きになり、地鳴りとともに四つの水門が閉じた。荷馬車も舟荷も動かせず、街の倉は空になりかけている。' }),
+      Object.freeze({ speaker: '東西商会の番頭', text: '水路の武具庫には、昔の街道守が使った剣が残っているはずだ。見つけたなら遠慮なく使ってくれ。' })
     ]) }),
     'crossroads-guide': Object.freeze({ id: 'crossroads-guide', lines: Object.freeze([
-      Object.freeze({ speaker: '水路番の娘', text: '四門水路は中央の円形広間から左右へ枝分かれするの。宝物庫を調べてから北の祭壇へ進んで。' })
+      Object.freeze({ speaker: '水路番の娘', text: '四門水路の方位核は、北の祭壇から四つの水門へ水の力を分ける仕組みなの。でも今は核が脈打つたび、水圧が逆流して街全体を揺らしている。' }),
+      Object.freeze({ speaker: '水路番の娘', text: '中央広間から枝道をたどり、北の祭壇を調べて。父の記録では、祭壇の方位紋が水門すべてを動かす鍵よ。' })
     ]) }),
     'crossroads-guard': Object.freeze({ id: 'crossroads-guard', lines: Object.freeze([
-      Object.freeze({ speaker: '四門衛兵', text: '北門脇の階段が水路への入口だ。最深部の守護機兵が四つの門を封じている。' })
+      Object.freeze({ speaker: '四門衛兵', text: '北門脇の階段が四門水路への入口だ。調査隊は祭壇の手前で、誰もいないはずの石壁から響く金属音を聞いて引き返した。' }),
+      Object.freeze({ speaker: '四門衛兵', text: '四つの水門が閉じたままでは地下の水圧が街を持ち上げてしまう。祭壇の異変を止めてくれ。' })
+    ]) }),
+    'crossroads-merchant-restored': Object.freeze({ id: 'crossroads-merchant-restored', lines: Object.freeze([
+      Object.freeze({ speaker: '東西商会の番頭', text: '四つの水門が開き、東西の荷馬車も港からの舟荷も戻ってきた。クアドラの市場が、ようやく息を吹き返したよ。' })
+    ]) }),
+    'crossroads-guide-restored': Object.freeze({ id: 'crossroads-guide-restored', lines: Object.freeze([
+      Object.freeze({ speaker: '水路番の娘', text: '方位核は正常な速さで回っているわ。地下水路の音も、昔のように穏やかになった。助けてくれてありがとう。' })
+    ]) }),
+    'crossroads-guard-restored': Object.freeze({ id: 'crossroads-guard-restored', lines: Object.freeze([
+      Object.freeze({ speaker: '四門衛兵', text: '水門はすべて開いた。街道の見回りも再開できる。あなたが取り戻した道を、今度は我々が守ろう。' })
+    ]) }),
+    'crossroads-altar-awakening': Object.freeze({ id: 'crossroads-altar-awakening', onComplete: 'crossroads-altar-awaken', lines: Object.freeze([
+      Object.freeze({ speaker: '地の文', text: '北の祭壇には、四つの水門と中央の方位核を結ぶ古い水路図が刻まれている。' }),
+      Object.freeze({ speaker: '主人公', text: '方位核に紫の魔力が絡みつき、水の向きを逆転させている……。せき止められた水圧が、地下水路を暴れさせていたのか。' }),
+      Object.freeze({ speaker: '地の文', text: '星の羅針盤を祭壇へかざすと、四つの水門の紋章が順に輝き、石床の奥から巨大な歯車の音が響いた。' }),
+      Object.freeze({ speaker: '謎の声', text: '方位核への干渉を検知。水路守護機兵、排除命令を実行する。' })
+    ]) }),
+    'crossroads-altar-stable': Object.freeze({ id: 'crossroads-altar-stable', lines: Object.freeze([
+      Object.freeze({ speaker: '地の文', text: '祭壇の方位核は正常な光をたたえ、四方へ穏やかな水音を送り出している。' })
     ]) }),
     'crossroads-boss-cleared': Object.freeze({ id: 'crossroads-boss-cleared', onComplete: 'crossroads-boss-defeated', lines: Object.freeze([
-      Object.freeze({ speaker: '地の文', text: '守護機兵の方位核が砕け、水門がゆっくりと開いていく。地上から荷車の鐘と人々の歓声が聞こえた。' }),
+      Object.freeze({ speaker: '地の文', text: '守護機兵に絡んでいた紫の魔力が消え、地下水路の逆流が止まった。四つの水門が一つずつ開き、澄んだ水が本来の流れを取り戻していく。' }),
       Object.freeze({ speaker: '地の文', text: '祭壇の裏には、地図師エルドの筆跡で「道は場所ではなく、人と人を結ぶ」と刻まれていた。' })
     ]) }),
     'king-crossroads-report': Object.freeze({ id: 'king-crossroads-report', onComplete: 'crossroads-report-complete', lines: Object.freeze([
@@ -475,19 +503,20 @@
         actionId: null
       };
     }
-    const dialogueId = interaction.id === 'king' && state.phase === 'first-mission-report'
-      ? 'king-mission-complete'
-      : interaction.id === 'king' && state.phase === 'second-mission-report'
-        ? 'king-crossroads-report'
-      : interaction.id === 'king' && state.phase === 'second-mission'
-        ? 'king-crossroads-reminder'
-      : interaction.id === 'king' && state.phase === 'second-mission-complete'
-        ? 'king-after-crossroads'
-      : interaction.id === 'king' && state.phase === 'first-mission-complete'
-        ? 'king-crossroads-mission'
-      : interaction.id === 'king' && state.royalRewardClaimed
-        ? 'king-reminder'
-        : interaction.dialogueId;
+    const crossroadsRestored = ['second-mission-report', 'second-mission-complete'].includes(state.phase);
+    const crossroadsNpc = CROSSROADS_NPCS.some(npc => npc.id === interaction.id);
+    let dialogueId = interaction.dialogueId;
+    if (crossroadsNpc && crossroadsRestored) dialogueId = `${interaction.dialogueId}-restored`;
+    if (interaction.id === 'king') {
+      const royalDialogues = {
+        'first-mission-report': 'king-mission-complete',
+        'first-mission-complete': 'king-crossroads-mission',
+        'second-mission': 'king-crossroads-reminder',
+        'second-mission-report': 'king-crossroads-report',
+        'second-mission-complete': 'king-after-crossroads'
+      };
+      dialogueId = royalDialogues[state.phase] || (state.royalRewardClaimed ? 'king-reminder' : interaction.dialogueId);
+    }
     return {
       state,
       spawn: null,
@@ -573,6 +602,7 @@
     CROSSROADS_BUILDINGS,
     CROSSROADS_DUNGEON_LAYOUT,
     CROSSROADS_NPCS,
+    CROSSROADS_WATERGATES,
     PAST_AREAS,
     PAST_INTERACTIONS,
     PAST_START,

@@ -20,6 +20,7 @@ const {
   createPastCampaign,
   discoverCard,
   experienceToNextLevel,
+  equipProduct,
   learnFirstMagic,
   openDungeonTreasure,
   productsForShop,
@@ -112,6 +113,26 @@ test('legacy equipped items migrate into the sellable equipment inventory', () =
   });
 
   assert.deepEqual(restored.ownedEquipment.sort(), ['bronze-sword', 'leather-armor']);
+});
+
+test('owned equipment can be equipped from the bag after opening a treasure chest', () => {
+  const bought = buyProduct(createPastCampaign({ bossDefeated: true }), 1000, 'iron-sword');
+  const treasure = openDungeonTreasure(bought.state, 'armory-coffer');
+  const oldWeapon = equipProduct(treasure.state, 'iron-sword');
+  const treasureWeapon = equipProduct(oldWeapon.state, 'crossroads-blade');
+
+  assert.equal(treasure.state.equipment.weapon, 'crossroads-blade');
+  assert.equal(oldWeapon.ok, true);
+  assert.equal(oldWeapon.state.equipment.weapon, 'iron-sword');
+  assert.equal(treasureWeapon.state.equipment.weapon, 'crossroads-blade');
+});
+
+test('equipment that is not owned cannot be equipped', () => {
+  const campaign = createPastCampaign();
+  const result = equipProduct(campaign, 'steel-sword');
+
+  assert.equal(result.ok, false);
+  assert.equal(result.state, campaign);
 });
 
 test('a purchase is rejected when gold is insufficient without mutating state', () => {
