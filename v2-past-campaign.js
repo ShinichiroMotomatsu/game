@@ -245,6 +245,25 @@
     return (inventory[shopType] || []).map(productId => PRODUCTS.get(productId)).filter(Boolean);
   }
 
+  function equipProduct(state, productId) {
+    const product = PRODUCTS.get(productId);
+    if (!product || !['weapon', 'armor'].includes(product.type)) {
+      return { ok: false, state, product: null, message: 'その品は装備できない。' };
+    }
+    if (!state.ownedEquipment.includes(productId)) {
+      return { ok: false, state, product, message: 'その装備は持っていない。' };
+    }
+    if (state.equipment[product.type] === productId) {
+      return { ok: false, state, product, message: `${product.name}はすでに装備している。` };
+    }
+    return {
+      ok: true,
+      state: { ...state, equipment: { ...state.equipment, [product.type]: productId } },
+      product,
+      message: `${product.name}を装備した。`
+    };
+  }
+
   function salePrice(productId) {
     const product = PRODUCTS.get(productId);
     return product?.type === 'card' ? 0 : Math.floor((product?.price || 0) / 2);
@@ -489,6 +508,7 @@
     canLearnFirstMagic,
     createPastCampaign,
     discoverCard,
+    equipProduct,
     experienceToNextLevel,
     learnFirstMagic,
     openDungeonTreasure,
