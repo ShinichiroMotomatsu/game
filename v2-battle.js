@@ -46,6 +46,14 @@
   const ELEMENT_LABELS = Object.freeze({ fire: '炎', ice: '氷' });
   const WEAKNESS_MULTIPLIER = 1.5;
 
+  function hpCondition(hp, maxHp) {
+    const safeMax = Math.max(1, Number(maxHp) || 1);
+    const ratio = Math.max(0, Number(hp) || 0) / safeMax;
+    if (ratio <= 0.25) return 'danger';
+    if (ratio <= 0.5) return 'warning';
+    return 'normal';
+  }
+
   const ENEMY_INTENTS = Object.freeze({
     assault: Object.freeze({
       id: 'assault', name: '猛攻', icon: '⚔', counteredBy: 'guard', counterLabel: '防御',
@@ -380,6 +388,7 @@
     ENEMY_INTENTS,
     createBattle,
     defaultDeck,
+    hpCondition,
     previewAction,
     redrawOpeningCard,
     resolveTurn,

@@ -30,12 +30,27 @@ test('the royal capital is rendered as ground, building, and character raster la
 
 test('overworld event people and structures use transparent raster assets', () => {
   assert.deepEqual(Object.keys(PAST_EVENT_ASSETS).sort(), [
-    'capital-gate', 'card-chest-frost', 'card-chest-mend', 'magic-tutor', 'old-watchtower'
+    'capital-gate', 'card-chest-frost', 'card-chest-mend',
+    'compass-altar-corrupted', 'compass-altar-restored', 'magic-tutor', 'old-watchtower',
+    'watergate-closed', 'watergate-open'
   ]);
   for (const asset of Object.values(PAST_EVENT_ASSETS)) {
     assert.match(asset.path, /^assets\/v2\/past-events\/.+\.png$/);
     assert.equal(fs.existsSync(asset.path), true, `${asset.path} is missing`);
   }
+});
+
+test('waterway props load only when the dungeon is active', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const resolver = runtime.match(/function requiredAssetsForActiveLocation\(\)[\s\S]*?\n  function loadAssetsInBackground/)?.[0] || '';
+  const overworld = resolver.slice(resolver.indexOf("activeAreaId() === 'overworld'"), resolver.indexOf("activeAreaId() === 'castle-town'"));
+  const dungeon = resolver.slice(resolver.indexOf("activeAreaId() === 'crossroads-dungeon'"));
+
+  assert.doesNotMatch(overworld, /watergate-|compass-altar-/);
+  assert.match(dungeon, /watergate-closed/);
+  assert.match(dungeon, /watergate-open/);
+  assert.match(dungeon, /compass-altar-corrupted/);
+  assert.match(dungeon, /compass-altar-restored/);
 });
 
 test('the crossroads town stays raster-backed while its dungeon is generated from tiles', () => {

@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const {
   PAST_ENCOUNTERS,
   PAST_BIOMES,
+  FIELD_ENCOUNTER_RADIUS,
   FIELD_ENCOUNTER_GRACE_MS,
   FIELD_EXIT_SAFE_RADIUS,
   advancePatrol,
@@ -87,7 +88,7 @@ test('overworld actors and movement are reduced to half scale', () => {
   assert.match(runtime, /speed:\s*190/);
   assert.match(runtime, /const displayHeight = 48/);
   assert.match(runtime, /const height = 50/);
-  assert.match(runtime, /shouldStartEncounter\(player, enemy, 23 \* maskScale/);
+  assert.match(runtime, /shouldStartEncounter\(player, enemy, FIELD_ENCOUNTER_RADIUS \* maskScale/);
 });
 
 test('patrol movement stays on the configured segment', () => {
@@ -103,6 +104,17 @@ test('a nearby active enemy starts an encounter but a defeated enemy does not', 
   const enemy = { x: 100, y: 100, active: true, respawnAt: 0 };
   assert.equal(shouldStartEncounter({ x: 118, y: 110 }, enemy, 40, 1000), true);
   assert.equal(shouldStartEncounter({ x: 118, y: 110 }, { ...enemy, active: false, respawnAt: 2000 }, 40, 1000), false);
+});
+
+test('the encounter radius is narrow enough to sidestep a visible monster', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const enemy = { x: 100, y: 100, active: true, respawnAt: 0 };
+
+  assert.ok(FIELD_ENCOUNTER_RADIUS <= 14);
+  assert.equal(shouldStartEncounter({ x: 100 + FIELD_ENCOUNTER_RADIUS - 0.1, y: 100 }, enemy, FIELD_ENCOUNTER_RADIUS, 1000), true);
+  assert.equal(shouldStartEncounter({ x: 100 + FIELD_ENCOUNTER_RADIUS + 0.1, y: 100 }, enemy, FIELD_ENCOUNTER_RADIUS, 1000), false);
+  assert.match(runtime, /shouldStartEncounter\(player, enemy, FIELD_ENCOUNTER_RADIUS \* maskScale/);
+  assert.doesNotMatch(runtime, /shouldStartEncounter\(player, enemy, 23 \* maskScale/);
 });
 
 test('entering a building restores every field monster at its patrol origin', () => {

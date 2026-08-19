@@ -9,11 +9,19 @@ const {
   ENEMY_INTENTS,
   createBattle,
   defaultDeck,
+  hpCondition,
   previewAction,
   redrawOpeningCard,
   resolveTurn,
   toggleCard
 } = require('../v2-battle.js');
+
+test('HP condition changes from normal to orange and red at Dragon Quest-like thresholds', () => {
+  assert.equal(hpCondition(42, 42), 'normal');
+  assert.equal(hpCondition(21, 42), 'warning');
+  assert.equal(hpCondition(10, 42), 'danger');
+  assert.equal(hpCondition(0, 42), 'danger');
+});
 
 test('the starter deck begins with only sword technique and guard cards', () => {
   const deck = defaultDeck();

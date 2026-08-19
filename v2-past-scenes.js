@@ -33,7 +33,11 @@
     'old-watchtower': Object.freeze({ path: 'assets/v2/past-events/old-watchtower.png', width: 150, height: 225 }),
     'magic-tutor': Object.freeze({ path: 'assets/v2/past-events/magic-tutor.png', width: 58, height: 72 }),
     'card-chest-frost': Object.freeze({ path: 'assets/v2/past-events/card-chest-frost.png', width: 66, height: 60 }),
-    'card-chest-mend': Object.freeze({ path: 'assets/v2/past-events/card-chest-mend.png', width: 64, height: 60 })
+    'card-chest-mend': Object.freeze({ path: 'assets/v2/past-events/card-chest-mend.png', width: 64, height: 60 }),
+    'watergate-closed': Object.freeze({ path: 'assets/v2/past-events/watergate-closed.png', width: 210, height: 140 }),
+    'watergate-open': Object.freeze({ path: 'assets/v2/past-events/watergate-open.png', width: 210, height: 140 }),
+    'compass-altar-corrupted': Object.freeze({ path: 'assets/v2/past-events/compass-altar-corrupted.png', width: 190, height: 174 }),
+    'compass-altar-restored': Object.freeze({ path: 'assets/v2/past-events/compass-altar-restored.png', width: 190, height: 127 })
   });
 
   const NPC_SPRITE_ASSETS = Object.freeze({

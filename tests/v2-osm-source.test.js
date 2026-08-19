@@ -112,6 +112,12 @@ test('battle effects visibly distinguish weakness and received damage', () => {
   assert.match(styles, /v2-weakness-burst/);
   assert.match(styles, /v2-player-damage-flash/);
   assert.match(styles, /v2-enemy-hit/);
+  assert.match(runtime, /v2-combat-impact/);
+  assert.match(styles, /v2-impact-burst/);
+  assert.match(styles, /v2-slash-trail/);
+  assert.match(runtime, /dataset\.hpState\s*=\s*hpCondition/);
+  assert.match(styles, /data-hp-state="warning"/);
+  assert.match(styles, /data-hp-state="danger"/);
 });
 
 test('the enemy plays a graphical face-up intent card for the reading game', () => {

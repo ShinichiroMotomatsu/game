@@ -4,6 +4,7 @@
   if (root) root.V2_PAST_WORLD = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
   const FIELD_ENCOUNTER_GRACE_MS = 4000;
+  const FIELD_ENCOUNTER_RADIUS = 12;
   const FIELD_EXIT_SAFE_RADIUS = 55;
   const PAST_BIOMES = Object.freeze([
     Object.freeze({ id: 'coast', name: '潮風の海岸', center: Object.freeze([85, 530]) }),
@@ -102,6 +103,7 @@
     PAST_BIOMES,
     PAST_ENCOUNTERS,
     FIELD_ENCOUNTER_GRACE_MS,
+    FIELD_ENCOUNTER_RADIUS,
     FIELD_EXIT_SAFE_RADIUS,
     advancePatrol,
     createPastEnemies,
