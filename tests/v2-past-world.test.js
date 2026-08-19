@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const {
   PAST_ENCOUNTERS,
   PAST_BIOMES,
+  FIELD_ENCOUNTER_GRACE_MS,
   advancePatrol,
   createPastEnemies,
   landmarkMemoryState,
@@ -12,6 +13,7 @@ const {
   respawnPastEnemies,
   shouldStartEncounter
 } = require('../v2-past-world.js');
+const { PAST_START } = require('../v2-past-story.js');
 
 test('past enemies have visible road patrol routes away from the starting point', () => {
   assert.ok(PAST_ENCOUNTERS.length >= 4);
@@ -24,6 +26,36 @@ test('past enemies have visible road patrol routes away from the starting point'
 test('the opening encounters form one west-road route between the capital and old watchtower', () => {
   assert.equal(PAST_ENCOUNTERS.filter(enemy => enemy.chapter === 'west-road').length, 4);
   assert.ok(PAST_ENCOUNTERS.filter(enemy => enemy.chapter === 'west-road').every(enemy => enemy.patrol[0][0] < 310));
+});
+
+test('the capital exit has meaningful travel time before a western-road encounter', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const westernRoad = PAST_ENCOUNTERS.filter(encounter => encounter.chapter === 'west-road');
+  const closest = Math.min(...westernRoad.flatMap(encounter => encounter.patrol.map(([x, y]) => Math.hypot(
+    x - PAST_START.capitalGatePoint[0],
+    y - PAST_START.capitalGatePoint[1]
+  ))));
+  const travelSecondsBeforeCollision = (closest - 23) * 4 / 190;
+
+  assert.ok(travelSecondsBeforeCollision >= 1, `encounter begins after only ${travelSecondsBeforeCollision.toFixed(2)} seconds`);
+  assert.ok(FIELD_ENCOUNTER_GRACE_MS >= 1800);
+  assert.match(runtime, /encounterGraceUntil = performance\.now\(\) \+ FIELD_ENCOUNTER_GRACE_MS/);
+  assert.match(runtime, /now >= encounterGraceUntil && pastEnemies\.find/);
+  assert.match(runtime, /\['victory', 'fled'\]\.includes\(result\)/);
+  assert.ok(westernRoad.every(encounter => encounter.patrol.every(([x]) => x > PAST_START.point[0] && x < PAST_START.capitalGatePoint[0])));
+});
+
+test('second-chapter patrols do not overlap the earlier western-road encounters', () => {
+  const westRoad = PAST_ENCOUNTERS.filter(encounter => encounter.chapter === 'west-road');
+  const crossroadsRoute = PAST_ENCOUNTERS.filter(encounter => encounter.chapter === 'crossroads-route');
+  for (const earlier of westRoad) {
+    for (const later of crossroadsRoute) {
+      const closest = Math.min(...earlier.patrol.flatMap(first => later.patrol.map(second => Math.hypot(
+        first[0] - second[0], first[1] - second[1]
+      ))));
+      assert.ok(closest > 46, `${earlier.id} overlaps ${later.id} at ${closest.toFixed(1)} units`);
+    }
+  }
 });
 
 test('the route to the crossroads crosses distinct fantasy biomes with expanded fauna', () => {

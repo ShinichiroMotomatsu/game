@@ -20,7 +20,6 @@ test('the royal capital is rendered as ground, building, and character raster la
     'castle-interior',
     'castle-town-buildings',
     'castle-town-ground',
-    'crossroads-dungeon',
     'crossroads-town'
   ]);
   for (const asset of Object.values(PAST_SCENE_ASSETS)) {
@@ -39,12 +38,14 @@ test('overworld event people and structures use transparent raster assets', () =
   }
 });
 
-test('the crossroads town and dungeon use dedicated raster backgrounds', () => {
-  for (const id of ['crossroads-town', 'crossroads-dungeon']) {
-    const asset = PAST_SCENE_ASSETS[id];
-    assert.ok(asset, `${id} should be declared`);
-    assert.equal(fs.existsSync(asset.path), true, `${asset.path} is missing`);
-  }
+test('the crossroads town stays raster-backed while its dungeon is generated from tiles', () => {
+  const town = PAST_SCENE_ASSETS['crossroads-town'];
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  assert.ok(town);
+  assert.equal(fs.existsSync(town.path), true, `${town.path} is missing`);
+  assert.equal(PAST_SCENE_ASSETS['crossroads-dungeon'], undefined);
+  assert.match(runtime, /drawCrossroadsDungeonTiles/);
+  assert.match(runtime, /CROSSROADS_DUNGEON_LAYOUT/);
 });
 
 test('townsfolk, soldiers, and the king use dedicated raster sprites', () => {

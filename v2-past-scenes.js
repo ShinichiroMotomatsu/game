@@ -25,11 +25,6 @@
       path: 'assets/v2/past-scenes/crossroads-town.png',
       width: 1200,
       height: 900
-    }),
-    'crossroads-dungeon': Object.freeze({
-      path: 'assets/v2/past-scenes/crossroads-dungeon.png',
-      width: 1200,
-      height: 900
     })
   });
 

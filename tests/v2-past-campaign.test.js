@@ -5,8 +5,10 @@ const fs = require('node:fs');
 const {
   MAIN_STORY_PACING,
   FIRST_QUEST_LOADOUT,
+  INN_DEFINITIONS,
   LEVEL_TABLE,
   SHOP_CATALOG,
+  TOWN_SHOP_INVENTORY,
   DUNGEON_TREASURES,
   applyBattleVictory,
   battleProfile,
@@ -20,9 +22,12 @@ const {
   experienceToNextLevel,
   learnFirstMagic,
   openDungeonTreasure,
+  productsForShop,
   reachWatchtower,
   resolveDefeat,
   restAtInn,
+  salePrice,
+  sellProduct,
   useItem
 } = require('../v2-past-campaign.js');
 const { ENEMY_LIBRARY } = require('../v2-battle.js');
@@ -64,6 +69,49 @@ test('buying equipment deducts gold and automatically equips the stronger item',
   assert.equal(bought.ok, true);
   assert.equal(bought.gold, 160);
   assert.equal(bought.state.equipment.weapon, 'bronze-sword');
+  assert.deepEqual(bought.state.ownedEquipment, ['bronze-sword']);
+});
+
+test('replaced equipment remains owned and can be sold for half price', () => {
+  const bronze = buyProduct(createPastCampaign(), 1000, 'bronze-sword');
+  const iron = buyProduct(bronze.state, bronze.gold, 'iron-sword');
+  const soldBronze = sellProduct(iron.state, iron.gold, 'bronze-sword');
+  const soldIron = sellProduct(soldBronze.state, soldBronze.gold, 'iron-sword');
+
+  assert.deepEqual(iron.state.ownedEquipment.sort(), ['bronze-sword', 'iron-sword']);
+  assert.equal(salePrice('bronze-sword'), 70);
+  assert.equal(soldBronze.gold, iron.gold + 70);
+  assert.equal(soldBronze.state.ownedEquipment.includes('bronze-sword'), false);
+  assert.equal(soldIron.state.equipment.weapon, null);
+});
+
+test('selling equipped gear falls back to the strongest owned gear of that type', () => {
+  const bronze = buyProduct(createPastCampaign(), 1000, 'bronze-sword');
+  const iron = buyProduct(bronze.state, bronze.gold, 'iron-sword');
+  const soldIron = sellProduct(iron.state, iron.gold, 'iron-sword');
+
+  assert.equal(soldIron.state.equipment.weapon, 'bronze-sword');
+  assert.deepEqual(soldIron.state.ownedEquipment, ['bronze-sword']);
+});
+
+test('consumables sell one at a time for half price while cards cannot be sold', () => {
+  const stocked = createPastCampaign({ inventory: { herb: 2 }, ownedCards: ['cleave'], schemaVersion: 4 });
+  const sold = sellProduct(stocked, 10, 'herb');
+  const cardSale = sellProduct(sold.state, sold.gold, 'cleave');
+
+  assert.equal(sold.gold, 17);
+  assert.equal(sold.state.inventory.herb, 1);
+  assert.equal(cardSale.ok, false);
+  assert.equal(cardSale.gold, sold.gold);
+});
+
+test('legacy equipped items migrate into the sellable equipment inventory', () => {
+  const restored = createPastCampaign({
+    schemaVersion: 4,
+    equipment: { weapon: 'bronze-sword', armor: 'leather-armor' }
+  });
+
+  assert.deepEqual(restored.ownedEquipment.sort(), ['bronze-sword', 'leather-armor']);
 });
 
 test('a purchase is rejected when gold is insufficient without mutating state', () => {
@@ -176,11 +224,38 @@ test('herbs heal outside battle and are consumed', () => {
 
 test('the first-town inn is free and restores all HP and MP', () => {
   const campaign = createPastCampaign({ currentHp: 5, currentMp: 1 });
-  const rested = restAtInn(campaign, 50);
+  const rested = restAtInn(campaign, 50, 'castle-town');
   assert.equal(rested.ok, true);
   assert.equal(rested.gold, 50);
   assert.equal(rested.state.currentHp, battleProfile(campaign).maxHp);
   assert.equal(rested.state.currentMp, battleProfile(campaign).maxMp);
+});
+
+test('the second-town inn charges a modest fee and refuses an unaffordable stay', () => {
+  const campaign = createPastCampaign({ currentHp: 5, currentMp: 1 });
+  const rested = restAtInn(campaign, 50, 'crossroads-town');
+  const refused = restAtInn(campaign, 20, 'crossroads-town');
+
+  assert.equal(INN_DEFINITIONS['crossroads-town'].price, 25);
+  assert.equal(rested.ok, true);
+  assert.equal(rested.gold, 25);
+  assert.equal(refused.ok, false);
+  assert.equal(refused.gold, 20);
+});
+
+test('crossroads shops retire starter goods and add stronger chapter-two stock', () => {
+  const weapons = productsForShop('crossroads-town', 'weapon');
+  const armor = productsForShop('crossroads-town', 'armor');
+  const items = productsForShop('crossroads-town', 'item');
+  const cards = productsForShop('crossroads-town', 'card');
+
+  assert.deepEqual(TOWN_SHOP_INVENTORY['crossroads-town'].weapon, ['iron-sword', 'steel-sword']);
+  assert.equal(weapons.some(product => product.id === 'wooden-sword'), false);
+  assert.ok(weapons.find(product => product.id === 'steel-sword').attack > 5);
+  assert.ok(armor.find(product => product.id === 'scale-armor').defense > 5);
+  assert.ok(items.find(product => product.id === 'strong-herb').heal > SHOP_CATALOG.item.find(product => product.id === 'herb').heal);
+  assert.ok(cards.every(product => ['flame-edge', 'fortress'].includes(product.id)));
+  assert.ok(DUNGEON_TREASURES.find(treasure => treasure.weaponId).weaponId === 'crossroads-blade');
 });
 
 test('experience remaining is calculated from the next level threshold', () => {

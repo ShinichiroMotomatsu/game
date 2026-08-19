@@ -40,6 +40,10 @@
   const shopMessage = document.querySelector('#v2-shop-message');
   const shopList = document.querySelector('#v2-shop-list');
   const shopClose = document.querySelector('#v2-shop-close');
+  const shopTabs = document.querySelector('.v2-shop-tabs');
+  const shopBuy = document.querySelector('#v2-shop-buy');
+  const shopSell = document.querySelector('#v2-shop-sell');
+  const restTransition = document.querySelector('#v2-rest-transition');
   const dragGuide = document.querySelector('#v2-drag-guide');
   const dragGuideKnob = dragGuide.querySelector('span');
   const landmarkGeometry = window.V2_LANDMARK_GEOMETRY;
@@ -70,12 +74,14 @@
     visibleTileCoordinates
   } = assetApi;
   const { CARD_LIBRARY, ENEMY_INTENTS, createBattle, previewAction, resolveTurn, toggleCard } = battleApi;
-  const { advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, respawnPastEnemies, shouldStartEncounter } = pastWorldApi;
+  const { FIELD_ENCOUNTER_GRACE_MS, advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, respawnPastEnemies, shouldStartEncounter } = pastWorldApi;
   const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
   const { NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, npcPoseAt } = pastSceneApi;
   const { createTypewriterLine, revealTypewriterLine, tickTypewriterLine, typewriterText } = dialogueApi;
   const {
+    INN_DEFINITIONS,
+    QUEST_REWARDS,
     SHOP_CATALOG,
     applyBattleVictory,
     battleProfile,
@@ -89,13 +95,18 @@
     experienceToNextLevel,
     learnFirstMagic,
     openDungeonTreasure,
+    productsForShop,
     reachWatchtower,
     resolveDefeat,
     restAtInn,
+    salePrice,
+    sellProduct,
     useItem
   } = pastCampaignApi;
   const {
     CASTLE_NPCS,
+    CROSSROADS_BUILDINGS,
+    CROSSROADS_DUNGEON_LAYOUT,
     CROSSROADS_NPCS,
     PAST_AREAS,
     PAST_START,
@@ -114,7 +125,29 @@
     storyUnlocksInteraction,
     storyObjective
   } = pastStoryApi;
-  const campaignProducts = new Map(Object.values(SHOP_CATALOG).flat().map(product => [product.id, product]));
+  const campaignProducts = new Map([
+    ...Object.values(SHOP_CATALOG).flat().map(product => [product.id, product]),
+    ...Object.values(QUEST_REWARDS).map(product => [product.id, product])
+  ]);
+  const crossroadsDungeonMini = document.createElement('canvas');
+  crossroadsDungeonMini.width = 210;
+  crossroadsDungeonMini.height = 145;
+  const crossroadsDungeonMiniContext = crossroadsDungeonMini.getContext('2d');
+  {
+    const { columns, rows } = CROSSROADS_DUNGEON_LAYOUT;
+    const miniTileWidth = crossroadsDungeonMini.width / columns;
+    const miniTileHeight = crossroadsDungeonMini.height / rows.length;
+    crossroadsDungeonMiniContext.fillStyle = '#171620';
+    crossroadsDungeonMiniContext.fillRect(0, 0, crossroadsDungeonMini.width, crossroadsDungeonMini.height);
+    for (let row = 0; row < rows.length; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        const tile = rows[row][column];
+        if (tile === '#') continue;
+        crossroadsDungeonMiniContext.fillStyle = tile === '~' ? '#28566d' : tile === '=' ? '#a7794b' : tile === 'A' ? '#c45f91' : '#8b818c';
+        crossroadsDungeonMiniContext.fillRect(column * miniTileWidth, row * miniTileHeight, miniTileWidth + 0.5, miniTileHeight + 0.5);
+      }
+    }
+  }
 
   // Build-time color extraction stores the collision mask as row runs. Reading
   // prebuilt data avoids getImageData(), which is blocked when HTML is opened via file://.
@@ -229,6 +262,7 @@
   let activeEncounter = null;
   let battleEffectTimer = 0;
   let encounterTransitioning = false;
+  let encounterGraceUntil = 0;
   let ready = false;
   let currentEdition = normalizeEdition(restartRequest.edition);
   let storyPanelVisible = localStorage.getItem('roppongi-past-story-panel') !== 'hidden';
@@ -243,6 +277,10 @@
   let dialogueTypeTimer = 0;
   let activeInteraction = null;
   let activeServiceId = null;
+  let activeServiceArea = null;
+  let activeServiceMode = 'buy';
+  let serviceEntryPosition = null;
+  let restTransitioning = false;
   let activeLocationKey = 'modern-overworld';
   const locationPositions = new Map([
     ['modern-overworld', [roppongiCrossing.point[0] * maskScale, roppongiCrossing.point[1] * maskScale]],
@@ -332,7 +370,6 @@
     if (activeAreaId() === 'crossroads-dungeon') {
       return [
         ...playerAssets,
-        sceneAssetKey('crossroads-dungeon'),
         eventAssetKey('card-chest-frost'),
         eventAssetKey('card-chest-mend'),
         enemyAssetKey('crossroads-sentinel')
@@ -610,19 +647,15 @@
   }
 
   function serviceTitle(serviceId) {
-    return {
-      weapon: '武器屋「鉄蜘蛛」',
-      armor: '防具屋「銀の殻」',
-      item: '道具屋「旅支度」',
-      card: 'カード屋「星札堂」',
-      inn: '宿屋「夕映え亭」',
-      bag: 'もちもの・装備'
-    }[serviceId] || '城下町の店';
+    if (serviceId === 'bag') return 'もちもの・装備';
+    const buildings = activeServiceArea === 'crossroads-town' ? CROSSROADS_BUILDINGS : TOWN_BUILDINGS;
+    return buildings.find(building => building.type === serviceId)?.label || '街の店';
   }
 
   function itemOwnedLabel(product) {
     if (product.type === 'weapon' && campaignState.equipment.weapon === product.id) return '装備中';
     if (product.type === 'armor' && campaignState.equipment.armor === product.id) return '装備中';
+    if ((product.type === 'weapon' || product.type === 'armor') && campaignState.ownedEquipment.includes(product.id)) return '所持済み';
     if (product.type === 'card' && campaignState.ownedCards.includes(product.id)) return '所持済み';
     if (product.type === 'item') return `所持 ${campaignState.inventory[product.id] || 0}`;
     return '';
@@ -653,6 +686,11 @@
     if (!activeServiceId) return;
     shopTitle.textContent = serviceTitle(activeServiceId);
     shopGold.textContent = `${storyState.gold.toLocaleString('ja-JP')} G`;
+    const supportsTrading = ['weapon', 'armor', 'item', 'card'].includes(activeServiceId);
+    shopTabs.hidden = !supportsTrading;
+    shopBuy.setAttribute('aria-selected', String(activeServiceMode === 'buy'));
+    shopSell.setAttribute('aria-selected', String(activeServiceMode === 'sell'));
+    shopSell.disabled = activeServiceId === 'card';
     const entries = [];
     if (activeServiceId === 'bag') {
       const weapon = campaignProducts.get(campaignState.equipment.weapon)?.name || 'なし';
@@ -690,11 +728,14 @@
       }
     } else if (activeServiceId === 'inn') {
       const profile = battleProfile(campaignState);
+      const inn = INN_DEFINITIONS[activeServiceArea] || INN_DEFINITIONS['castle-town'];
       entries.push(createServiceButton({
-        name: '無料で一晩泊まる',
+        name: inn.price ? `${inn.price}Gで一晩泊まる` : '無料で一晩泊まる',
         detail: `HPとMPを全回復　HP ${campaignState.currentHp}/${profile.maxHp}・MP ${campaignState.currentMp}/${profile.maxMp}`,
-        onClick: () => {
-          const result = restAtInn(campaignState, storyState.gold);
+        disabled: storyState.gold < inn.price || restTransitioning,
+        onClick: async () => {
+          if (restTransitioning) return;
+          const result = restAtInn(campaignState, storyState.gold, activeServiceArea);
           campaignState = result.state;
           storyState = { ...storyState, gold: result.gold };
           if (result.ok) {
@@ -703,13 +744,42 @@
           }
           shopMessage.textContent = result.message;
           updateStoryStatus();
-          renderService();
+          if (result.ok) await playInnRestTransition();
+          else renderService();
         }
       }));
+    } else if (activeServiceMode === 'sell') {
+      const products = activeServiceId === 'item'
+        ? SHOP_CATALOG.item.filter(product => campaignState.inventory[product.id] > 0)
+        : campaignState.ownedEquipment
+          .map(productId => campaignProducts.get(productId))
+          .filter(product => product?.type === activeServiceId);
+      if (!products.length) {
+        entries.push(createServiceButton({ name: '売れる品を持っていない', detail: '装備品と道具は、買値の半額で一つずつ買い取ります。', disabled: true }));
+      }
+      for (const product of products) {
+        entries.push(createServiceButton({
+          name: product.name,
+          detail: `${product.description}　${itemOwnedLabel(product)}`,
+          price: salePrice(product.id),
+          onClick: () => {
+            const result = sellProduct(campaignState, storyState.gold, product.id);
+            campaignState = result.state;
+            storyState = { ...storyState, gold: result.gold };
+            if (result.ok) {
+              savePastCampaign();
+              savePastStory();
+            }
+            shopMessage.textContent = result.message;
+            updateStoryStatus();
+            renderService();
+          }
+        }));
+      }
     } else {
-      for (const product of SHOP_CATALOG[activeServiceId] || []) {
+      for (const product of productsForShop(activeServiceArea, activeServiceId)) {
         const badge = itemOwnedLabel(product);
-        const uniqueOwned = badge === '装備中' || badge === '所持済み';
+        const uniqueOwned = ['weapon', 'armor', 'card'].includes(product.type) && Boolean(badge);
         entries.push(createServiceButton({
           name: product.name,
           detail: product.description,
@@ -737,18 +807,56 @@
   function openService(serviceId) {
     if (currentEdition !== 'past' || activeBattle || activeStoryDialogue) return;
     activeServiceId = serviceId;
+    activeServiceArea = activeAreaId();
+    activeServiceMode = 'buy';
+    serviceEntryPosition = [player.x, player.y];
     keys.clear();
     resetMapDrag();
     updateInteractionPrompt(null);
     shopMessage.textContent = serviceId === 'bag' ? '道具を使うか、装備を確認できます。' : '何を買いますか？';
-    if (serviceId === 'inn') shopMessage.textContent = '新大陸へ来た旅人は無料です。旅の疲れをすっかり癒やします。';
+    if (serviceId === 'inn') {
+      const price = INN_DEFINITIONS[activeServiceArea]?.price || 0;
+      shopMessage.textContent = price ? `一泊${price}Gです。旅の疲れをすっかり癒やします。` : '新大陸へ来た旅人は無料です。旅の疲れをすっかり癒やします。';
+    }
     renderService();
     shopOverlay.setAttribute('aria-hidden', 'false');
   }
 
   function closeService() {
     activeServiceId = null;
+    activeServiceArea = null;
+    serviceEntryPosition = null;
+    activeServiceMode = 'buy';
     shopOverlay.setAttribute('aria-hidden', 'true');
+  }
+
+  function waitForTransition(milliseconds) {
+    return new Promise(resolve => window.setTimeout(resolve, milliseconds));
+  }
+
+  async function playInnRestTransition() {
+    if (restTransitioning) return;
+    restTransitioning = true;
+    const returnPosition = serviceEntryPosition ? [...serviceEntryPosition] : [player.x, player.y];
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const fadeInMs = reducedMotion ? 20 : 520;
+    const nightMs = reducedMotion ? 20 : 340;
+    const fadeOutMs = reducedMotion ? 20 : 500;
+    restTransition.setAttribute('aria-hidden', 'false');
+    void restTransition.offsetWidth;
+    restTransition.classList.add('is-active');
+    await waitForTransition(fadeInMs);
+    closeService();
+    player.x = returnPosition[0];
+    player.y = returnPosition[1];
+    player.facing = 'down';
+    locationPositions.set(activeLocationKey, [player.x, player.y]);
+    centerCameraOnPlayer();
+    await waitForTransition(nightMs);
+    restTransition.classList.remove('is-active');
+    await waitForTransition(fadeOutMs);
+    restTransition.setAttribute('aria-hidden', 'true');
+    restTransitioning = false;
   }
 
   function updateInteractionPrompt(interaction) {
@@ -781,6 +889,9 @@
     const previousArea = storyState.area;
     locationPositions.set(activeLocationKey, [player.x, player.y]);
     storyState = result.state;
+    if (previousArea !== 'overworld' && storyState.area === 'overworld') {
+      encounterGraceUntil = performance.now() + FIELD_ENCOUNTER_GRACE_MS;
+    }
     if (storyState.area !== previousArea && storyState.area !== 'overworld') {
       pastEnemies = respawnPastEnemies(pastEnemies);
     }
@@ -942,6 +1053,18 @@
   dialogueOverlay.addEventListener('click', advanceStoryDialogue);
   openBagButton.addEventListener('click', () => openService('bag'));
   shopClose.addEventListener('click', closeService);
+  shopBuy.addEventListener('click', () => {
+    if (!activeServiceId) return;
+    activeServiceMode = 'buy';
+    shopMessage.textContent = '何を買いますか？';
+    renderService();
+  });
+  shopSell.addEventListener('click', () => {
+    if (!activeServiceId || activeServiceId === 'card') return;
+    activeServiceMode = 'sell';
+    shopMessage.textContent = '買値の半額で買い取ります。';
+    renderService();
+  });
 
   document.querySelectorAll('[data-dir]').forEach(button => {
     const key = {
@@ -977,7 +1100,7 @@
     }
   }
 
-  const mapDragBlockedSelector = '.v2-floating-controls, .v2-settings, .v2-help, .v2-map, .v2-landmark-info, .v2-story-status, .v2-interaction-prompt, .v2-dialogue, .v2-shop, .v2-battle, .v2-controls, .v2-attribution, #v2-loading, button, a, input, select, textarea';
+  const mapDragBlockedSelector = '.v2-floating-controls, .v2-settings, .v2-help, .v2-map, .v2-landmark-info, .v2-story-status, .v2-interaction-prompt, .v2-dialogue, .v2-shop, .v2-battle, .v2-rest-transition, .v2-controls, .v2-attribution, #v2-loading, button, a, input, select, textarea';
 
   function isMapDragOrigin(event) {
     return event.target instanceof Element && !event.target.closest(mapDragBlockedSelector);
@@ -987,7 +1110,7 @@
     if (
       event.isPrimary === false || event.button > 0 || !isMapDragOrigin(event) ||
       settingsPanel.getAttribute('aria-hidden') === 'false' || activeBattle || encounterTransitioning ||
-      activeStoryDialogue || activeServiceId
+      activeStoryDialogue || activeServiceId || restTransitioning
     ) return;
     event.preventDefault();
     resetMapDrag();
@@ -1105,7 +1228,7 @@
   }
 
   function update(dt) {
-    if (!ready || activeBattle || encounterTransitioning || activeStoryDialogue || activeServiceId) return;
+    if (!ready || activeBattle || encounterTransitioning || activeStoryDialogue || activeServiceId || restTransitioning) return;
     let dx = 0;
     let dy = 0;
     if (keys.has('w') || keys.has('arrowup')) dy--;
@@ -1139,7 +1262,7 @@
         }
         return advancePatrol(enemy, dt);
       });
-      const encounter = pastEnemies.find(enemy => storyEncounterMode(storyState, enemy.id) !== 'hidden'
+      const encounter = now >= encounterGraceUntil && pastEnemies.find(enemy => storyEncounterMode(storyState, enemy.id) !== 'hidden'
         && shouldStartEncounter(player, enemy, 23 * maskScale, now));
       if (encounter) openBattle(encounter);
     }
@@ -1226,12 +1349,102 @@
   function drawCrossroadsArea() {
     const areaId = activeAreaId();
     const area = PAST_AREAS[areaId];
+    if (areaId === 'crossroads-dungeon') {
+      drawCrossroadsDungeonTiles();
+      drawCrossroadsDungeonEvents();
+      return;
+    }
     const background = pastSceneImages.get(areaId);
     if (!imageIsLoaded(background)) return;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(background, 0, 0, area.width, area.height);
-    if (areaId === 'crossroads-dungeon') drawCrossroadsDungeonEvents();
+    for (const building of CROSSROADS_BUILDINGS) drawTownBuildingLabel(building);
+  }
+
+  function drawCrossroadsDungeonTiles() {
+    const { columns, rows, tileSize } = CROSSROADS_DUNGEON_LAYOUT;
+    const firstColumn = Math.max(0, Math.floor(camera.x / tileSize) - 1);
+    const lastColumn = Math.min(columns - 1, Math.ceil((camera.x + innerWidth / camera.zoom) / tileSize) + 1);
+    const firstRow = Math.max(0, Math.floor(camera.y / tileSize) - 1);
+    const lastRow = Math.min(rows.length - 1, Math.ceil((camera.y + innerHeight / camera.zoom) / tileSize) + 1);
+    const waveOffset = (performance.now() / 120) % 16;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    for (let row = firstRow; row <= lastRow; row += 1) {
+      for (let column = firstColumn; column <= lastColumn; column += 1) {
+        const tile = rows[row][column];
+        const x = column * tileSize;
+        const y = row * tileSize;
+        if (tile === '#') {
+          ctx.fillStyle = (row + column) % 2 ? '#25232f' : '#2b2936';
+          ctx.fillRect(x, y, tileSize + 1, tileSize + 1);
+          ctx.fillStyle = '#403b4b';
+          ctx.fillRect(x + 5, y + 6, tileSize - 10, tileSize - 12);
+          ctx.strokeStyle = '#171620';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 5, y + 6, tileSize - 10, tileSize - 12);
+          ctx.beginPath();
+          ctx.moveTo(x + 6, y + 30);
+          ctx.lineTo(x + tileSize - 6, y + 30);
+          ctx.moveTo(x + (row % 2 ? 24 : 38), y + 7);
+          ctx.lineTo(x + (row % 2 ? 24 : 38), y + 29);
+          ctx.moveTo(x + (row % 2 ? 38 : 24), y + 31);
+          ctx.lineTo(x + (row % 2 ? 38 : 24), y + tileSize - 7);
+          ctx.stroke();
+          continue;
+        }
+        if (tile === '~') {
+          ctx.fillStyle = (row + column) % 2 ? '#17364d' : '#1b4058';
+          ctx.fillRect(x, y, tileSize + 1, tileSize + 1);
+          ctx.strokeStyle = '#4c8294';
+          ctx.lineWidth = 2;
+          for (let stripe = -1; stripe < 4; stripe += 1) {
+            const lineY = y + stripe * 18 + waveOffset;
+            ctx.beginPath();
+            ctx.moveTo(x + 4, lineY);
+            ctx.quadraticCurveTo(x + 18, lineY - 5, x + 31, lineY);
+            ctx.quadraticCurveTo(x + 44, lineY + 5, x + 57, lineY);
+            ctx.stroke();
+          }
+          continue;
+        }
+        ctx.fillStyle = (row + column) % 2 ? '#47404a' : '#4e4650';
+        ctx.fillRect(x, y, tileSize + 1, tileSize + 1);
+        ctx.strokeStyle = '#302b34';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x + 3, y + 3, tileSize - 6, tileSize - 6);
+        if (tile === '=') {
+          ctx.fillStyle = '#765137';
+          ctx.fillRect(x + 3, y, tileSize - 6, tileSize);
+          ctx.strokeStyle = '#33251e';
+          ctx.lineWidth = 2;
+          for (let plank = 8; plank < tileSize; plank += 12) {
+            ctx.beginPath();
+            ctx.moveTo(x + 4, y + plank);
+            ctx.lineTo(x + tileSize - 4, y + plank);
+            ctx.stroke();
+          }
+        } else if (tile === '>') {
+          ctx.fillStyle = '#292631';
+          for (let step = 0; step < 5; step += 1) ctx.fillRect(x + 10 + step * 3, y + 12 + step * 8, 40 - step * 6, 5);
+        } else if (tile === 'A') {
+          ctx.fillStyle = '#6c2f56';
+          ctx.beginPath();
+          ctx.arc(x + tileSize / 2, y + tileSize / 2, 20, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#e2a85c';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          ctx.fillStyle = '#ffe2a1';
+          ctx.font = '26px Georgia, serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('✦', x + tileSize / 2, y + tileSize / 2 + 1);
+        }
+      }
+    }
+    ctx.restore();
   }
 
   function drawCrossroadsDungeonEvents() {
@@ -1245,7 +1458,12 @@
     }
     if (!campaignState.crossroadsBossDefeated) {
       const boss = pastEnemyImages.get('crossroads-sentinel');
-      if (imageIsLoaded(boss)) ctx.drawImage(boss, 535, 65, 130, 130 * boss.naturalHeight / boss.naturalWidth);
+      const altar = pastStoryApi.PAST_INTERACTIONS.find(interaction => interaction.id === 'crossroads-boss-altar');
+      if (imageIsLoaded(boss) && altar) {
+        const width = 130;
+        const height = width * boss.naturalHeight / boss.naturalWidth;
+        ctx.drawImage(boss, altar.point[0] - width / 2, altar.point[1] - height + 26, width, height);
+      }
     }
   }
 
@@ -1644,16 +1862,16 @@
     const areaId = activeAreaId();
     if (currentEdition === 'past' && areaId !== 'overworld') {
       const area = PAST_AREAS[areaId];
-      const baseAssetId = areaId === 'castle'
-        ? 'castle-interior'
-        : areaId === 'castle-town'
-          ? 'castle-town-ground'
-          : areaId;
-      const baseImage = pastSceneImages.get(baseAssetId);
-      if (imageIsLoaded(baseImage)) mctx.drawImage(baseImage, 0, 0, 210, 145);
-      if (areaId === 'castle-town') {
-        const buildings = pastSceneImages.get('castle-town-buildings');
-        if (imageIsLoaded(buildings)) mctx.drawImage(buildings, 0, 0, 210, 145);
+      if (areaId === 'crossroads-dungeon') {
+        mctx.drawImage(crossroadsDungeonMini, 0, 0);
+      } else {
+        const baseAssetId = areaId === 'castle' ? 'castle-interior' : areaId === 'castle-town' ? 'castle-town-ground' : areaId;
+        const baseImage = pastSceneImages.get(baseAssetId);
+        if (imageIsLoaded(baseImage)) mctx.drawImage(baseImage, 0, 0, 210, 145);
+        if (areaId === 'castle-town') {
+          const buildings = pastSceneImages.get('castle-town-buildings');
+          if (imageIsLoaded(buildings)) mctx.drawImage(buildings, 0, 0, 210, 145);
+        }
       }
       mctx.save();
       mctx.scale(210 / area.width, 145 / area.height);
@@ -2046,6 +2264,9 @@
           ? { ...enemy, active: false, respawnAt: now + 5000 }
           : enemy);
       }
+    }
+    if (!practice && activeAreaId() === 'overworld' && ['victory', 'fled'].includes(result)) {
+      encounterGraceUntil = performance.now() + FIELD_ENCOUNTER_GRACE_MS;
     }
     activeBattle = null;
     activeEncounter = null;

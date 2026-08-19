@@ -55,8 +55,8 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const css = fs.readFileSync('v2.css', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
-  assert.match(html, /v2\.js\?edition=12/);
-  assert.match(html, /v2\.css\?edition=6/);
+  assert.match(html, /v2\.js\?edition=13/);
+  assert.match(html, /v2\.css\?edition=7/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);
   assert.match(runtime, /shell\.addEventListener\('pointerdown'/);
@@ -112,6 +112,19 @@ test('settings expose compact authenticated cloud save controls', () => {
   assert.match(runtime, /detectSessionInUrl:\s*true/);
   assert.match(runtime, /resendConfirmation/);
   assert.doesNotMatch(runtime, /innerHTML\s*=/);
+});
+
+test('shop tabs and inn fade remain touch-sized on mobile', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const css = fs.readFileSync('v2.css', 'utf8');
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+
+  assert.match(html, /class="v2-shop-tabs"/);
+  assert.match(css, /\.v2-shop-tabs button[^}]*min-height:\s*44px/s);
+  assert.match(css, /\.v2-rest-transition\.is-active/);
+  assert.match(runtime, /playInnRestTransition/);
+  assert.match(runtime, /productsForShop/);
+  assert.match(runtime, /sellProduct/);
 });
 
 test('browser Supabase config contains only the project URL and publishable key', () => {
