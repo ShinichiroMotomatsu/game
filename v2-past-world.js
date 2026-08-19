@@ -3,23 +3,37 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.V2_PAST_WORLD = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
+  const PAST_BIOMES = Object.freeze([
+    Object.freeze({ id: 'coast', name: '潮風の海岸', center: Object.freeze([85, 530]) }),
+    Object.freeze({ id: 'poison-swamp', name: '紫泥の沼', center: Object.freeze([150, 485]) }),
+    Object.freeze({ id: 'mountain-forest', name: '古樹の山林', center: Object.freeze([225, 450]) }),
+    Object.freeze({ id: 'cold', name: '霜降りの谷', center: Object.freeze([285, 410]) }),
+    Object.freeze({ id: 'desert', name: '黄砂の荒野', center: Object.freeze([345, 385]) }),
+    Object.freeze({ id: 'lava', name: '熔火の裂谷', center: Object.freeze([400, 360]) })
+  ]);
   const PAST_ENCOUNTERS = Object.freeze([
     Object.freeze({
-      id: 'road-mist-east', chapter: 'west-road', enemyId: 'mist-slime', sprite: 'mist-slime.png', speed: 15,
+      id: 'road-mist-east', chapter: 'west-road', biome: 'coast', enemyId: 'mist-slime', sprite: 'mist-slime.png', speed: 15,
       patrol: Object.freeze([[286, 497], [271, 491], [258, 493]])
     }),
     Object.freeze({
-      id: 'road-mist-west', chapter: 'west-road', enemyId: 'mist-slime', sprite: 'mist-slime.png', speed: 16,
+      id: 'road-mist-west', chapter: 'west-road', biome: 'poison-swamp', enemyId: 'mist-slime', sprite: 'mist-slime.png', speed: 16,
       patrol: Object.freeze([[244, 493], [231, 497], [220, 502]])
     }),
     Object.freeze({
-      id: 'road-goblin', chapter: 'west-road', enemyId: 'gutter-goblin', sprite: 'gutter-goblin.png', speed: 18,
+      id: 'road-goblin', chapter: 'west-road', biome: 'mountain-forest', enemyId: 'gutter-goblin', sprite: 'gutter-goblin.png', speed: 18,
       patrol: Object.freeze([[205, 504], [194, 509], [184, 512]])
     }),
     Object.freeze({
-      id: 'road-wolf', chapter: 'west-road', enemyId: 'rune-wolf', sprite: 'rune-wolf.png', speed: 20,
+      id: 'road-wolf', chapter: 'west-road', biome: 'mountain-forest', enemyId: 'rune-wolf', sprite: 'rune-wolf.png', speed: 20,
       patrol: Object.freeze([[173, 509], [164, 513], [155, 516]])
-    })
+    }),
+    Object.freeze({ id: 'route-bog-mandrake', chapter: 'crossroads-route', biome: 'poison-swamp', enemyId: 'bog-mandrake', sprite: 'bog-mandrake.png', speed: 14, patrol: Object.freeze([[133, 492], [150, 485]]) }),
+    Object.freeze({ id: 'route-crag-harpy', chapter: 'crossroads-route', biome: 'mountain-forest', enemyId: 'crag-harpy', sprite: 'crag-harpy.png', speed: 21, patrol: Object.freeze([[225, 455], [240, 448], [254, 445]]) }),
+    Object.freeze({ id: 'route-frost-wisp', chapter: 'crossroads-route', biome: 'cold', enemyId: 'frost-wisp', sprite: 'frost-wisp.png', speed: 17, patrol: Object.freeze([[276, 420], [290, 411], [303, 407]]) }),
+    Object.freeze({ id: 'route-dune-scorpion', chapter: 'crossroads-route', biome: 'desert', enemyId: 'dune-scorpion', sprite: 'dune-scorpion.png', speed: 16, patrol: Object.freeze([[324, 398], [340, 391], [354, 386]]) }),
+    Object.freeze({ id: 'route-ember-lizard', chapter: 'crossroads-route', biome: 'lava', enemyId: 'ember-lizard', sprite: 'ember-lizard.png', speed: 19, patrol: Object.freeze([[365, 382], [379, 375], [391, 369]]) }),
+    Object.freeze({ id: 'route-ash-golem', chapter: 'crossroads-route', biome: 'lava', enemyId: 'ash-golem', sprite: 'ash-golem.png', speed: 12, patrol: Object.freeze([[393, 344], [405, 338], [416, 344]]) })
   ]);
 
   function createPastEnemies(scale = 1) {
@@ -83,6 +97,7 @@
   }
 
   return {
+    PAST_BIOMES,
     PAST_ENCOUNTERS,
     advancePatrol,
     createPastEnemies,

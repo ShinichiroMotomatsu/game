@@ -22,6 +22,12 @@
     'mist-slime': Object.freeze({ id: 'mist-slime', name: '宵霧のスライム', maxHp: 26, attack: 9, gold: 8, xp: 12, intent: '体当たり', weakness: 'fire' }),
     'gutter-goblin': Object.freeze({ id: 'gutter-goblin', name: '石路のゴブリン', maxHp: 34, attack: 11, gold: 12, xp: 18, intent: '錆びた短剣', weakness: 'ice' }),
     'rune-wolf': Object.freeze({ id: 'rune-wolf', name: '刻印の魔狼', maxHp: 40, attack: 13, gold: 18, xp: 24, intent: '飛びかかる', weakness: 'ice' }),
+    'bog-mandrake': Object.freeze({ id: 'bog-mandrake', name: '沼根のマンドラゴラ', maxHp: 31, attack: 10, gold: 11, xp: 16, intent: '毒根の鞭', weakness: 'fire' }),
+    'crag-harpy': Object.freeze({ id: 'crag-harpy', name: '岩峰のハーピー', maxHp: 37, attack: 12, gold: 15, xp: 21, intent: '裂風の爪' }),
+    'frost-wisp': Object.freeze({ id: 'frost-wisp', name: '霜灯のウィスプ', maxHp: 35, attack: 12, gold: 16, xp: 22, intent: '凍える灯', weakness: 'fire' }),
+    'dune-scorpion': Object.freeze({ id: 'dune-scorpion', name: '砂鎧のサソリ', maxHp: 43, attack: 13, gold: 19, xp: 25, intent: '砂針' }),
+    'ember-lizard': Object.freeze({ id: 'ember-lizard', name: '熾火トカゲ', maxHp: 46, attack: 14, gold: 21, xp: 28, intent: '火の尾', weakness: 'ice' }),
+    'ash-golem': Object.freeze({ id: 'ash-golem', name: '灰岩のゴーレム', maxHp: 55, attack: 15, gold: 25, xp: 34, intent: '岩塊の拳', weakness: 'ice' }),
     'mist-watcher': Object.freeze({
       id: 'mist-watcher', name: '紫霧の番人', maxHp: 70, attack: 8, gold: 120, xp: 80,
       intent: '紫霧の爪', weakness: 'fire', boss: true,

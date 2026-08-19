@@ -163,7 +163,7 @@ def validate_past_assets() -> None:
         alpha = enemy.getchannel("A")
         assert alpha.getbbox() is not None
         assert alpha.getpixel((0, 0)) == 0
-    print("past edition: island map, ports, memory fog, 3 enemy sprites / 4 road encounters / 1 tinted mid-boss, 6 fantasy landmarks")
+    print("past edition: island map, 6 biomes, ports, memory fog, 9 enemy species / 10 road encounters / 2 bosses, 6 fantasy landmarks")
 
 
 if __name__ == "__main__":

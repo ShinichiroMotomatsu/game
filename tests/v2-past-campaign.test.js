@@ -192,7 +192,8 @@ test('experience remaining is calculated from the next level threshold', () => {
 
 test('four western-road victories reach level two and the boss reward reaches level three', () => {
   let campaign = reachWatchtower(createPastCampaign());
-  for (const encounter of PAST_ENCOUNTERS) {
+  const firstQuestEncounters = PAST_ENCOUNTERS.filter(encounter => encounter.chapter === 'west-road');
+  for (const encounter of firstQuestEncounters) {
     campaign = applyBattleVictory(campaign, {
       xp: ENEMY_LIBRARY[encounter.enemyId].xp,
       playerHp: 30,
@@ -254,7 +255,8 @@ test('the complete recommended first-quest route reaches level three after the m
     gold = purchase.gold;
   }
 
-  for (const [index, encounter] of PAST_ENCOUNTERS.entries()) {
+  const firstQuestEncounters = PAST_ENCOUNTERS.filter(encounter => encounter.chapter === 'west-road');
+  for (const [index, encounter] of firstQuestEncounters.entries()) {
     const result = slashUntilBattleEnds(battleProfile(campaign), 20, encounter.enemyId);
     assert.equal(result.status, 'victory', `${encounter.enemyId} should be beatable with the recommended gear`);
     campaign = applyBattleVictory(campaign, {

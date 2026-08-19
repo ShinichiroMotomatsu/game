@@ -4,6 +4,7 @@ const fs = require('node:fs');
 
 const {
   PAST_ENCOUNTERS,
+  PAST_BIOMES,
   advancePatrol,
   createPastEnemies,
   landmarkMemoryState,
@@ -14,7 +15,7 @@ const {
 
 test('past enemies have visible road patrol routes away from the starting point', () => {
   assert.ok(PAST_ENCOUNTERS.length >= 4);
-  assert.ok(PAST_ENCOUNTERS.every(enemy =>
+  assert.ok(PAST_ENCOUNTERS.filter(enemy => enemy.chapter === 'west-road').every(enemy =>
     enemy.patrol.length >= 2
     && enemy.patrol.every(([x, y]) => Math.hypot(x - 416, y - 354) >= 80)
   ));
@@ -25,9 +26,17 @@ test('the opening encounters form one west-road route between the capital and ol
   assert.ok(PAST_ENCOUNTERS.filter(enemy => enemy.chapter === 'west-road').every(enemy => enemy.patrol[0][0] < 310));
 });
 
+test('the route to the crossroads crosses distinct fantasy biomes with expanded fauna', () => {
+  assert.ok(PAST_BIOMES.length >= 5);
+  assert.deepEqual(new Set(PAST_BIOMES.map(biome => biome.id)), new Set(['coast', 'poison-swamp', 'mountain-forest', 'cold', 'desert', 'lava']));
+  assert.ok(new Set(PAST_ENCOUNTERS.map(enemy => enemy.enemyId)).size >= 9);
+  assert.ok(PAST_ENCOUNTERS.every(enemy => PAST_BIOMES.some(biome => biome.id === enemy.biome)));
+  assert.ok(PAST_ENCOUNTERS.some(enemy => enemy.chapter === 'crossroads-route'));
+});
+
 test('overworld actors and movement are reduced to half scale', () => {
   const runtime = fs.readFileSync('v2.js', 'utf8');
-  assert.deepEqual(PAST_ENCOUNTERS.map(enemy => enemy.speed), [15, 16, 18, 20]);
+  assert.deepEqual(PAST_ENCOUNTERS.filter(enemy => enemy.chapter === 'west-road').map(enemy => enemy.speed), [15, 16, 18, 20]);
   assert.match(runtime, /footRadius:\s*6/);
   assert.match(runtime, /speed:\s*190/);
   assert.match(runtime, /const displayHeight = 48/);

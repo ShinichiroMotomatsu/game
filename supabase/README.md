@@ -1,0 +1,46 @@
+# Supabase開発・反映手順
+
+対象プロジェクト: `xnromcineefyabmrnaro`
+
+このリポジトリでは、ローカルPCからホスト済みSupabaseへ接続しません。ローカルではモックを使ってゲームとセーブ処理を検証し、本番DBへのマイグレーション反映はGitHub Actionsからのみ行います。
+
+Secret Key、`service_role` key、DBパスワード、接続文字列、CLIアクセストークンは、コード、設定ファイル、Issue、PR、チャットへ記載しないでください。
+
+## ローカル開発
+
+通常の開発とテストにSupabaseやDockerは不要です。
+
+```sh
+npm ci
+npm test
+```
+
+`v2-cloud-save.js` は注入されたモッククライアントで検証できます。PRのCIもモックだけを使用し、Supabaseの認証情報を渡さず、外部DBへ接続しません。
+
+必要になった場合に限り、Docker上のローカルSupabaseを別途利用できます。ただし、ホスト済みプロジェクトに対する `supabase login`、`supabase link`、`supabase db push` はローカルPCでは実行しません。特に `db reset --linked` は使用禁止です。
+
+## GitHubで最初に一度だけ行う設定
+
+リポジトリの **Settings > Environments** で `supabase-production` を作成します。利用できる場合はRequired reviewersを設定し、反映前に承認が必要な状態にします。
+
+次に **Settings > Secrets and variables > Actions** に、以下のRepository secretsを登録します。
+
+- `SUPABASE_ACCESS_TOKEN`: SupabaseアカウントのAccess Token
+- `SUPABASE_DB_PASSWORD`: 対象プロジェクトのDBパスワード
+- `SUPABASE_PROJECT_ID`: 対象プロジェクトのProject Ref
+
+値はGitHubの暗号化Secretにだけ登録します。ログへ値を表示するコマンドは追加しないでください。
+
+## 本番DBへの反映
+
+1. マイグレーションを含むPRをレビューし、テスト成功後に`main`へマージします。
+2. GitHubの **Actions > Deploy Supabase migrations > Run workflow** を開きます。
+3. Branchに`main`を選択し、確認欄へ`DEPLOY`と入力して実行します。
+4. `supabase-production`の承認待ちになった場合は、差分を再確認して承認します。
+5. Previewが成功した場合だけ、同じジョブ内でマイグレーションが反映されます。
+
+ワークフローは手動実行専用で、`main`以外や確認文字が一致しない実行は拒否します。複数のDB反映が同時に走らないようにも制限しています。
+
+## ブラウザ設定
+
+公開URLと認証画面を決めた後、`v2-supabase-config.example.js` を参考に、無視対象の `v2-supabase-config.js` を作成します。ブラウザへ設定できるのはPublishable Keyだけです。Secret Keyや`service_role` keyは絶対に含めません。
