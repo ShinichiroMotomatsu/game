@@ -55,7 +55,7 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
   assert.match(html, /v2\.js\?edition=10/);
-  assert.match(html, /v2\.css\?edition=5/);
+  assert.match(html, /v2\.css\?edition=6/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);
   assert.match(runtime, /shell\.addEventListener\('pointerdown'/);
@@ -87,4 +87,23 @@ test('field assets use the lazy loader before the main runtime starts', () => {
   assert.match(runtime, /createLazyImageLoader/);
   assert.doesNotMatch(runtime, /expectedAssets/);
   assert.doesNotMatch(runtime, /for \(const editionId of editionIds\)[\s\S]*tile\.image\.src = tile\.source/);
+});
+
+test('settings expose compact authenticated cloud save controls', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const css = fs.readFileSync('v2.css', 'utf8');
+  const runtime = fs.readFileSync('v2-supabase-app.js', 'utf8');
+
+  assert.match(html, /id="v2-cloud-status"/);
+  assert.match(html, /id="v2-cloud-email"[^>]*autocomplete="email"/);
+  assert.match(html, /id="v2-cloud-password"[^>]*autocomplete="current-password"/);
+  assert.match(html, /id="v2-cloud-sign-in"/);
+  assert.match(html, /id="v2-cloud-sign-up"/);
+  assert.match(html, /id="v2-cloud-upload"/);
+  assert.match(html, /id="v2-cloud-download"/);
+  assert.match(html, /v2-supabase-bundle\.js/);
+  assert.match(css, /\.v2-cloud-actions/);
+  assert.match(runtime, /buildCloudSaveEnvelope/);
+  assert.match(runtime, /restoreCloudSaveEnvelope/);
+  assert.doesNotMatch(runtime, /innerHTML\s*=/);
 });

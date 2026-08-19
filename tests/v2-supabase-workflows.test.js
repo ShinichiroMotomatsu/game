@@ -14,7 +14,11 @@ test('pull request CI verifies the mock-backed application without contacting Su
 
   assert.match(workflow, /pull_request:/);
   assert.match(workflow, /contents:\s*read/);
+  assert.match(workflow, /actions\/checkout@v6/);
+  assert.match(workflow, /actions\/setup-node@v6/);
   assert.match(workflow, /npm ci/);
+  assert.match(workflow, /npm run build:supabase-client/);
+  assert.match(workflow, /git diff --exit-code -- v2-supabase-bundle\.js/);
   assert.match(workflow, /npm test/);
   assert.match(workflow, /npm audit --audit-level=high/);
   assert.doesNotMatch(workflow, /supabase (?:link|db push)/);
@@ -32,7 +36,8 @@ test('production migrations require a confirmed manual run on main', () => {
   assert.match(workflow, /environment:\s*supabase-production/);
   assert.match(workflow, /contents:\s*read/);
   assert.match(workflow, /concurrency:/);
-  assert.match(workflow, /supabase\/setup-cli@v1/);
+  assert.match(workflow, /supabase\/setup-cli@v2/);
+  assert.match(workflow, /actions\/checkout@v6/);
   assert.match(workflow, /version:\s*2\.114\.0/);
   assert.match(workflow, /SUPABASE_ACCESS_TOKEN:\s*\$\{\{ secrets\.SUPABASE_ACCESS_TOKEN \}\}/);
   assert.match(workflow, /SUPABASE_DB_PASSWORD:\s*\$\{\{ secrets\.SUPABASE_DB_PASSWORD \}\}/);
