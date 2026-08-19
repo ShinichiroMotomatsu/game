@@ -29,6 +29,8 @@ npm test
 - `SUPABASE_DB_PASSWORD`: 対象プロジェクトのDBパスワード
 - `SUPABASE_PROJECT_ID`: 対象プロジェクトのProject Ref
 
+Scoped Access Tokenを使う場合は、対象プロジェクトだけを選び、`Project Settings: Read`、`Database: Read`、`Database Config: Read`、`Connection Pooling: Read`、`API Keys: Read`、`Data API Config: Read`、`Migrations: Write`を設定します。それ以外は`None`にします。
+
 値はGitHubの暗号化Secretにだけ登録します。ログへ値を表示するコマンドは追加しないでください。
 
 ## 本番DBへの反映
@@ -43,4 +45,6 @@ npm test
 
 ## ブラウザ設定
 
-公開URLと認証画面を決めた後、`v2-supabase-config.example.js` を参考に、無視対象の `v2-supabase-config.js` を作成します。ブラウザへ設定できるのはPublishable Keyだけです。Secret Keyや`service_role` keyは絶対に含めません。
+公開URLと認証画面を決めた後、`v2-supabase-config.public.js` の空欄へプロジェクトの`sb_publishable_...`キーを設定します。Publishable KeyとProject URLは公開情報であり、ブラウザからRLSを通して利用します。Secret Keyや`service_role` keyは絶対に含めません。
+
+設定画面のクラウド保存は、メール＋パスワード認証と明示的なアップロード・ダウンロードだけを提供します。自動同期は行わず、ダウンロード時は端末データを上書きする前に確認します。

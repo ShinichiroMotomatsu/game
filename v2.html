@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#071017" />
     <title>ROPPONGI CHRONICLES · 現代編-昼間 / 過去編-夕方</title>
-    <link rel="stylesheet" href="v2.css?edition=5" />
+    <link rel="stylesheet" href="v2.css?edition=6" />
   </head>
   <body>
     <main id="v2-shell">
@@ -38,6 +38,20 @@
         <div class="v2-settings-group">
           <span>表示</span>
           <button id="v2-toggle-collision" type="button" aria-pressed="false">道路判定を表示</button>
+        </div>
+        <div class="v2-settings-group v2-cloud-settings">
+          <span>クラウド保存</span>
+          <p id="v2-cloud-status" class="v2-cloud-status" aria-live="polite">接続を確認しています…</p>
+          <div id="v2-cloud-signed-out" class="v2-cloud-auth">
+            <label>メールアドレス<input id="v2-cloud-email" type="email" inputmode="email" autocomplete="email" maxlength="254" /></label>
+            <label>パスワード<input id="v2-cloud-password" type="password" autocomplete="current-password" minlength="8" maxlength="128" /></label>
+            <div class="v2-cloud-actions"><button id="v2-cloud-sign-in" type="button">ログイン</button><button id="v2-cloud-sign-up" type="button">新規登録</button></div>
+          </div>
+          <div id="v2-cloud-signed-in" class="v2-cloud-auth" hidden>
+            <strong id="v2-cloud-account"></strong>
+            <div class="v2-cloud-actions"><button id="v2-cloud-upload" type="button">クラウドへ保存</button><button id="v2-cloud-download" type="button">端末へ復元</button></div>
+            <button id="v2-cloud-sign-out" type="button">ログアウト</button>
+          </div>
         </div>
         <p class="v2-settings-help"><b>移動:</b> マップ上を押したまま、進みたい方向へドラッグ</p>
         <a class="v2-settings-home" href="index.html">タイトルへ戻る</a>
@@ -148,6 +162,10 @@
     <script src="v2-dialogue.js?edition=1"></script>
     <script src="v2-save.js?edition=3"></script>
     <script src="v2-cloud-save.js?edition=1"></script>
+    <script src="v2-auth.js?edition=1"></script>
+    <script src="v2-supabase-config.public.js?edition=1"></script>
+    <script src="v2-supabase-bundle.js?edition=1"></script>
+    <script src="v2-supabase-app.js?edition=1"></script>
     <script src="v2-input.js?edition=3"></script>
     <script src="v2.js?edition=10"></script>
   </body>

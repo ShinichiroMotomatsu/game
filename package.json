@@ -2,10 +2,15 @@
   "name": "roppongi-rpg-prototype",
   "private": true,
   "scripts": {
+    "build:supabase-client": "node scripts/build-supabase-client.js",
     "test": "node --test",
     "test:coverage": "node --experimental-test-coverage --test"
   },
+  "dependencies": {
+    "@supabase/supabase-js": "2.57.4"
+  },
   "devDependencies": {
+    "esbuild": "0.25.9",
     "supabase": "^2.114.0"
   }
 }
