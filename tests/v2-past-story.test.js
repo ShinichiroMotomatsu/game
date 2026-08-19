@@ -8,7 +8,10 @@ const {
   CROSSROADS_BUILDINGS,
   CROSSROADS_DUNGEON_LAYOUT,
   CROSSROADS_NPCS,
+  CROSSROADS_CLUE_IDS,
   CROSSROADS_WATERGATES,
+  MIST_CITADEL_NPCS,
+  MIST_CLUE_IDS,
   PAST_AREAS,
   PAST_INTERACTIONS,
   PAST_START,
@@ -24,6 +27,7 @@ const {
   dungeonPointIsWalkable,
   nearestWalkablePoint,
   nearbyPastInteraction,
+  mistInvestigationResult,
   storyAllowsEncounters,
   storyEncounterMode,
   setDebugQuestCompletion,
@@ -31,18 +35,78 @@ const {
   storyObjective
 } = require('../v2-past-story.js');
 
+test('chapter one is driven by the hero mystery and answers one question while opening another', () => {
+  const arrival = STORY_DIALOGUES['capital-rescue'].lines.map(line => line.text).join('');
+  const audience = STORY_DIALOGUES['king-audience'].lines.map(line => line.text).join('');
+  const cleared = STORY_DIALOGUES['watchtower-cleared'].lines.map(line => line.text).join('');
+
+  assert.match(arrival, /初めて|一度も見たこと/);
+  assert.match(audience, /父|羅針盤/);
+  assert.match(cleared, /外から|目覚め/);
+});
+
+test('chapter two requires any two of three independent clues before the waterway opens', () => {
+  const door = PAST_INTERACTIONS.find(interaction => interaction.id === 'crossroads-dungeon-door');
+  let story = createPastStory({ phase: 'second-mission', area: 'crossroads-town' });
+  assert.equal(CROSSROADS_CLUE_IDS.length, 3);
+  assert.equal(storyUnlocksInteraction(story, door), false);
+
+  story = completeStoryEvent(story, `crossroads-clue:${CROSSROADS_CLUE_IDS[0]}`);
+  assert.equal(story.crossroadsClues.length, 1);
+  assert.equal(storyUnlocksInteraction(story, door), false);
+  story = completeStoryEvent(story, `crossroads-clue:${CROSSROADS_CLUE_IDS[1]}`);
+  assert.equal(story.crossroadsClues.length, 2);
+  assert.equal(storyUnlocksInteraction(story, door), true);
+});
+
+test('the third chapter opens a fog citadel with three leads and any two determine a tactical route', () => {
+  let story = createPastStory({ phase: 'second-mission-complete', area: 'castle' });
+  story = completeStoryEvent(story, 'mist-mission-start');
+  assert.equal(story.phase, 'third-mission');
+
+  const gate = PAST_INTERACTIONS.find(interaction => interaction.id === 'mist-citadel-gate');
+  assert.equal(storyUnlocksInteraction(story, gate), true);
+  const entered = activatePastInteraction({ ...story, area: 'overworld' }, gate.id);
+  assert.equal(entered.state.area, 'mist-citadel');
+  assert.equal(MIST_CITADEL_NPCS.filter(npc => MIST_CLUE_IDS.includes(npc.clueId)).length, 3);
+
+  story = completeStoryEvent(story, `mist-clue:${MIST_CLUE_IDS[0]}`);
+  story = completeStoryEvent(story, `mist-clue:${MIST_CLUE_IDS[2]}`);
+  const result = mistInvestigationResult(story);
+  assert.equal(story.mistClues.length, 2);
+  assert.ok(result.approach && result.ally && result.bossWeakness);
+  const tower = PAST_INTERACTIONS.find(interaction => interaction.id === 'mist-bell-tower-door');
+  assert.equal(storyUnlocksInteraction(story, tower), true);
+});
+
+test('defeating the bell warden clears the fog and completes chapter three after reporting', () => {
+  const active = createPastStory({ phase: 'third-mission', mistClues: MIST_CLUE_IDS.slice(0, 2) });
+  const report = completeStoryEvent(active, 'mist-boss-defeated');
+  const complete = completeStoryEvent(report, 'mist-report-complete');
+
+  assert.equal(report.phase, 'third-mission-report');
+  assert.equal(complete.phase, 'third-mission-complete');
+  assert.match(storyObjective(report), /王.*報告/);
+});
+
 test('debug quest controls keep story and boss flags consistent in both directions', () => {
   const initialStory = createPastStory({ phase: 'first-mission', area: 'castle-town' });
-  const initialCampaign = { bossDefeated: false, crossroadsBossDefeated: false, watchtowerReached: false, sealFragments: [] };
+  const initialCampaign = { bossDefeated: false, crossroadsBossDefeated: false, mistBossDefeated: false, watchtowerReached: false, sealFragments: [] };
   const firstCleared = setDebugQuestCompletion(initialStory, initialCampaign, 'watchtower', true);
   const secondCleared = setDebugQuestCompletion(firstCleared.story, firstCleared.campaign, 'crossroads', true);
-  const secondReopened = setDebugQuestCompletion(secondCleared.story, secondCleared.campaign, 'crossroads', false);
+  const thirdCleared = setDebugQuestCompletion(secondCleared.story, secondCleared.campaign, 'mist-citadel', true);
+  const thirdReopened = setDebugQuestCompletion(thirdCleared.story, thirdCleared.campaign, 'mist-citadel', false);
+  const secondReopened = setDebugQuestCompletion(thirdReopened.story, thirdReopened.campaign, 'crossroads', false);
   const firstReopened = setDebugQuestCompletion(secondReopened.story, secondReopened.campaign, 'watchtower', false);
 
   assert.equal(firstCleared.story.phase, 'first-mission-complete');
   assert.equal(firstCleared.campaign.bossDefeated, true);
   assert.equal(secondCleared.story.phase, 'second-mission-complete');
   assert.equal(secondCleared.campaign.crossroadsBossDefeated, true);
+  assert.equal(thirdCleared.story.phase, 'third-mission-complete');
+  assert.equal(thirdCleared.campaign.mistBossDefeated, true);
+  assert.equal(thirdReopened.story.phase, 'third-mission');
+  assert.equal(thirdReopened.campaign.mistBossDefeated, false);
   assert.equal(secondReopened.story.phase, 'second-mission');
   assert.equal(secondReopened.campaign.crossroadsBossDefeated, false);
   assert.equal(firstReopened.story.phase, 'first-mission');
@@ -249,8 +313,13 @@ test('overworld card chests reward a detour near the northwestern harbor', () =>
   assert.ok(chests.every(chest => chest.point[0] < 150 && chest.point[1] < 360));
 });
 
-test('the traffic-hub town and dungeon form a reversible route', () => {
-  const chapterTwo = createPastStory({ area: 'overworld', phase: 'second-mission', royalRewardClaimed: true });
+test('the traffic-hub town and dungeon form a reversible route after gathering enough testimony', () => {
+  const chapterTwo = createPastStory({
+    area: 'overworld',
+    phase: 'second-mission',
+    royalRewardClaimed: true,
+    crossroadsClues: CROSSROADS_CLUE_IDS.slice(0, 2)
+  });
   const town = activatePastInteraction(chapterTwo, 'crossroads-gate');
   assert.equal(town.state.area, 'crossroads-town');
   const dungeon = activatePastInteraction(town.state, 'crossroads-dungeon-door');
@@ -290,6 +359,18 @@ test('every crossroads shop can be approached from the south gate', () => {
   assert.deepEqual([...reached].sort(), services.map(service => service.id).sort());
 });
 
+test('every fog-citadel lead, shop, gate, and exit is reachable from the south entrance', () => {
+  const destinations = PAST_INTERACTIONS.filter(interaction => interaction.area === 'mist-citadel');
+  const reached = reachableAreaInteractions('mist-citadel', destinations);
+  assert.deepEqual([...reached].sort(), destinations.map(destination => destination.id).sort());
+});
+
+test('both bell-tower treasures, the altar, and the exit are reachable', () => {
+  const destinations = PAST_INTERACTIONS.filter(interaction => interaction.area === 'mist-bell-tower');
+  const reached = reachableAreaInteractions('mist-bell-tower', destinations);
+  assert.deepEqual([...reached].sort(), destinations.map(destination => destination.id).sort());
+});
+
 test('Roppongi Crossing is represented as a four-road trade hub', () => {
   const dialogue = STORY_DIALOGUES['crossroads-arrival'].lines.map(line => line.text).join('');
   assert.match(dialogue, /四つの街道|交通|交易/);
@@ -327,6 +408,7 @@ test('four named watergates surround the central altar route', () => {
   assert.equal(CROSSROADS_WATERGATES.length, 4);
   assert.equal(ids.size, 4);
   assert.deepEqual(directions, ['east', 'north', 'south', 'west']);
+  assert.deepEqual(CROSSROADS_WATERGATES.map(gate => gate.rotationQuarterTurns).sort(), [0, 1, 2, 3]);
   assert.ok(CROSSROADS_WATERGATES.every(gate => gate.name.includes('水門')));
   assert.ok(CROSSROADS_WATERGATES.every(gate => dungeonPointIsWalkable(gate.point[0], gate.point[1], 8)));
 });
@@ -499,8 +581,8 @@ test('the overworld consistently filters enemies and routes the tutorial battle 
 
 test('the tutorial story and runtime scripts use fresh browser cache versions', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
-  assert.match(html, /v2-past-story\.js\?edition=12/);
-  assert.match(html, /v2\.js\?edition=16/);
+  assert.match(html, /v2-past-story\.js\?edition=13/);
+  assert.match(html, /v2\.js\?edition=17/);
 });
 
 test('the western road contains two visible card discoveries', () => {

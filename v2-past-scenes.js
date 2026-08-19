@@ -25,6 +25,11 @@
       path: 'assets/v2/past-scenes/crossroads-town.png',
       width: 1200,
       height: 900
+    }),
+    'mist-citadel': Object.freeze({
+      path: 'assets/v2/past-scenes/mist-citadel.png',
+      width: 1600,
+      height: 1100
     })
   });
 
@@ -34,8 +39,8 @@
     'magic-tutor': Object.freeze({ path: 'assets/v2/past-events/magic-tutor.png', width: 58, height: 72 }),
     'card-chest-frost': Object.freeze({ path: 'assets/v2/past-events/card-chest-frost.png', width: 66, height: 60 }),
     'card-chest-mend': Object.freeze({ path: 'assets/v2/past-events/card-chest-mend.png', width: 64, height: 60 }),
-    'watergate-closed': Object.freeze({ path: 'assets/v2/past-events/watergate-closed.png', width: 210, height: 140 }),
-    'watergate-open': Object.freeze({ path: 'assets/v2/past-events/watergate-open.png', width: 210, height: 140 }),
+    'watergate-closed': Object.freeze({ path: 'assets/v2/past-events/watergate-closed.png', width: 180, height: 180, rotationSafe: true }),
+    'watergate-open': Object.freeze({ path: 'assets/v2/past-events/watergate-open.png', width: 180, height: 180, rotationSafe: true }),
     'compass-altar-corrupted': Object.freeze({ path: 'assets/v2/past-events/compass-altar-corrupted.png', width: 190, height: 174 }),
     'compass-altar-restored': Object.freeze({ path: 'assets/v2/past-events/compass-altar-restored.png', width: 190, height: 127 })
   });

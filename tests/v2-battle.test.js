@@ -11,7 +11,7 @@ const {
   defaultDeck,
   hpCondition,
   previewAction,
-  redrawOpeningCard,
+  redrawOpeningCards,
   resolveTurn,
   toggleCard
 } = require('../v2-battle.js');
@@ -40,18 +40,26 @@ test('a level-one profile starts with one action point and resolves after one ca
   assert.equal(battle.readyToResolve, true);
 });
 
-test('one opening card can be redrawn exactly once before the first action', () => {
-  const battle = createBattle('mist-slime', () => 0, {
-    deck: ['slash', 'guard', 'focus', 'spark']
-  });
-  const original = battle.hand[0];
-  const redrawn = redrawOpeningCard(battle, 0, () => 0);
+test('any chosen opening cards can be discarded and replaced together exactly once', () => {
+  const battle = {
+    ...createBattle('mist-slime', () => 0, { deck: ['slash', 'guard', 'focus', 'spark', 'frost'] }),
+    hand: ['slash', 'guard', 'focus', 'spark', 'frost'],
+    deck: ['parry', 'cleave', 'feint', 'flame-edge', 'fortress'],
+    discard: []
+  };
+  const redrawn = redrawOpeningCards(battle, [0, 2, 4], () => 0);
 
   assert.equal(redrawn.openingRedrawAvailable, false);
+  assert.deepEqual(redrawn.hand, ['parry', 'guard', 'cleave', 'spark', 'feint']);
+  assert.deepEqual(redrawn.discard, ['slash', 'focus', 'frost']);
   assert.equal(redrawn.hand.length, battle.hand.length);
-  assert.notEqual(redrawn.hand[0], original);
-  assert.equal(redrawn.discard.includes(original), true);
-  assert.equal(redrawOpeningCard(redrawn, 1, () => 0), redrawn);
+  assert.equal(redrawOpeningCards(redrawn, [1], () => 0), redrawn);
+
+  const generatedBattle = createBattle('mist-slime', () => 0, { deck: ['slash', 'guard', 'focus'] });
+  const fullRedraw = redrawOpeningCards(generatedBattle, [0, 1, 2, 3, 4], () => 0);
+  assert.equal(fullRedraw.hand.length, 5);
+  assert.equal(fullRedraw.discard.length, 5);
+  assert.equal(fullRedraw.openingRedrawAvailable, false);
 });
 
 test('opening redraw is unavailable after selecting an action or after turn one', () => {
@@ -60,8 +68,9 @@ test('opening redraw is unavailable after selecting an action or after turn one'
   });
   const selected = toggleCard(battle, battle.hand[0], 0);
 
-  assert.equal(redrawOpeningCard(selected, 1, () => 0), selected);
-  assert.equal(redrawOpeningCard({ ...battle, turn: 2 }, 1, () => 0).turn, 2);
+  assert.equal(redrawOpeningCards(selected, [1], () => 0), selected);
+  assert.equal(redrawOpeningCards({ ...battle, turn: 2 }, [1], () => 0).turn, 2);
+  assert.equal(redrawOpeningCards(battle, [], () => 0), battle);
 });
 
 test('every card has explicit type and attribute labels independent of its artwork glyph', () => {
@@ -403,4 +412,11 @@ test('the dungeon weapon card is valid and the crossroads boss can enter battle'
   });
   assert.equal(battle.enemy.id, 'crossroads-sentinel');
   assert.equal(battle.enemy.boss, true);
+});
+
+test('the fog-city bell warden is a chapter-three boss with a meaningful reward', () => {
+  const boss = ENEMY_LIBRARY['mist-bell-warden'];
+  assert.ok(boss.maxHp >= 140);
+  assert.equal(boss.xp, 300);
+  assert.ok(boss.intentPattern.length >= 4);
 });

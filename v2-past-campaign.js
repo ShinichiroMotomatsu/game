@@ -3,7 +3,7 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.V2_PAST_CAMPAIGN = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
-  const CAMPAIGN_SCHEMA_VERSION = 5;
+  const CAMPAIGN_SCHEMA_VERSION = 6;
   const STARTER_DECK = Object.freeze(['slash', 'focus', 'guard']);
   const DISCOVERABLE_CARDS = Object.freeze({
     spark: Object.freeze({ id: 'spark', name: '火花の札', unlockAfter: 'first-victory', description: 'MP2で炎属性の一撃を放つ最初の魔法カード' }),
@@ -12,18 +12,22 @@
   });
   const INN_DEFINITIONS = Object.freeze({
     'castle-town': Object.freeze({ price: 0, message: '宿屋の好意で無料で休み、HPとMPが全回復した。' }),
-    'crossroads-town': Object.freeze({ price: 25, message: '一晩ゆっくり休み、HPとMPが全回復した。' })
+    'crossroads-town': Object.freeze({ price: 25, message: '一晩ゆっくり休み、HPとMPが全回復した。' }),
+    'mist-citadel': Object.freeze({ price: 50, message: '霧除けの香を焚いた部屋で休み、HPとMPが全回復した。' })
   });
   const INN_PRICE = INN_DEFINITIONS['castle-town'].price;
   const WATCHTOWER_SEALS = 4;
   const FIRST_QUEST_LOADOUT = Object.freeze(['bronze-sword', 'leather-armor', 'herb', 'herb']);
   const QUEST_REWARDS = Object.freeze({
-    'crossroads-blade': Object.freeze({ id: 'crossroads-blade', type: 'weapon', name: '交差路の剣', price: 560, attack: 7, description: '四方へ伸びる刃紋を刻んだ剣。攻撃力＋7' })
+    'crossroads-blade': Object.freeze({ id: 'crossroads-blade', type: 'weapon', name: '交差路の剣', price: 560, attack: 7, description: '四方へ伸びる刃紋を刻んだ剣。攻撃力＋7' }),
+    'bellsteel-sword': Object.freeze({ id: 'bellsteel-sword', type: 'weapon', name: '鐘鋼の剣', price: 980, attack: 10, description: '霧鐘の青銅を鍛え直した剣。攻撃力＋10' })
   });
   const DUNGEON_TREASURES = Object.freeze([
     Object.freeze({ id: 'armory-coffer', name: '武具庫の宝箱', weaponId: 'crossroads-blade' }),
     Object.freeze({ id: 'merchant-cache', name: '商人の備蓄箱', items: Object.freeze({ herb: 3, 'magic-water': 2 }) }),
-    Object.freeze({ id: 'rune-coffer', name: '方位石の宝箱', cardId: 'cross-slash' })
+    Object.freeze({ id: 'rune-coffer', name: '方位石の宝箱', cardId: 'cross-slash' }),
+    Object.freeze({ id: 'bell-armory', name: '鐘楼武具庫の宝箱', weaponId: 'bellsteel-sword' }),
+    Object.freeze({ id: 'fog-cache', name: '霧見張りの備蓄箱', items: Object.freeze({ 'strong-herb': 2, 'sage-dew': 2 }) })
   ]);
 
   const LEVEL_TABLE = Object.freeze([
@@ -58,13 +62,15 @@
       Object.freeze({ id: 'wooden-sword', type: 'weapon', name: '木の剣', price: 60, attack: 1, description: '旅人向けの軽い剣。攻撃力＋1' }),
       Object.freeze({ id: 'bronze-sword', type: 'weapon', name: '銅の剣', price: 140, attack: 3, description: '扱いやすい青銅の剣。攻撃力＋3' }),
       Object.freeze({ id: 'iron-sword', type: 'weapon', name: '鉄の剣', price: 280, attack: 5, description: '王都の鍛冶師が打った剣。攻撃力＋5' }),
-      Object.freeze({ id: 'steel-sword', type: 'weapon', name: '鋼の剣', price: 420, attack: 6, description: 'クアドラの炉で鍛えた剣。攻撃力＋6' })
+      Object.freeze({ id: 'steel-sword', type: 'weapon', name: '鋼の剣', price: 420, attack: 6, description: 'クアドラの炉で鍛えた剣。攻撃力＋6' }),
+      Object.freeze({ id: 'silver-saber', type: 'weapon', name: '銀のサーベル', price: 720, attack: 9, description: '霧の魔力を払う細身の剣。攻撃力＋9' })
     ]),
     armor: Object.freeze([
       Object.freeze({ id: 'traveler-clothes', type: 'armor', name: '旅人の服', price: 50, defense: 1, description: '厚手で動きやすい服。守備力＋1' }),
       Object.freeze({ id: 'leather-armor', type: 'armor', name: '皮の鎧', price: 130, defense: 3, description: 'なめし革を重ねた鎧。守備力＋3' }),
       Object.freeze({ id: 'chain-mail', type: 'armor', name: '鎖かたびら', price: 280, defense: 5, description: '細い鎖で編まれた鎧。守備力＋5' }),
-      Object.freeze({ id: 'scale-armor', type: 'armor', name: 'うろこの鎧', price: 460, defense: 7, description: '水竜の鱗を重ねた鎧。守備力＋7' })
+      Object.freeze({ id: 'scale-armor', type: 'armor', name: 'うろこの鎧', price: 460, defense: 7, description: '水竜の鱗を重ねた鎧。守備力＋7' }),
+      Object.freeze({ id: 'fog-mail', type: 'armor', name: '霧除けの鎧', price: 760, defense: 9, description: '銀糸で霧の侵入を防ぐ鎧。守備力＋9' })
     ]),
     item: Object.freeze([
       Object.freeze({ id: 'herb', type: 'item', name: 'やくそう', price: 15, heal: 20, maxQuantity: 9, description: '戦闘の外でHPを20回復する' }),
@@ -93,6 +99,12 @@
       armor: Object.freeze(['chain-mail', 'scale-armor']),
       item: Object.freeze(['strong-herb', 'sage-dew']),
       card: Object.freeze(['flame-edge', 'fortress'])
+    }),
+    'mist-citadel': Object.freeze({
+      weapon: Object.freeze(['steel-sword', 'silver-saber']),
+      armor: Object.freeze(['scale-armor', 'fog-mail']),
+      item: Object.freeze(['strong-herb', 'sage-dew']),
+      card: Object.freeze(['flame-edge', 'fortress', 'feint'])
     })
   });
 
@@ -185,8 +197,21 @@
       sealFragments: migratedSealFragments,
       bossDefeated,
       openedDungeonChests: sanitizeIds(saved.openedDungeonChests, value => DUNGEON_TREASURES.some(treasure => treasure.id === value)),
-      crossroadsBossDefeated: Boolean(saved.crossroadsBossDefeated)
+      crossroadsBossDefeated: Boolean(saved.crossroadsBossDefeated),
+      mistBossDefeated: Boolean(saved.mistBossDefeated)
     };
+  }
+
+  function restartCampaignKeepingGrowth(state) {
+    return createPastCampaign({
+      schemaVersion: CAMPAIGN_SCHEMA_VERSION,
+      level: state.level,
+      exp: state.exp,
+      equipment: { ...state.equipment },
+      ownedEquipment: [...state.ownedEquipment],
+      inventory: { ...state.inventory },
+      ownedCards: [...state.ownedCards]
+    });
   }
 
   function experienceToNextLevel(state) {
@@ -337,23 +362,29 @@
       return { ok: false, state, treasure, message: `${treasure.name}はすでに開けている。` };
     }
     const inventory = { ...state.inventory };
+    const itemRewards = [];
     for (const [itemId, amount] of Object.entries(treasure.items || {})) {
       const product = PRODUCTS.get(itemId);
-      inventory[itemId] = Math.min(product.maxQuantity, (inventory[itemId] || 0) + amount);
+      const before = inventory[itemId] || 0;
+      inventory[itemId] = Math.min(product.maxQuantity, before + amount);
+      const gained = inventory[itemId] - before;
+      itemRewards.push(gained > 0 ? `${product.name}×${gained}` : `${product.name}は持ちきれなかった`);
     }
-    const equipment = treasure.weaponId
+    const gainsWeapon = Boolean(treasure.weaponId && !state.ownedEquipment.includes(treasure.weaponId));
+    const gainsCard = Boolean(treasure.cardId && !state.ownedCards.includes(treasure.cardId));
+    const equipment = gainsWeapon
       ? { ...state.equipment, weapon: treasure.weaponId }
       : state.equipment;
-    const ownedEquipment = treasure.weaponId && !state.ownedEquipment.includes(treasure.weaponId)
+    const ownedEquipment = gainsWeapon
       ? [...state.ownedEquipment, treasure.weaponId]
       : state.ownedEquipment;
-    const ownedCards = treasure.cardId && !state.ownedCards.includes(treasure.cardId)
+    const ownedCards = gainsCard
       ? [...state.ownedCards, treasure.cardId]
       : state.ownedCards;
     const rewards = [
-      treasure.weaponId ? PRODUCTS.get(treasure.weaponId).name : '',
-      treasure.cardId ? '十字斬りの札' : '',
-      treasure.items ? 'やくそう×3・まほうの雫×2' : ''
+      treasure.weaponId ? `${PRODUCTS.get(treasure.weaponId).name}${gainsWeapon ? '' : 'はすでに持っている'}` : '',
+      treasure.cardId ? `${treasure.cardId === 'cross-slash' ? '十字斬りの札' : treasure.cardId}${gainsCard ? '' : 'はすでに持っている'}` : '',
+      ...itemRewards
     ].filter(Boolean).join('、');
     return {
       ok: true,
@@ -469,7 +500,8 @@
       roadVictories: defeatedRoadEnemies.length,
       sealFragments,
       bossDefeated: state.bossDefeated || encounterId === 'watchtower-boss',
-      crossroadsBossDefeated: state.crossroadsBossDefeated || encounterId === 'crossroads-boss'
+      crossroadsBossDefeated: state.crossroadsBossDefeated || encounterId === 'crossroads-boss',
+      mistBossDefeated: state.mistBossDefeated || encounterId === 'mist-bell-boss'
     };
     return { state: next, leveledUp, levelsGained: level - previousLevel };
   }
@@ -523,6 +555,7 @@
     productsOwnedForSale,
     productsForShop,
     reachWatchtower,
+    restartCampaignKeepingGrowth,
     resolveDefeat,
     restAtInn,
     salePrice,

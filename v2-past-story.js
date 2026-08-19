@@ -57,11 +57,13 @@
     });
   })();
 
+  const CROSSROADS_CLUE_IDS = Object.freeze(['merchant-timing', 'reverse-gates', 'underground-bell']);
+  const MIST_CLUE_IDS = Object.freeze(['lost-patrol', 'night-bell', 'masked-assembly']);
   const CROSSROADS_WATERGATES = Object.freeze([
-    Object.freeze({ id: 'north-watergate', direction: 'north', name: '北の水門', point: Object.freeze([1830, 1050]), orientation: 'vertical' }),
-    Object.freeze({ id: 'east-watergate', direction: 'east', name: '東の水門', point: Object.freeze([2490, 1410]), orientation: 'horizontal' }),
-    Object.freeze({ id: 'south-watergate', direction: 'south', name: '南の水門', point: Object.freeze([1830, 1770]), orientation: 'vertical' }),
-    Object.freeze({ id: 'west-watergate', direction: 'west', name: '西の水門', point: Object.freeze([1110, 1410]), orientation: 'horizontal' })
+    Object.freeze({ id: 'north-watergate', direction: 'north', name: '北の水門', point: Object.freeze([1830, 1050]), rotationQuarterTurns: 0 }),
+    Object.freeze({ id: 'east-watergate', direction: 'east', name: '東の水門', point: Object.freeze([2490, 1410]), rotationQuarterTurns: 1 }),
+    Object.freeze({ id: 'south-watergate', direction: 'south', name: '南の水門', point: Object.freeze([1830, 1770]), rotationQuarterTurns: 2 }),
+    Object.freeze({ id: 'west-watergate', direction: 'west', name: '西の水門', point: Object.freeze([1110, 1410]), rotationQuarterTurns: 3 })
   ]);
 
   const PAST_START = Object.freeze({
@@ -89,6 +91,14 @@
       width: CROSSROADS_DUNGEON_LAYOUT.columns * CROSSROADS_DUNGEON_LAYOUT.tileSize,
       height: CROSSROADS_DUNGEON_LAYOUT.rows.length * CROSSROADS_DUNGEON_LAYOUT.tileSize,
       spawn: Object.freeze([1830, 2550])
+    }),
+    'mist-citadel': Object.freeze({
+      id: 'mist-citadel', name: '霧の城塞都市ヴェイル', width: 1600, height: 1100,
+      spawn: Object.freeze([800, 995])
+    }),
+    'mist-bell-tower': Object.freeze({
+      id: 'mist-bell-tower', name: '無響の鐘楼', width: 1800, height: 1400,
+      spawn: Object.freeze([900, 1260])
     })
   });
 
@@ -145,6 +155,32 @@
     Object.freeze({ id: 'crossroads-card-shop', type: 'card', label: 'カード屋「羅針札」', icon: '✦', labelPoint: Object.freeze([760, 690]), servicePoint: Object.freeze([750, 665]) })
   ]);
 
+  const MIST_CITADEL_COLLISION_RECTS = Object.freeze([
+    Object.freeze([0, 0, 90, 1100]), Object.freeze([1510, 0, 90, 1100]),
+    Object.freeze([0, 0, 1600, 80]),
+    Object.freeze([0, 1020, 700, 80]), Object.freeze([900, 1020, 700, 80]),
+    Object.freeze([160, 230, 350, 230]), Object.freeze([1090, 230, 350, 230]),
+    Object.freeze([150, 540, 370, 275]), Object.freeze([1080, 540, 370, 275]),
+    Object.freeze([600, 70, 400, 310]), Object.freeze([600, 660, 400, 220])
+  ]);
+
+  const MIST_TOWER_COLLISION_RECTS = Object.freeze([
+    Object.freeze([0, 0, 95, 1400]), Object.freeze([1705, 0, 95, 1400]),
+    Object.freeze([0, 0, 1800, 80]),
+    Object.freeze([0, 1320, 760, 80]), Object.freeze([1040, 1320, 760, 80]),
+    Object.freeze([280, 280, 360, 260]), Object.freeze([1160, 280, 360, 260]),
+    Object.freeze([280, 780, 360, 250]), Object.freeze([1160, 780, 360, 250]),
+    Object.freeze([760, 500, 280, 340])
+  ]);
+
+  const MIST_BUILDINGS = Object.freeze([
+    Object.freeze({ id: 'mist-weapon-shop', type: 'weapon', label: '武器屋「薄明鍛冶」', icon: '⚔', labelPoint: Object.freeze([335, 480]), servicePoint: Object.freeze([335, 480]) }),
+    Object.freeze({ id: 'mist-armor-shop', type: 'armor', label: '防具屋「銀糸」', icon: '⬟', labelPoint: Object.freeze([1265, 480]), servicePoint: Object.freeze([1265, 480]) }),
+    Object.freeze({ id: 'mist-item-shop', type: 'item', label: '道具屋「灯守」', icon: '⚗', labelPoint: Object.freeze([335, 840]), servicePoint: Object.freeze([335, 840]) }),
+    Object.freeze({ id: 'mist-inn', type: 'inn', label: '宿屋「明け鐘亭」', icon: '☾', labelPoint: Object.freeze([1265, 840]), servicePoint: Object.freeze([1265, 840]) }),
+    Object.freeze({ id: 'mist-card-shop', type: 'card', label: 'カード屋「響札房」', icon: '✦', labelPoint: Object.freeze([800, 890]), servicePoint: Object.freeze([800, 900]) })
+  ]);
+
   const TOWN_NPCS = Object.freeze([
     Object.freeze({ id: 'town-mapmaker', role: 'villager', sprite: 'villager-man', name: '地図師見習いノル', point: Object.freeze([540, 585]), patrol: Object.freeze({ axis: 'x', distance: 36, periodMs: 5600, phase: 0.1 }), dialogueId: 'town-mapmaker' }),
     Object.freeze({ id: 'town-shopper', role: 'villager', sprite: 'villager-woman', name: '買い物帰りの女性', point: Object.freeze([865, 585]), patrol: Object.freeze({ axis: 'y', distance: 34, periodMs: 6200, phase: 0.55 }), dialogueId: 'town-shopper' }),
@@ -163,6 +199,13 @@
     Object.freeze({ id: 'crossroads-merchant', role: 'villager', sprite: 'villager-man', name: '東西商会の番頭', point: Object.freeze([420, 500]), patrol: Object.freeze({ axis: 'y', distance: 24, periodMs: 6200, phase: 0.2 }), dialogueId: 'crossroads-merchant' }),
     Object.freeze({ id: 'crossroads-guide', role: 'villager', sprite: 'villager-woman', name: '水路番の娘', point: Object.freeze([770, 390]), patrol: Object.freeze({ axis: 'x', distance: 28, periodMs: 6500, phase: 0.5 }), dialogueId: 'crossroads-guide' }),
     Object.freeze({ id: 'crossroads-guard', role: 'soldier', sprite: 'soldier', name: '四門衛兵', point: Object.freeze([600, 250]), patrol: Object.freeze({ axis: 'x', distance: 32, periodMs: 7000, phase: 0.8 }), dialogueId: 'crossroads-guard' })
+  ]);
+
+  const MIST_CITADEL_NPCS = Object.freeze([
+    Object.freeze({ id: 'mist-patrol-captain', clueId: 'lost-patrol', role: 'soldier', sprite: 'soldier', name: '帰還した巡回兵セラ', point: Object.freeze([500, 470]), patrol: Object.freeze({ axis: 'y', distance: 20, periodMs: 7200, phase: 0.15 }), dialogueId: 'mist-clue-patrol' }),
+    Object.freeze({ id: 'mist-bell-keeper', clueId: 'night-bell', role: 'villager', sprite: 'villager-woman', name: '鐘守ミナ', point: Object.freeze([800, 400]), patrol: Object.freeze({ axis: 'x', distance: 24, periodMs: 7600, phase: 0.5 }), dialogueId: 'mist-clue-bell' }),
+    Object.freeze({ id: 'mist-mask-artisan', clueId: 'masked-assembly', role: 'villager', sprite: 'villager-man', name: '仮面職人イオ', point: Object.freeze([1100, 470]), patrol: Object.freeze({ axis: 'y', distance: 22, periodMs: 7000, phase: 0.8 }), dialogueId: 'mist-clue-assembly' }),
+    Object.freeze({ id: 'mist-resident', role: 'villager', sprite: 'villager-woman', name: '霧都の住民', point: Object.freeze([1045, 760]), patrol: Object.freeze({ axis: 'x', distance: 24, periodMs: 6800, phase: 0.3 }), dialogueId: 'mist-resident' })
   ]);
 
   const STORY_DIALOGUES = Object.freeze({
@@ -246,15 +289,16 @@
         Object.freeze({ speaker: '地の文', text: '本来は交通と交易の声が絶えない街だが、今は地下から響く水音だけが広場を満たしている。' })
       ])
     }),
-    'crossroads-merchant': Object.freeze({ id: 'crossroads-merchant', lines: Object.freeze([
+    'crossroads-merchant': Object.freeze({ id: 'crossroads-merchant', onComplete: 'crossroads-clue:merchant-timing', lines: Object.freeze([
       Object.freeze({ speaker: '東西商会の番頭', text: '三日前、地下水路の流れが突然逆向きになり、地鳴りとともに四つの水門が閉じた。荷馬車も舟荷も動かせず、街の倉は空になりかけている。' }),
+      Object.freeze({ speaker: '東西商会の番頭', text: '妙なのは、鐘が三度鳴る時刻だけ水が止まり、その直後に魔物が現れることだ。偶然とは思えない。' }),
       Object.freeze({ speaker: '東西商会の番頭', text: '水路の武具庫には、昔の街道守が使った剣が残っているはずだ。見つけたなら遠慮なく使ってくれ。' })
     ]) }),
-    'crossroads-guide': Object.freeze({ id: 'crossroads-guide', lines: Object.freeze([
+    'crossroads-guide': Object.freeze({ id: 'crossroads-guide', onComplete: 'crossroads-clue:reverse-gates', lines: Object.freeze([
       Object.freeze({ speaker: '水路番の娘', text: '四門水路の方位核は、北の祭壇から四つの水門へ水の力を分ける仕組みなの。でも今は核が脈打つたび、水圧が逆流して街全体を揺らしている。' }),
       Object.freeze({ speaker: '水路番の娘', text: '中央広間から枝道をたどり、北の祭壇を調べて。父の記録では、祭壇の方位紋が水門すべてを動かす鍵よ。' })
     ]) }),
-    'crossroads-guard': Object.freeze({ id: 'crossroads-guard', lines: Object.freeze([
+    'crossroads-guard': Object.freeze({ id: 'crossroads-guard', onComplete: 'crossroads-clue:underground-bell', lines: Object.freeze([
       Object.freeze({ speaker: '四門衛兵', text: '北門脇の階段が四門水路への入口だ。調査隊は祭壇の手前で、誰もいないはずの石壁から響く金属音を聞いて引き返した。' }),
       Object.freeze({ speaker: '四門衛兵', text: '四つの水門が閉じたままでは地下の水圧が街を持ち上げてしまう。祭壇の異変を止めてくれ。' })
     ]) }),
@@ -278,6 +322,7 @@
     ]) }),
     'crossroads-boss-cleared': Object.freeze({ id: 'crossroads-boss-cleared', onComplete: 'crossroads-boss-defeated', lines: Object.freeze([
       Object.freeze({ speaker: '地の文', text: '守護機兵に絡んでいた紫の魔力が消え、地下水路の逆流が止まった。四つの水門が一つずつ開き、澄んだ水が本来の流れを取り戻していく。' }),
+      Object.freeze({ speaker: '主人公', text: '流れは元へ戻った。でも、紫の魔力だけが北の霧へ吸い込まれていく……。水路の暴走は、あの場所へ力を送るためだったのか。' }),
       Object.freeze({ speaker: '地の文', text: '祭壇の裏には、地図師エルドの筆跡で「道は場所ではなく、人と人を結ぶ」と刻まれていた。' })
     ]) }),
     'king-crossroads-report': Object.freeze({ id: 'king-crossroads-report', onComplete: 'crossroads-report-complete', lines: Object.freeze([
@@ -287,8 +332,51 @@
     'king-crossroads-reminder': Object.freeze({ id: 'king-crossroads-reminder', lines: Object.freeze([
       Object.freeze({ speaker: 'アルディオン王', text: '交差路の街クアドラへ向かい、止まった四つの街道を取り戻してくれ。' })
     ]) }),
-    'king-after-crossroads': Object.freeze({ id: 'king-after-crossroads', lines: Object.freeze([
-      Object.freeze({ speaker: 'アルディオン王', text: '交易路は再び動き始めた。エルドの次の足跡について、届いた記録を調べている。' })
+    'king-after-crossroads': Object.freeze({ id: 'king-after-crossroads', onComplete: 'mist-mission-start', lines: Object.freeze([
+      Object.freeze({ speaker: 'アルディオン王', text: '交易路は再び動き始めた。だが水路から逃れた紫の光は、北の城塞都市ヴェイルを覆う霧へ流れ込んだ。' }),
+      Object.freeze({ speaker: '旅の魔導士リゼ', text: '王命を待つだけでは遅いわ。霧から逃げてきた巡回兵、夜だけ鳴る鐘、仮面を着けた住民。その三つの手掛かりのうち、気になるものから追いましょう。' }),
+      Object.freeze({ speaker: '主人公', text: '父の羅針盤も北を指している。誰かに頼まれたからじゃない。あの霧の向こうに何があるのか、自分で確かめたい。' })
+    ]) }),
+    'king-mist-reminder': Object.freeze({ id: 'king-mist-reminder', lines: Object.freeze([
+      Object.freeze({ speaker: 'アルディオン王', text: '城塞都市ヴェイルの三つの噂から、真実につながる二つを選び取るのだ。父の羅針盤が示す道を、自分の目で確かめてくれ。' })
+    ]) }),
+    'mist-citadel-arrival': Object.freeze({ id: 'mist-citadel-arrival', lines: Object.freeze([
+      Object.freeze({ speaker: '地の文', text: '白い霧に閉ざされた城塞都市ヴェイルへ入った。鐘楼へ続く正門は固く閉ざされ、街の人々は互いの顔を確かめるように歩いている。' }),
+      Object.freeze({ speaker: '旅の魔導士リゼ', text: '手掛かりは三つ。全部を追う必要はないわ。二つを結びつければ、鐘楼へ入る道と番人の癖が見えるはずよ。' })
+    ]) }),
+    'mist-clue-patrol': Object.freeze({ id: 'mist-clue-patrol', onComplete: 'mist-clue:lost-patrol', lines: Object.freeze([
+      Object.freeze({ speaker: '帰還した巡回兵セラ', text: '仲間は霧の中で姿を消したんじゃない。鐘が鳴るたび同じ曲がり角へ戻されていた。私は壁の傷を数えて、ようやく輪から抜けた。' }),
+      Object.freeze({ speaker: '主人公', text: '霧は道を隠すだけでなく、歩いた記憶まで惑わせるのか。壁の傷をたどれば、鐘楼の保守路へ近づけそうだ。' })
+    ]) }),
+    'mist-clue-bell': Object.freeze({ id: 'mist-clue-bell', onComplete: 'mist-clue:night-bell', lines: Object.freeze([
+      Object.freeze({ speaker: '鐘守ミナ', text: '鳴っているのは大鐘ではないの。誰も触れていない小さな帰還鐘が、夜ごと地下から答えている。音は鐘楼の裏階段で一番強くなるわ。' }),
+      Object.freeze({ speaker: '旅の魔導士リゼ', text: '音に魔力を重ねて道を作っている。炎で共鳴を乱せば、番人の結界も崩せるかもしれない。' })
+    ]) }),
+    'mist-clue-assembly': Object.freeze({ id: 'mist-clue-assembly', onComplete: 'mist-clue:masked-assembly', lines: Object.freeze([
+      Object.freeze({ speaker: '仮面職人イオ', text: '仮面は顔を隠すためじゃない。鐘の音に名前を奪われないためのものだ。集会では、鐘楼の地下へ続く音響路を見張っている。' }),
+      Object.freeze({ speaker: '主人公', text: '人々は怪しい儀式をしていたんじゃない。自分たちを守りながら、侵入口を封じていたのか。' })
+    ]) }),
+    'mist-resident': Object.freeze({ id: 'mist-resident', lines: Object.freeze([
+      Object.freeze({ speaker: '霧都の住民', text: '霧の中では、知っている道ほど疑いなさい。鐘楼へ行くなら、街で二つ以上の証言を結びつけることだ。' })
+    ]) }),
+    'mist-tower-entry': Object.freeze({ id: 'mist-tower-entry', lines: Object.freeze([
+      Object.freeze({ speaker: '地の文', text: '二つの証言が重なり、霧の中に鐘楼へ続く道が浮かび上がった。選んだ手掛かりによって、侵入路と協力者が変わる。' })
+    ]) }),
+    'mist-bell-awakening': Object.freeze({ id: 'mist-bell-awakening', onComplete: 'mist-bell-awaken', lines: Object.freeze([
+      Object.freeze({ speaker: '地の文', text: '鐘楼の最上部で、星の羅針盤がひとりでに回り始めた。霧鐘の内部から、羅針盤と同じ光が応える。' }),
+      Object.freeze({ speaker: '主人公', text: '父の道具に反応している……いや、僕自身を待っていたような光だ。' }),
+      Object.freeze({ speaker: '謎の声', text: '帰還者を確認。閉ざされた道を守るため、霧鐘の番人を起動する。' })
+    ]) }),
+    'mist-boss-cleared': Object.freeze({ id: 'mist-boss-cleared', onComplete: 'mist-boss-defeated', lines: Object.freeze([
+      Object.freeze({ speaker: '地の文', text: '番人が沈黙すると、鐘は初めて澄んだ音を響かせた。街を覆っていた霧がほどけ、塔と庭園が夕空の下へ姿を現す。' }),
+      Object.freeze({ speaker: '旅の魔導士リゼ', text: 'この番人は侵入者を呼び込んだのではなく、何かを外へ出さないために目覚めたみたい。異変の原因は、もっと奥にある。' })
+    ]) }),
+    'king-mist-report': Object.freeze({ id: 'king-mist-report', onComplete: 'mist-report-complete', lines: Object.freeze([
+      Object.freeze({ speaker: 'アルディオン王', text: 'ヴェイルの霧が晴れ、北方との往来が戻った。三つの噂から真実を選び取った判断、見事であった。' }),
+      Object.freeze({ speaker: 'アルディオン王', text: '鐘楼がエルドの羅針盤だけでなく、おぬし自身へ反応したことは気に掛かる。次の記録が届くまで、その羅針盤を手放してはならぬ。' })
+    ]) }),
+    'king-after-mist': Object.freeze({ id: 'king-after-mist', lines: Object.freeze([
+      Object.freeze({ speaker: 'アルディオン王', text: '北の霧は晴れた。だが東の高地では、二つの都市が互いの姿を見失いつつあるという。' })
     ]) }),
     'first-magic': Object.freeze({
       id: 'first-magic',
@@ -353,6 +441,7 @@
       id: 'watchtower-cleared',
       lines: Object.freeze([
         Object.freeze({ speaker: '地の文', text: '紫霧の番人が崩れ落ち、見張り台を覆っていた霧が晴れていく。' }),
+        Object.freeze({ speaker: '主人公', text: '外から何者かが入り込んだ跡はない。ここに眠っていた古い仕組みが、父の羅針盤に反応して目覚めたのか……。' }),
         Object.freeze({ speaker: '地の文', text: '床の金属箱には、父の羅針盤と同じ星の紋章が刻まれていた。父は確かにここへ来ていた。' }),
         Object.freeze({ speaker: '王都兵', text: '見張り台の霧が晴れたのを見て迎えに来た。王がお待ちだ。報告のため王城へ戻ろう。' })
       ])
@@ -390,6 +479,22 @@
     Object.freeze({ id: 'merchant-cache', area: 'crossroads-dungeon', point: Object.freeze([3150, 2130]), radius: 42, label: '商人の備蓄箱を開ける', actionId: 'dungeon-treasure:merchant-cache' }),
     Object.freeze({ id: 'rune-coffer', area: 'crossroads-dungeon', point: Object.freeze([570, 630]), radius: 42, label: '方位石の宝箱を開ける', actionId: 'dungeon-treasure:rune-coffer' }),
     Object.freeze({ id: 'crossroads-boss-altar', area: 'crossroads-dungeon', point: Object.freeze([1830, 150]), radius: 66, label: '北の祭壇を調べる', actionId: 'crossroads-boss' }),
+    Object.freeze({ id: 'mist-citadel-gate', area: 'overworld', point: Object.freeze([337, 240]), radius: 44, label: '霧の城塞都市へ入る', targetArea: 'mist-citadel', spawn: PAST_AREAS['mist-citadel'].spawn, unlockAfter: 'third-mission', dialogueOnEnter: 'mist-citadel-arrival' }),
+    Object.freeze({ id: 'mist-citadel-exit', area: 'mist-citadel', point: Object.freeze([800, 1040]), radius: 58, label: '北の街道へ戻る', targetArea: 'overworld', spawn: Object.freeze([337, 240]) }),
+    Object.freeze({ id: 'mist-bell-tower-door', area: 'mist-citadel', point: Object.freeze([800, 410]), radius: 70, label: '霧の向こうの鐘楼へ入る', targetArea: 'mist-bell-tower', spawn: PAST_AREAS['mist-bell-tower'].spawn, unlockAfter: 'mist-clues', dialogueOnEnter: 'mist-tower-entry' }),
+    ...MIST_CITADEL_NPCS.map(npc => Object.freeze({ id: npc.id, area: 'mist-citadel', point: npc.point, radius: 56, label: `${npc.name}と話す`, dialogueId: npc.dialogueId })),
+    ...MIST_BUILDINGS.map(building => Object.freeze({
+      id: building.id,
+      area: 'mist-citadel',
+      point: building.servicePoint,
+      radius: building.type === 'card' ? 78 : 72,
+      label: `${building.label}を利用する`,
+      serviceId: building.type
+    })),
+    Object.freeze({ id: 'mist-tower-exit', area: 'mist-bell-tower', point: Object.freeze([900, 1340]), radius: 58, label: '城塞都市へ戻る', targetArea: 'mist-citadel', spawn: Object.freeze([800, 420]) }),
+    Object.freeze({ id: 'bell-armory', area: 'mist-bell-tower', point: Object.freeze([450, 650]), radius: 46, label: '鐘楼の武具箱を開ける', actionId: 'dungeon-treasure:bell-armory' }),
+    Object.freeze({ id: 'fog-cache', area: 'mist-bell-tower', point: Object.freeze([1350, 650]), radius: 46, label: '霧払いの備蓄箱を開ける', actionId: 'dungeon-treasure:fog-cache' }),
+    Object.freeze({ id: 'mist-bell-altar', area: 'mist-bell-tower', point: Object.freeze([900, 150]), radius: 78, label: '霧鐘の祭壇を調べる', actionId: 'mist-bell-boss' }),
     Object.freeze({ id: 'weapon-shop', area: 'castle-town', point: Object.freeze([230, 385]), radius: 84, label: '武器屋で買い物する', serviceId: 'weapon' }),
     Object.freeze({ id: 'armor-shop', area: 'castle-town', point: Object.freeze([1240, 390]), radius: 84, label: '防具屋で買い物する', serviceId: 'armor' }),
     Object.freeze({ id: 'item-shop', area: 'castle-town', point: Object.freeze([215, 680]), radius: 84, label: '道具屋で買い物する', serviceId: 'item' }),
@@ -399,7 +504,7 @@
 
   function createPastStory(saved = {}) {
     const area = Object.hasOwn(PAST_AREAS, saved.area) ? saved.area : 'overworld';
-    const phase = ['arrival', 'seek-king', 'first-mission', 'first-mission-report', 'first-mission-complete', 'second-mission', 'second-mission-report', 'second-mission-complete'].includes(saved.phase) ? saved.phase : 'arrival';
+    const phase = ['arrival', 'seek-king', 'first-mission', 'first-mission-report', 'first-mission-complete', 'second-mission', 'second-mission-report', 'second-mission-complete', 'third-mission', 'third-mission-report', 'third-mission-complete'].includes(saved.phase) ? saved.phase : 'arrival';
     const parsedGold = Number(saved.gold);
     const hasCapitalArrivalFlag = Object.hasOwn(saved, 'capitalArrivalSeen');
     const capitalArrivalSeen = hasCapitalArrivalFlag
@@ -412,7 +517,9 @@
       arrivalSeen: Boolean(saved.arrivalSeen || phase !== 'arrival'),
       tutorialRescueSeen: Boolean(saved.tutorialRescueSeen),
       capitalArrivalSeen,
-      royalRewardClaimed: Boolean(saved.royalRewardClaimed || !['arrival', 'seek-king'].includes(phase))
+      royalRewardClaimed: Boolean(saved.royalRewardClaimed || !['arrival', 'seek-king'].includes(phase)),
+      crossroadsClues: [...new Set(Array.isArray(saved.crossroadsClues) ? saved.crossroadsClues.filter(id => CROSSROADS_CLUE_IDS.includes(id)) : [])],
+      mistClues: [...new Set(Array.isArray(saved.mistClues) ? saved.mistClues.filter(id => MIST_CLUE_IDS.includes(id)) : [])]
     };
   }
 
@@ -446,8 +553,21 @@
       return { ...state, phase: 'first-mission-complete' };
     }
     if (eventId === 'crossroads-mission-start' && state.phase === 'first-mission-complete') return { ...state, phase: 'second-mission' };
+    if (eventId.startsWith('crossroads-clue:') && state.phase === 'second-mission') {
+      const clueId = eventId.slice('crossroads-clue:'.length);
+      if (!CROSSROADS_CLUE_IDS.includes(clueId) || state.crossroadsClues.includes(clueId)) return state;
+      return { ...state, crossroadsClues: [...state.crossroadsClues, clueId] };
+    }
     if (eventId === 'crossroads-boss-defeated' && state.phase === 'second-mission') return { ...state, phase: 'second-mission-report' };
     if (eventId === 'crossroads-report-complete' && state.phase === 'second-mission-report') return { ...state, phase: 'second-mission-complete' };
+    if (eventId === 'mist-mission-start' && state.phase === 'second-mission-complete') return { ...state, phase: 'third-mission' };
+    if (eventId.startsWith('mist-clue:') && state.phase === 'third-mission') {
+      const clueId = eventId.slice('mist-clue:'.length);
+      if (!MIST_CLUE_IDS.includes(clueId) || state.mistClues.includes(clueId)) return state;
+      return { ...state, mistClues: [...state.mistClues, clueId] };
+    }
+    if (eventId === 'mist-boss-defeated' && state.phase === 'third-mission') return { ...state, phase: 'third-mission-report' };
+    if (eventId === 'mist-report-complete' && state.phase === 'third-mission-report') return { ...state, phase: 'third-mission-complete' };
     return state;
   }
 
@@ -457,8 +577,18 @@
     if (state.phase === 'first-mission') return '西の港街道で起きている異変を調べる';
     if (state.phase === 'first-mission-report') return '古い見張り台の調査結果を王に報告する';
     if (state.phase === 'first-mission-complete') return '王から父の足跡につながる次の依頼を受ける';
-    if (state.phase === 'second-mission') return '交差路の街クアドラの異変を調べる';
+    if (state.phase === 'second-mission') {
+      const clueCount = state.crossroadsClues.length;
+      return clueCount < 2 ? `交差路の街で異変の証言を集める（${clueCount}/2）` : '証言をもとに四門水路の祭壇を調べる';
+    }
     if (state.phase === 'second-mission-report') return '交差路の街が復旧したことを王へ報告する';
+    if (state.phase === 'second-mission-complete') return '王と話し、北の霧へ向かう理由を確かめる';
+    if (state.phase === 'third-mission') {
+      const clueCount = state.mistClues.length;
+      return clueCount < 2 ? `城塞都市ヴェイルで霧と鐘の証言を集める（${clueCount}/2）` : '二つの証言を結び、無響の鐘楼を調べる';
+    }
+    if (state.phase === 'third-mission-report') return '霧鐘の番人を退けたことを王へ報告する';
+    if (state.phase === 'third-mission-complete') return '晴れた北の空と、羅針盤が示す次の道を確かめる';
     return '父の足跡について王城の調査を待つ';
   }
 
@@ -468,9 +598,13 @@
 
   function storyEncounterMode(state, encounterId) {
     if (storyAllowsEncounters(state)) {
-      const laterRegion = encounterId.startsWith('route-');
-      const laterChapterOpen = ['second-mission', 'second-mission-report', 'second-mission-complete'].includes(state.phase);
-      return laterRegion && !laterChapterOpen ? 'hidden' : 'normal';
+      const mistRegion = encounterId.startsWith('route-mist-');
+      const laterRegion = encounterId.startsWith('route-') && !mistRegion;
+      const secondChapterOpen = ['second-mission', 'second-mission-report', 'second-mission-complete', 'third-mission', 'third-mission-report', 'third-mission-complete'].includes(state.phase);
+      const thirdChapterOpen = ['third-mission', 'third-mission-report', 'third-mission-complete'].includes(state.phase);
+      if (mistRegion && !thirdChapterOpen) return 'hidden';
+      if (laterRegion && !secondChapterOpen) return 'hidden';
+      return 'normal';
     }
     const isTutorial = state.phase === 'seek-king'
       && !state.tutorialRescueSeen
@@ -482,7 +616,10 @@
   function storyUnlocksInteraction(state, interaction) {
     if (!interaction) return false;
     if (interaction.unlockAfter === 'king-audience') return storyAllowsEncounters(state);
-    if (interaction.unlockAfter === 'first-mission-complete') return ['second-mission', 'second-mission-report', 'second-mission-complete'].includes(state.phase);
+    if (interaction.unlockAfter === 'first-mission-complete') return ['second-mission', 'second-mission-report', 'second-mission-complete', 'third-mission', 'third-mission-report', 'third-mission-complete'].includes(state.phase);
+    if (interaction.id === 'crossroads-dungeon-door') return state.crossroadsClues.length >= 2 || !['second-mission'].includes(state.phase);
+    if (interaction.unlockAfter === 'third-mission') return ['third-mission', 'third-mission-report', 'third-mission-complete'].includes(state.phase);
+    if (interaction.unlockAfter === 'mist-clues') return state.mistClues.length >= 2 || ['third-mission-report', 'third-mission-complete'].includes(state.phase);
     return true;
   }
 
@@ -503,7 +640,7 @@
         actionId: null
       };
     }
-    const crossroadsRestored = ['second-mission-report', 'second-mission-complete'].includes(state.phase);
+    const crossroadsRestored = ['second-mission-report', 'second-mission-complete', 'third-mission', 'third-mission-report', 'third-mission-complete'].includes(state.phase);
     const crossroadsNpc = CROSSROADS_NPCS.some(npc => npc.id === interaction.id);
     let dialogueId = interaction.dialogueId;
     if (crossroadsNpc && crossroadsRestored) dialogueId = `${interaction.dialogueId}-restored`;
@@ -513,7 +650,10 @@
         'first-mission-complete': 'king-crossroads-mission',
         'second-mission': 'king-crossroads-reminder',
         'second-mission-report': 'king-crossroads-report',
-        'second-mission-complete': 'king-after-crossroads'
+        'second-mission-complete': 'king-after-crossroads',
+        'third-mission': 'king-mist-reminder',
+        'third-mission-report': 'king-mist-report',
+        'third-mission-complete': 'king-after-mist'
       };
       dialogueId = royalDialogues[state.phase] || (state.royalRewardClaimed ? 'king-reminder' : interaction.dialogueId);
     }
@@ -556,7 +696,11 @@
         ? CASTLE_COLLISION_RECTS
         : areaId === 'crossroads-town'
           ? CROSSROADS_TOWN_COLLISION_RECTS
-          : [];
+          : areaId === 'mist-citadel'
+            ? MIST_CITADEL_COLLISION_RECTS
+            : areaId === 'mist-bell-tower'
+              ? MIST_TOWER_COLLISION_RECTS
+              : [];
     return collisionRects.every(rect => {
       const [left, top, width, height] = rect;
       const padding = radius + 8;
@@ -596,6 +740,20 @@
     return [...point];
   }
 
+  function mistInvestigationResult(state) {
+    const clues = new Set(Array.isArray(state?.mistClues) ? state.mistClues : []);
+    if (clues.has('lost-patrol') && clues.has('night-bell')) {
+      return { approach: '壁の傷を数えて保守路を進む', ally: '巡回兵セラ', bossWeakness: '炎' };
+    }
+    if (clues.has('lost-patrol') && clues.has('masked-assembly')) {
+      return { approach: '仮面で名を守り、音響路を進む', ally: '仮面職人イオ', bossWeakness: '氷' };
+    }
+    if (clues.has('night-bell') && clues.has('masked-assembly')) {
+      return { approach: '帰還鐘の響きを追って裏階段を進む', ally: '鐘守ミナ', bossWeakness: '炎' };
+    }
+    return { approach: '', ally: '', bossWeakness: '' };
+  }
+
   function setDebugQuestCompletion(story, campaign, questId, completed) {
     const nextStory = { ...story };
     const nextCampaign = { ...campaign };
@@ -603,13 +761,16 @@
       if (completed) {
         nextCampaign.bossDefeated = true;
         nextCampaign.watchtowerReached = true;
-        if (!['second-mission', 'second-mission-report', 'second-mission-complete'].includes(nextStory.phase)) {
+        if (!['second-mission', 'second-mission-report', 'second-mission-complete', 'third-mission', 'third-mission-report', 'third-mission-complete'].includes(nextStory.phase)) {
           nextStory.phase = 'first-mission-complete';
         }
       } else {
         nextStory.phase = 'first-mission';
+        nextStory.crossroadsClues = [];
+        nextStory.mistClues = [];
         nextCampaign.bossDefeated = false;
         nextCampaign.crossroadsBossDefeated = false;
+        nextCampaign.mistBossDefeated = false;
         nextCampaign.watchtowerReached = false;
         nextCampaign.sealFragments = [];
       }
@@ -619,7 +780,20 @@
       nextCampaign.bossDefeated = true;
       nextCampaign.watchtowerReached = true;
       nextCampaign.crossroadsBossDefeated = Boolean(completed);
+      if (!completed) {
+        nextCampaign.mistBossDefeated = false;
+        nextStory.crossroadsClues = [];
+        nextStory.mistClues = [];
+      }
       nextStory.phase = completed ? 'second-mission-complete' : 'second-mission';
+      return { story: nextStory, campaign: nextCampaign };
+    }
+    if (questId === 'mist-citadel') {
+      nextCampaign.bossDefeated = true;
+      nextCampaign.crossroadsBossDefeated = true;
+      nextCampaign.mistBossDefeated = Boolean(completed);
+      if (!completed) nextStory.mistClues = [];
+      nextStory.phase = completed ? 'third-mission-complete' : 'third-mission';
       return { story: nextStory, campaign: nextCampaign };
     }
     return { story, campaign };
@@ -629,9 +803,15 @@
     CASTLE_COLLISION_RECTS,
     CASTLE_NPCS,
     CROSSROADS_BUILDINGS,
+    CROSSROADS_CLUE_IDS,
     CROSSROADS_DUNGEON_LAYOUT,
     CROSSROADS_NPCS,
     CROSSROADS_WATERGATES,
+    MIST_BUILDINGS,
+    MIST_CITADEL_COLLISION_RECTS,
+    MIST_CITADEL_NPCS,
+    MIST_CLUE_IDS,
+    MIST_TOWER_COLLISION_RECTS,
     PAST_AREAS,
     PAST_INTERACTIONS,
     PAST_START,
@@ -647,6 +827,7 @@
     dungeonPointIsWalkable,
     nearestWalkablePoint,
     nearbyPastInteraction,
+    mistInvestigationResult,
     setDebugQuestCompletion,
     storyAllowsEncounters,
     storyEncounterMode,
