@@ -3,6 +3,60 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.V2_PAST_STORY = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
+  const CROSSROADS_DUNGEON_LAYOUT = (() => {
+    const columns = 60;
+    const rowCount = 45;
+    const tileSize = 60;
+    const grid = Array.from({ length: rowCount }, () => Array(columns).fill('#'));
+    const carve = (left, top, right, bottom) => {
+      for (let row = top; row <= bottom; row += 1) {
+        for (let column = left; column <= right; column += 1) grid[row][column] = '.';
+      }
+    };
+
+    carve(29, 1, 32, 43);
+    carve(24, 19, 37, 27);
+    carve(24, 38, 37, 43);
+    carve(4, 22, 55, 24);
+    carve(3, 17, 12, 29);
+    carve(47, 17, 56, 29);
+    carve(8, 13, 29, 15);
+    carve(5, 6, 14, 16);
+    carve(32, 9, 52, 11);
+    carve(45, 4, 55, 14);
+    carve(10, 31, 29, 33);
+    carve(4, 30, 14, 40);
+    carve(32, 34, 52, 36);
+    carve(47, 31, 56, 41);
+
+    for (let row = 1; row <= 43; row += 1) {
+      grid[row][18] = '~';
+      grid[row][41] = '~';
+    }
+    for (let column = 1; column <= 58; column += 1) {
+      grid[17][column] = '~';
+      grid[29][column] = '~';
+    }
+    grid[14][18] = '=';
+    grid[23][18] = '=';
+    grid[32][18] = '=';
+    grid[10][41] = '=';
+    grid[23][41] = '=';
+    grid[35][41] = '=';
+    grid[17][30] = '=';
+    grid[17][31] = '=';
+    grid[29][30] = '=';
+    grid[29][31] = '=';
+    grid[2][30] = 'A';
+    grid[42][30] = '>';
+
+    return Object.freeze({
+      columns,
+      tileSize,
+      rows: Object.freeze(grid.map(row => row.join('')))
+    });
+  })();
+
   const PAST_START = Object.freeze({
     area: 'overworld',
     point: Object.freeze([70, 540]),
@@ -24,8 +78,10 @@
       spawn: Object.freeze([600, 795])
     }),
     'crossroads-dungeon': Object.freeze({
-      id: 'crossroads-dungeon', name: '四門水路', width: 1200, height: 900,
-      spawn: Object.freeze([600, 805])
+      id: 'crossroads-dungeon', name: '四門水路',
+      width: CROSSROADS_DUNGEON_LAYOUT.columns * CROSSROADS_DUNGEON_LAYOUT.tileSize,
+      height: CROSSROADS_DUNGEON_LAYOUT.rows.length * CROSSROADS_DUNGEON_LAYOUT.tileSize,
+      spawn: Object.freeze([1830, 2550])
     })
   });
 
@@ -74,12 +130,12 @@
     Object.freeze([115, 615, 275, 205]), Object.freeze([810, 615, 275, 205])
   ]);
 
-  const CROSSROADS_DUNGEON_COLLISION_RECTS = Object.freeze([
-    Object.freeze([0, 0, 90, 900]), Object.freeze([1110, 0, 90, 900]),
-    Object.freeze([0, 0, 1200, 70]),
-    Object.freeze([0, 835, 500, 65]), Object.freeze([700, 835, 500, 65]),
-    Object.freeze([90, 650, 385, 185]), Object.freeze([725, 650, 385, 185]),
-    Object.freeze([420, 300, 110, 205]), Object.freeze([670, 300, 110, 205])
+  const CROSSROADS_BUILDINGS = Object.freeze([
+    Object.freeze({ id: 'crossroads-weapon-shop', type: 'weapon', label: '武器屋「四方鍛冶」', icon: '⚔', labelPoint: Object.freeze([285, 365]), servicePoint: Object.freeze([315, 370]) }),
+    Object.freeze({ id: 'crossroads-armor-shop', type: 'armor', label: '防具屋「水竜の鱗」', icon: '⬟', labelPoint: Object.freeze([915, 365]), servicePoint: Object.freeze([875, 370]) }),
+    Object.freeze({ id: 'crossroads-item-shop', type: 'item', label: '道具屋「四つ辻」', icon: '⚗', labelPoint: Object.freeze([285, 590]), servicePoint: Object.freeze([270, 580]) }),
+    Object.freeze({ id: 'crossroads-inn', type: 'inn', label: '宿屋「道しるべ亭」', icon: '☾', labelPoint: Object.freeze([930, 590]), servicePoint: Object.freeze([940, 580]) }),
+    Object.freeze({ id: 'crossroads-card-shop', type: 'card', label: 'カード屋「羅針札」', icon: '✦', labelPoint: Object.freeze([760, 690]), servicePoint: Object.freeze([750, 665]) })
   ]);
 
   const TOWN_NPCS = Object.freeze([
@@ -291,13 +347,21 @@
     Object.freeze({ id: 'soldier-door', area: 'castle', point: Object.freeze([420, 610]), radius: 72, label: '門衛と話す', dialogueId: 'soldier-greeting' }),
     ...TOWN_NPCS.map(npc => Object.freeze({ id: npc.id, area: 'castle-town', point: npc.point, radius: 54, label: `${npc.name}と話す`, dialogueId: npc.dialogueId })),
     ...CROSSROADS_NPCS.map(npc => Object.freeze({ id: npc.id, area: 'crossroads-town', point: npc.point, radius: 54, label: `${npc.name}と話す`, dialogueId: npc.dialogueId })),
+    ...CROSSROADS_BUILDINGS.map(building => Object.freeze({
+      id: building.id,
+      area: 'crossroads-town',
+      point: building.servicePoint,
+      radius: building.type === 'card' ? 78 : 72,
+      label: `${building.label}を利用する`,
+      serviceId: building.type
+    })),
     Object.freeze({ id: 'crossroads-town-exit', area: 'crossroads-town', point: Object.freeze([600, 835]), radius: 58, label: '街道へ戻る', targetArea: 'overworld', spawn: Object.freeze([416, 354]) }),
     Object.freeze({ id: 'crossroads-dungeon-door', area: 'crossroads-town', point: Object.freeze([600, 145]), radius: 62, label: '四門水路へ降りる', targetArea: 'crossroads-dungeon', spawn: PAST_AREAS['crossroads-dungeon'].spawn }),
-    Object.freeze({ id: 'crossroads-dungeon-exit', area: 'crossroads-dungeon', point: Object.freeze([600, 835]), radius: 58, label: '交差路の街へ戻る', targetArea: 'crossroads-town', spawn: Object.freeze([600, 185]) }),
-    Object.freeze({ id: 'armory-coffer', area: 'crossroads-dungeon', point: Object.freeze([225, 475]), radius: 48, label: '武具庫の宝箱を開ける', actionId: 'dungeon-treasure:armory-coffer' }),
-    Object.freeze({ id: 'merchant-cache', area: 'crossroads-dungeon', point: Object.freeze([965, 485]), radius: 48, label: '商人の備蓄箱を開ける', actionId: 'dungeon-treasure:merchant-cache' }),
-    Object.freeze({ id: 'rune-coffer', area: 'crossroads-dungeon', point: Object.freeze([300, 205]), radius: 48, label: '方位石の宝箱を開ける', actionId: 'dungeon-treasure:rune-coffer' }),
-    Object.freeze({ id: 'crossroads-boss-altar', area: 'crossroads-dungeon', point: Object.freeze([600, 165]), radius: 72, label: '北の祭壇を調べる', actionId: 'crossroads-boss' }),
+    Object.freeze({ id: 'crossroads-dungeon-exit', area: 'crossroads-dungeon', point: Object.freeze([1830, 2550]), radius: 48, label: '交差路の街へ戻る', targetArea: 'crossroads-town', spawn: Object.freeze([600, 185]) }),
+    Object.freeze({ id: 'armory-coffer', area: 'crossroads-dungeon', point: Object.freeze([570, 2130]), radius: 42, label: '武具庫の宝箱を開ける', actionId: 'dungeon-treasure:armory-coffer' }),
+    Object.freeze({ id: 'merchant-cache', area: 'crossroads-dungeon', point: Object.freeze([3150, 2130]), radius: 42, label: '商人の備蓄箱を開ける', actionId: 'dungeon-treasure:merchant-cache' }),
+    Object.freeze({ id: 'rune-coffer', area: 'crossroads-dungeon', point: Object.freeze([570, 630]), radius: 42, label: '方位石の宝箱を開ける', actionId: 'dungeon-treasure:rune-coffer' }),
+    Object.freeze({ id: 'crossroads-boss-altar', area: 'crossroads-dungeon', point: Object.freeze([1830, 150]), radius: 66, label: '北の祭壇を調べる', actionId: 'crossroads-boss' }),
     Object.freeze({ id: 'weapon-shop', area: 'castle-town', point: Object.freeze([230, 385]), radius: 84, label: '武器屋で買い物する', serviceId: 'weapon' }),
     Object.freeze({ id: 'armor-shop', area: 'castle-town', point: Object.freeze([1240, 390]), radius: 84, label: '防具屋で買い物する', serviceId: 'armor' }),
     Object.freeze({ id: 'item-shop', area: 'castle-town', point: Object.freeze([215, 680]), radius: 84, label: '道具屋で買い物する', serviceId: 'item' }),
@@ -454,6 +518,7 @@
   function canStandInPastArea(areaId, x, y, radius = 0) {
     const area = PAST_AREAS[areaId];
     if (!area?.width || !area?.height) return false;
+    if (areaId === 'crossroads-dungeon') return dungeonPointIsWalkable(x, y, radius);
     const margin = 34 + radius;
     if (x < margin || y < margin || x > area.width - margin || y > area.height - margin) return false;
     const collisionRects = areaId === 'castle-town'
@@ -462,13 +527,25 @@
         ? CASTLE_COLLISION_RECTS
         : areaId === 'crossroads-town'
           ? CROSSROADS_TOWN_COLLISION_RECTS
-          : areaId === 'crossroads-dungeon'
-            ? CROSSROADS_DUNGEON_COLLISION_RECTS
-        : [];
+          : [];
     return collisionRects.every(rect => {
       const [left, top, width, height] = rect;
       const padding = radius + 8;
       return x < left - padding || x > left + width + padding || y < top - padding || y > top + height + padding;
+    });
+  }
+
+  function dungeonPointIsWalkable(x, y, radius = 0) {
+    const { columns, rows, tileSize } = CROSSROADS_DUNGEON_LAYOUT;
+    const samples = [
+      [x, y], [x - radius, y], [x + radius, y], [x, y - radius], [x, y + radius],
+      [x - radius, y - radius], [x + radius, y - radius], [x - radius, y + radius], [x + radius, y + radius]
+    ];
+    return samples.every(([sampleX, sampleY]) => {
+      const column = Math.floor(sampleX / tileSize);
+      const row = Math.floor(sampleY / tileSize);
+      if (column < 0 || row < 0 || column >= columns || row >= rows.length) return false;
+      return ['.', '=', '>', 'A'].includes(rows[row][column]);
     });
   }
 
@@ -493,6 +570,8 @@
   return {
     CASTLE_COLLISION_RECTS,
     CASTLE_NPCS,
+    CROSSROADS_BUILDINGS,
+    CROSSROADS_DUNGEON_LAYOUT,
     CROSSROADS_NPCS,
     PAST_AREAS,
     PAST_INTERACTIONS,
@@ -506,6 +585,7 @@
     canStandInPastArea,
     completeStoryEvent,
     createPastStory,
+    dungeonPointIsWalkable,
     nearestWalkablePoint,
     nearbyPastInteraction,
     storyAllowsEncounters,

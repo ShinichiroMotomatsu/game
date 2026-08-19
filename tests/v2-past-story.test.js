@@ -5,6 +5,8 @@ const fs = require('node:fs');
 const {
   CASTLE_NPCS,
   CASTLE_COLLISION_RECTS,
+  CROSSROADS_BUILDINGS,
+  CROSSROADS_DUNGEON_LAYOUT,
   CROSSROADS_NPCS,
   PAST_AREAS,
   PAST_INTERACTIONS,
@@ -18,6 +20,7 @@ const {
   canStandInPastArea,
   completeStoryEvent,
   createPastStory,
+  dungeonPointIsWalkable,
   nearestWalkablePoint,
   nearbyPastInteraction,
   storyAllowsEncounters,
@@ -26,8 +29,8 @@ const {
   storyObjective
 } = require('../v2-past-story.js');
 
-function reachableTownInteractions(interactions, step = 8) {
-  const start = PAST_AREAS['castle-town'].spawn;
+function reachableAreaInteractions(areaId, interactions, step = 8) {
+  const start = PAST_AREAS[areaId].spawn;
   const queue = [start];
   const visited = new Set([`${start[0]},${start[1]}`]);
   const reached = new Set();
@@ -41,13 +44,15 @@ function reachableTownInteractions(interactions, step = 8) {
     for (const [dx, dy] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
       const next = [x + dx, y + dy];
       const key = `${next[0]},${next[1]}`;
-      if (visited.has(key) || !canStandInPastArea('castle-town', next[0], next[1], 6)) continue;
+      if (visited.has(key) || !canStandInPastArea(areaId, next[0], next[1], 6)) continue;
       visited.add(key);
       queue.push(next);
     }
   }
   return reached;
 }
+
+const reachableTownInteractions = interactions => reachableAreaInteractions('castle-town', interactions);
 
 test('Past Evening starts at the western harbor beside Roppongi Hills', () => {
   assert.equal(PAST_START.area, 'overworld');
@@ -234,6 +239,23 @@ test('the traffic-hub town and dungeon form a reversible route', () => {
   assert.ok(CROSSROADS_NPCS.length >= 3);
 });
 
+test('the crossroads town offers all five businesses used by the capital', () => {
+  const services = PAST_INTERACTIONS
+    .filter(interaction => interaction.area === 'crossroads-town' && interaction.serviceId)
+    .map(interaction => interaction.serviceId)
+    .sort();
+
+  assert.deepEqual(services, ['armor', 'card', 'inn', 'item', 'weapon']);
+  assert.deepEqual(new Set(CROSSROADS_BUILDINGS.map(building => building.type)), new Set(services));
+  assert.ok(CROSSROADS_BUILDINGS.every(building => building.label && building.labelPoint.length === 2));
+});
+
+test('every crossroads shop can be approached from the south gate', () => {
+  const services = PAST_INTERACTIONS.filter(interaction => interaction.area === 'crossroads-town' && interaction.serviceId);
+  const reached = reachableAreaInteractions('crossroads-town', services);
+  assert.deepEqual([...reached].sort(), services.map(service => service.id).sort());
+});
+
 test('Roppongi Crossing is represented as a four-road trade hub', () => {
   const dialogue = STORY_DIALOGUES['crossroads-arrival'].lines.map(line => line.text).join('');
   assert.match(dialogue, /四つの街道|交通|交易/);
@@ -248,6 +270,45 @@ test('the dungeon exposes three treasure chests and a final boss altar', () => {
   assert.equal(dungeonInteractions.some(interaction => interaction.actionId === 'crossroads-boss'), true);
   assert.equal(canStandInPastArea('crossroads-dungeon', 600, 450, 10), true);
   assert.equal(canStandInPastArea('crossroads-dungeon', 50, 450, 10), false);
+});
+
+test('the four-gate waterway is a large tile dungeon with water bridges and branching rooms', () => {
+  const layout = CROSSROADS_DUNGEON_LAYOUT;
+  const tileKinds = new Set(layout.rows.join(''));
+
+  assert.equal(PAST_AREAS['crossroads-dungeon'].width, layout.columns * layout.tileSize);
+  assert.equal(PAST_AREAS['crossroads-dungeon'].height, layout.rows.length * layout.tileSize);
+  assert.equal(layout.columns, 60);
+  assert.equal(layout.rows.length, 45);
+  assert.equal(PAST_AREAS['crossroads-dungeon'].width, 3600);
+  assert.equal(PAST_AREAS['crossroads-dungeon'].height, 2700);
+  assert.ok(layout.rows.every(row => row.length === layout.columns));
+  assert.ok(['#', '.', '~', '=', '>', 'A'].every(tile => tileKinds.has(tile)));
+});
+
+test('every waterway treasure and the boss altar are reachable from the entrance by walkable tiles', () => {
+  const layout = CROSSROADS_DUNGEON_LAYOUT;
+  const tileSize = layout.tileSize;
+  const start = PAST_AREAS['crossroads-dungeon'].spawn.map(value => Math.floor(value / tileSize));
+  const queue = [start];
+  const reached = new Set([start.join(',')]);
+  while (queue.length) {
+    const [column, row] = queue.shift();
+    for (const [nextColumn, nextRow] of [[column + 1, row], [column - 1, row], [column, row + 1], [column, row - 1]]) {
+      const key = `${nextColumn},${nextRow}`;
+      const x = (nextColumn + 0.5) * tileSize;
+      const y = (nextRow + 0.5) * tileSize;
+      if (reached.has(key) || !dungeonPointIsWalkable(x, y, 8)) continue;
+      reached.add(key);
+      queue.push([nextColumn, nextRow]);
+    }
+  }
+
+  const goals = PAST_INTERACTIONS.filter(interaction => interaction.area === 'crossroads-dungeon');
+  for (const goal of goals) {
+    const key = `${Math.floor(goal.point[0] / tileSize)},${Math.floor(goal.point[1] / tileSize)}`;
+    assert.equal(reached.has(key), true, `${goal.id} must be reachable`);
+  }
 });
 
 test('town collision keeps the player outside buildings while leaving streets walkable', () => {
@@ -321,6 +382,10 @@ test('the shared page exposes touch dialogue and interaction controls', () => {
   assert.match(html, /id="v2-open-bag"/);
   assert.match(runtime, /drawCastleTown/);
   assert.match(runtime, /drawCastleInterior/);
+  assert.match(runtime, /drawCrossroadsDungeonTiles/);
+  assert.match(html, /id="v2-rest-transition"/);
+  assert.match(html, /id="v2-shop-buy"/);
+  assert.match(html, /id="v2-shop-sell"/);
   assert.match(runtime, /activatePastInteraction/);
 });
 
@@ -371,8 +436,8 @@ test('the overworld consistently filters enemies and routes the tutorial battle 
 
 test('the tutorial story and runtime scripts use fresh browser cache versions', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
-  assert.match(html, /v2-past-story\.js\?edition=9/);
-  assert.match(html, /v2\.js\?edition=12/);
+  assert.match(html, /v2-past-story\.js\?edition=10/);
+  assert.match(html, /v2\.js\?edition=13/);
 });
 
 test('the western road contains two visible card discoveries', () => {
