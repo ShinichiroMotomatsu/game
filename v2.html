@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#071017" />
     <title>ROPPONGI CHRONICLES · 現代編-昼間 / 過去編-夕方</title>
-    <link rel="stylesheet" href="v2.css?edition=8" />
+    <link rel="stylesheet" href="v2.css?edition=9" />
   </head>
   <body>
     <main id="v2-shell">
@@ -41,6 +41,12 @@
         <div class="v2-settings-group">
           <span>表示</span>
           <button id="v2-toggle-collision" type="button" aria-pressed="false">道路判定を表示</button>
+        </div>
+        <div id="v2-quest-debug" class="v2-settings-group v2-quest-debug" hidden>
+          <span>デバッグ・クエスト進行</span>
+          <div class="v2-quest-debug-row"><b>古い見張り台</b><button type="button" data-debug-quest="watchtower" aria-pressed="false">未クリア</button></div>
+          <div class="v2-quest-debug-row"><b>四門水路</b><button type="button" data-debug-quest="crossroads" aria-pressed="false">未クリア</button></div>
+          <p id="v2-quest-debug-status" aria-live="polite">進行状態を直接切り替えます。</p>
         </div>
         <div class="v2-settings-group v2-cloud-settings">
           <span>クラウド保存</span>
@@ -144,6 +150,7 @@
           </div>
           <div id="v2-battle-hand" class="v2-battle-hand" role="group" aria-label="手札"></div>
           <div class="v2-battle-actions">
+            <button id="v2-battle-redraw" type="button" aria-pressed="false">最初の1枚を引き直す</button>
             <button id="v2-battle-flee" type="button">逃げる</button>
             <button id="v2-battle-resolve" type="button" disabled>行動する</button>
           </div>
@@ -162,11 +169,11 @@
     <script src="v2-editions.js?edition=2"></script>
     <script src="v2-assets.js?edition=1"></script>
     <script src="v2-landmarks.js?edition=1"></script>
-    <script src="v2-battle.js?edition=3"></script>
-    <script src="v2-past-world.js?edition=3"></script>
+    <script src="v2-battle.js?edition=4"></script>
+    <script src="v2-past-world.js?edition=4"></script>
     <script src="v2-past-campaign.js?edition=5"></script>
     <script src="v2-past-scenes.js?edition=4"></script>
-    <script src="v2-past-story.js?edition=11"></script>
+    <script src="v2-past-story.js?edition=12"></script>
     <script src="v2-dialogue.js?edition=1"></script>
     <script src="v2-save.js?edition=3"></script>
     <script src="v2-cloud-save.js?edition=1"></script>
@@ -175,6 +182,6 @@
     <script src="v2-supabase-bundle.js?edition=1"></script>
     <script src="v2-supabase-app.js?edition=2"></script>
     <script src="v2-input.js?edition=3"></script>
-    <script src="v2.js?edition=14"></script>
+    <script src="v2.js?edition=15"></script>
   </body>
 </html>

@@ -6,6 +6,7 @@ const {
   PAST_ENCOUNTERS,
   PAST_BIOMES,
   FIELD_ENCOUNTER_GRACE_MS,
+  FIELD_EXIT_SAFE_RADIUS,
   advancePatrol,
   createPastEnemies,
   landmarkMemoryState,
@@ -38,11 +39,24 @@ test('the capital exit has meaningful travel time before a western-road encounte
   const travelSecondsBeforeCollision = (closest - 23) * 4 / 190;
 
   assert.ok(travelSecondsBeforeCollision >= 1, `encounter begins after only ${travelSecondsBeforeCollision.toFixed(2)} seconds`);
-  assert.ok(FIELD_ENCOUNTER_GRACE_MS >= 1800);
+  assert.ok(FIELD_ENCOUNTER_GRACE_MS >= 4000);
+  assert.ok(FIELD_EXIT_SAFE_RADIUS >= 50);
   assert.match(runtime, /encounterGraceUntil = performance\.now\(\) \+ FIELD_ENCOUNTER_GRACE_MS/);
+  assert.match(runtime, /encounterSafeCenter = enteringField \? \[\.\.\.safeSpawn\] : null/);
+  assert.match(runtime, /FIELD_EXIT_SAFE_RADIUS \* maskScale/);
   assert.match(runtime, /now >= encounterGraceUntil && pastEnemies\.find/);
   assert.match(runtime, /\['victory', 'fled'\]\.includes\(result\)/);
   assert.ok(westernRoad.every(encounter => encounter.patrol.every(([x]) => x > PAST_START.point[0] && x < PAST_START.capitalGatePoint[0])));
+});
+
+test('every town exit to the field receives distance and time based encounter protection', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const transition = runtime.slice(runtime.indexOf('function transitionStoryArea'), runtime.indexOf('function performStoryInteraction'));
+  const fieldExits = require('../v2-past-story.js').PAST_INTERACTIONS.filter(interaction => interaction.targetArea === 'overworld');
+
+  assert.ok(fieldExits.length >= 2);
+  assert.match(transition, /const enteringField = previousArea !== 'overworld' && result\.state\.area === 'overworld'/);
+  assert.match(transition, /encounterSafeCenter = enteringField \? \[\.\.\.safeSpawn\] : null/);
 });
 
 test('second-chapter patrols do not overlap the earlier western-road encounters', () => {

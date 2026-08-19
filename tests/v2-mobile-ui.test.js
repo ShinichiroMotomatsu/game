@@ -55,8 +55,8 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const css = fs.readFileSync('v2.css', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
-  assert.match(html, /v2\.js\?edition=14/);
-  assert.match(html, /v2\.css\?edition=8/);
+  assert.match(html, /v2\.js\?edition=15/);
+  assert.match(html, /v2\.css\?edition=9/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);
   assert.match(runtime, /shell\.addEventListener\('pointerdown'/);
@@ -112,6 +112,34 @@ test('settings expose compact authenticated cloud save controls', () => {
   assert.match(runtime, /detectSessionInUrl:\s*true/);
   assert.match(runtime, /resendConfirmation/);
   assert.doesNotMatch(runtime, /innerHTML\s*=/);
+});
+
+test('battle cards label type and attribute separately and offer one opening redraw', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const css = fs.readFileSync('v2.css', 'utf8');
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+
+  assert.match(html, /id="v2-battle-redraw"/);
+  assert.match(runtime, /DISCIPLINE_LABELS/);
+  assert.match(runtime, /CARD_ATTRIBUTE_LABELS/);
+  assert.match(runtime, /v2-card-type/);
+  assert.match(runtime, /v2-card-attribute/);
+  assert.match(runtime, /redrawOpeningCard/);
+  assert.match(css, /\.v2-card-tags/);
+  assert.match(css, /\.v2-battle-actions \{ display: grid; grid-template-columns: minmax\(0, 1\.35fr\) repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.v2-battle-actions button \{ min-width: 0;/);
+});
+
+test('settings include past-quest debug completion controls', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+
+  assert.match(html, /id="v2-quest-debug"/);
+  assert.match(html, /data-debug-quest="watchtower"/);
+  assert.match(html, /data-debug-quest="crossroads"/);
+  assert.match(runtime, /setDebugQuestCompletion/);
+  assert.match(runtime, /savePastCampaign\(\)/);
+  assert.match(runtime, /savePastStory\(\)/);
 });
 
 test('shop tabs and inn fade remain touch-sized on mobile', () => {

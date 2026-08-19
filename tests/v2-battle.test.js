@@ -2,12 +2,15 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  CARD_ATTRIBUTE_LABELS,
   CARD_LIBRARY,
+  DISCIPLINE_LABELS,
   ENEMY_LIBRARY,
   ENEMY_INTENTS,
   createBattle,
   defaultDeck,
   previewAction,
+  redrawOpeningCard,
   resolveTurn,
   toggleCard
 } = require('../v2-battle.js');
@@ -29,11 +32,55 @@ test('a level-one profile starts with one action point and resolves after one ca
   assert.equal(battle.readyToResolve, true);
 });
 
+test('one opening card can be redrawn exactly once before the first action', () => {
+  const battle = createBattle('mist-slime', () => 0, {
+    deck: ['slash', 'guard', 'focus', 'spark']
+  });
+  const original = battle.hand[0];
+  const redrawn = redrawOpeningCard(battle, 0, () => 0);
+
+  assert.equal(redrawn.openingRedrawAvailable, false);
+  assert.equal(redrawn.hand.length, battle.hand.length);
+  assert.notEqual(redrawn.hand[0], original);
+  assert.equal(redrawn.discard.includes(original), true);
+  assert.equal(redrawOpeningCard(redrawn, 1, () => 0), redrawn);
+});
+
+test('opening redraw is unavailable after selecting an action or after turn one', () => {
+  const battle = createBattle('mist-slime', () => 0, {
+    deck: ['slash', 'guard', 'focus', 'spark']
+  });
+  const selected = toggleCard(battle, battle.hand[0], 0);
+
+  assert.equal(redrawOpeningCard(selected, 1, () => 0), selected);
+  assert.equal(redrawOpeningCard({ ...battle, turn: 2 }, 1, () => 0).turn, 2);
+});
+
+test('every card has explicit type and attribute labels independent of its artwork glyph', () => {
+  for (const card of Object.values(CARD_LIBRARY)) {
+    assert.ok(DISCIPLINE_LABELS[card.discipline], `${card.id} has no type label`);
+    assert.ok(CARD_ATTRIBUTE_LABELS[card.attribute], `${card.id} has no attribute label`);
+  }
+  assert.equal(CARD_LIBRARY['cross-slash'].icon, '十');
+  assert.equal(DISCIPLINE_LABELS[CARD_LIBRARY['cross-slash'].discipline], '剣');
+  assert.equal(CARD_ATTRIBUTE_LABELS[CARD_LIBRARY['cross-slash'].attribute], '無');
+});
+
 test('a later profile can spend three action points on three cards', () => {
   let battle = createBattle('mist-slime', () => 0, { energy: 3 });
   const firstFour = battle.hand.slice(0, 4);
   for (const cardId of firstFour.slice(0, 3)) battle = toggleCard(battle, cardId);
   assert.equal(battle.selectedCost, battle.energy);
+  assert.equal(battle.readyToResolve, true);
+});
+
+test('duplicate copies in the hand can be selected independently', () => {
+  let battle = createBattle('mist-slime', () => 0, { energy: 2, deck: ['slash'] });
+  battle = toggleCard(battle, 'slash', 0);
+  battle = toggleCard(battle, 'slash', 1);
+
+  assert.deepEqual(battle.selected, ['slash', 'slash']);
+  assert.deepEqual(battle.selectedIndices, [0, 1]);
   assert.equal(battle.readyToResolve, true);
 });
 

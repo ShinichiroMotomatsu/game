@@ -10,10 +10,13 @@
   const settingsPanel = document.querySelector('#v2-settings');
   const settingsToggle = document.querySelector('#v2-settings-toggle');
   const settingsClose = document.querySelector('#v2-settings-close');
+  const questDebug = document.querySelector('#v2-quest-debug');
+  const questDebugStatus = document.querySelector('#v2-quest-debug-status');
   const infoToggle = document.querySelector('#v2-info-toggle');
   const battleOverlay = document.querySelector('#v2-battle');
   const battleHand = document.querySelector('#v2-battle-hand');
   const battleResolve = document.querySelector('#v2-battle-resolve');
+  const battleRedraw = document.querySelector('#v2-battle-redraw');
   const battleFlee = document.querySelector('#v2-battle-flee');
   const battlePractice = document.querySelector('#v2-battle-practice');
   const battleEffects = document.querySelector('#v2-battle-effects');
@@ -73,8 +76,8 @@
     tileCoordinateForPoint,
     visibleTileCoordinates
   } = assetApi;
-  const { CARD_LIBRARY, ENEMY_INTENTS, createBattle, previewAction, resolveTurn, toggleCard } = battleApi;
-  const { FIELD_ENCOUNTER_GRACE_MS, advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, respawnPastEnemies, shouldStartEncounter } = pastWorldApi;
+  const { CARD_ATTRIBUTE_LABELS, CARD_LIBRARY, DISCIPLINE_LABELS, ENEMY_INTENTS, createBattle, previewAction, redrawOpeningCard, resolveTurn, toggleCard } = battleApi;
+  const { FIELD_ENCOUNTER_GRACE_MS, FIELD_EXIT_SAFE_RADIUS, advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, respawnPastEnemies, shouldStartEncounter } = pastWorldApi;
   const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
   const { NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, npcPoseAt } = pastSceneApi;
@@ -122,6 +125,7 @@
     createPastStory,
     nearestWalkablePoint,
     nearbyPastInteraction,
+    setDebugQuestCompletion,
     storyAllowsEncounters,
     storyEncounterMode,
     storyUnlocksInteraction,
@@ -263,9 +267,11 @@
   if (!Number.isFinite(memoryStage)) memoryStage = 0;
   let activeBattle = null;
   let activeEncounter = null;
+  let battleRedrawSelecting = false;
   let battleEffectTimer = 0;
   let encounterTransitioning = false;
   let encounterGraceUntil = 0;
+  let encounterSafeCenter = null;
   let ready = false;
   let currentEdition = normalizeEdition(restartRequest.edition);
   let storyPanelVisible = localStorage.getItem('roppongi-past-story-panel') !== 'hidden';
@@ -536,6 +542,33 @@
     storyStatus.dataset.energy = String(profile.energy);
     storyStatus.dataset.roadVictories = String(campaignState.roadVictories);
     storyStatus.dataset.bossDefeated = String(campaignState.bossDefeated);
+    updateQuestDebugControls();
+  }
+
+  function updateQuestDebugControls() {
+    questDebug.hidden = currentEdition !== 'past';
+    document.querySelectorAll('[data-debug-quest]').forEach(button => {
+      const completed = button.dataset.debugQuest === 'watchtower'
+        ? campaignState.bossDefeated
+        : campaignState.crossroadsBossDefeated;
+      button.setAttribute('aria-pressed', String(completed));
+      button.textContent = completed ? 'クリア済み' : '未クリア';
+    });
+  }
+
+  function toggleDebugQuest(questId) {
+    const completed = questId === 'watchtower' ? campaignState.bossDefeated : campaignState.crossroadsBossDefeated;
+    const result = setDebugQuestCompletion(storyState, campaignState, questId, !completed);
+    storyState = createPastStory(result.story);
+    campaignState = createPastCampaign(result.campaign);
+    pastEnemies = respawnPastEnemies(pastEnemies);
+    savePastStory();
+    savePastCampaign();
+    updateStoryStatus();
+    updateInteractionPrompt(null);
+    prepareActiveLocation();
+    const questName = questId === 'watchtower' ? '古い見張り台' : '四門水路';
+    questDebugStatus.textContent = `${questName}を${!completed ? 'クリア済み' : '未クリア'}へ変更しました。`;
   }
 
   function updateMemoryLabels() {
@@ -911,9 +944,10 @@
 
   function transitionStoryArea(result) {
     const previousArea = storyState.area;
+    const enteringField = previousArea !== 'overworld' && result.state.area === 'overworld';
     locationPositions.set(activeLocationKey, [player.x, player.y]);
     storyState = result.state;
-    if (previousArea !== 'overworld' && storyState.area === 'overworld') {
+    if (enteringField) {
       encounterGraceUntil = performance.now() + FIELD_ENCOUNTER_GRACE_MS;
     }
     if (storyState.area !== previousArea && storyState.area !== 'overworld') {
@@ -927,6 +961,7 @@
     const safeSpawn = storyState.area === 'overworld'
       ? nearestWalkablePoint(intendedSpawn, (x, y) => canStandAt(x, y))
       : intendedSpawn;
+    encounterSafeCenter = enteringField ? [...safeSpawn] : null;
     player.x = safeSpawn[0];
     player.y = safeSpawn[1];
     player.facing = storyState.area === 'castle' ? 'up' : 'down';
@@ -1075,6 +1110,9 @@
   settingsClose.addEventListener('click', () => setSettingsOpen(false));
   infoToggle.addEventListener('click', () => setStoryPanelVisible(!storyPanelVisible));
   collisionToggle.addEventListener('click', () => setCollisionDisplay(!showCollision));
+  document.querySelectorAll('[data-debug-quest]').forEach(button => {
+    button.addEventListener('click', () => toggleDebugQuest(button.dataset.debugQuest));
+  });
   interactionPrompt.addEventListener('click', performStoryInteraction);
   dialogueOverlay.addEventListener('click', advanceStoryDialogue);
   openBagButton.addEventListener('click', () => openService('bag'));
@@ -1281,6 +1319,9 @@
 
     if (currentEdition === 'past' && activeAreaId() === 'overworld') {
       const now = performance.now();
+      if (encounterSafeCenter && Math.hypot(player.x - encounterSafeCenter[0], player.y - encounterSafeCenter[1]) >= FIELD_EXIT_SAFE_RADIUS * maskScale) {
+        encounterSafeCenter = null;
+      }
       pastEnemies = pastEnemies.map(enemy => {
         if (storyEncounterMode(storyState, enemy.id) === 'hidden') return enemy;
         if (!enemy.active && now >= enemy.respawnAt) {
@@ -1288,7 +1329,7 @@
         }
         return advancePatrol(enemy, dt);
       });
-      const encounter = now >= encounterGraceUntil && pastEnemies.find(enemy => storyEncounterMode(storyState, enemy.id) !== 'hidden'
+      const encounter = now >= encounterGraceUntil && pastEnemies.find(enemy => !encounterSafeCenter && storyEncounterMode(storyState, enemy.id) !== 'hidden'
         && shouldStartEncounter(player, enemy, 23 * maskScale, now));
       if (encounter) openBattle(encounter);
     }
@@ -2247,22 +2288,31 @@
       ? `勝利 · ${activeBattle.reward.gold}G / ${activeBattle.reward.xp}EXP`
       : activeBattle.status === 'defeat' ? '王都で目覚める' : '行動する';
     battleFlee.hidden = tutorialRescue;
+    const canRedraw = activeBattle.status === 'active' && activeBattle.turn === 1
+      && activeBattle.openingRedrawAvailable && !activeBattle.selected.length;
+    battleRedraw.hidden = tutorialRescue || activeBattle.status !== 'active' || activeBattle.turn !== 1 || !activeBattle.openingRedrawAvailable;
+    battleRedraw.disabled = !canRedraw;
+    battleRedraw.setAttribute('aria-pressed', String(battleRedrawSelecting));
+    battleRedraw.textContent = battleRedrawSelecting ? '交換する札を1枚選ぶ' : '最初の1枚を引き直す';
     battleHand.replaceChildren(...activeBattle.hand.map((cardId, index) => {
       const card = CARD_LIBRARY[cardId];
       const selectedCountBefore = activeBattle.hand.slice(0, index).filter(id => id === cardId).length;
-      const selectedOccurrence = activeBattle.selected.filter(id => id === cardId).length > selectedCountBefore;
+      const selectedOccurrence = activeBattle.selectedIndices?.includes(index)
+        || (!activeBattle.selectedIndices?.length && activeBattle.selected.filter(id => id === cardId).length > selectedCountBefore);
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'v2-card';
       button.dataset.card = cardId;
       button.dataset.discipline = card.discipline;
+      button.dataset.attribute = card.attribute;
+      button.classList.toggle('is-redraw-choice', battleRedrawSelecting);
       if (card.element) button.dataset.element = card.element;
       button.setAttribute('aria-pressed', String(selectedOccurrence));
       const remainingMp = activeBattle.player.mp - action.mpCost;
       const remainingEnergy = activeBattle.energy - spentEnergy;
       const canAffordMp = selectedOccurrence || (card.mpCost || 0) <= remainingMp;
       const canAffordEnergy = selectedOccurrence || card.cost <= remainingEnergy;
-      button.disabled = activeBattle.status !== 'active' || !canAffordMp || !canAffordEnergy;
+      button.disabled = activeBattle.status !== 'active' || (!battleRedrawSelecting && (!canAffordMp || !canAffordEnergy));
       const mpCost = card.mpCost
         ? `<span class="v2-card-mp-cost" aria-label="消費MP ${card.mpCost}">MP${card.mpCost}</span>`
         : '';
@@ -2270,10 +2320,17 @@
         <span class="v2-card-frame" aria-hidden="true"></span>
         <span class="v2-card-cost" aria-label="消費行動力 ${card.cost}">◆${card.cost}</span>
         ${mpCost}
+        <span class="v2-card-tags"><b class="v2-card-type">種別 ${DISCIPLINE_LABELS[card.discipline]}</b><b class="v2-card-attribute" data-attribute="${card.attribute}">属性 ${CARD_ATTRIBUTE_LABELS[card.attribute]}</b></span>
         <span class="v2-card-art" aria-hidden="true"><i>${card.icon}</i></span>
         <span class="v2-card-copy"><strong>${card.name}</strong><small>${card.description}</small></span>`;
       button.addEventListener('click', () => {
-        activeBattle = toggleCard(activeBattle, cardId);
+        if (battleRedrawSelecting) {
+          activeBattle = redrawOpeningCard(activeBattle, index);
+          battleRedrawSelecting = false;
+          renderBattle();
+          return;
+        }
+        activeBattle = toggleCard(activeBattle, cardId, index);
         if (activeBattle.readyToResolve) resolveSelectedAction();
         else renderBattle();
       });
@@ -2375,6 +2432,7 @@
 
   function resolveSelectedAction() {
     if (!activeBattle || activeBattle.status !== 'active' || !activeBattle.selected.length) return;
+    battleRedrawSelecting = false;
     activeBattle = resolveTurn(activeBattle);
     renderBattle();
     playBattleEffects(activeBattle.effects);
@@ -2383,6 +2441,7 @@
   async function openBattle(encounter) {
     if (activeBattle || encounterTransitioning) return;
     encounterTransitioning = true;
+    battleRedrawSelecting = false;
     keys.clear();
     resetMapDrag();
     try {
@@ -2418,6 +2477,7 @@
 
   function closeBattle(result) {
     if (!activeBattle) return;
+    battleRedrawSelecting = false;
     const encounter = activeEncounter;
     const practice = encounter?.id === 'practice';
     const bossVictory = result === 'victory' && encounter?.id === 'watchtower-boss';
@@ -2516,6 +2576,11 @@
     if (activeBattle.status === 'victory') return closeBattle('victory');
     if (activeBattle.status === 'defeat') return closeBattle('defeat');
     resolveSelectedAction();
+  });
+  battleRedraw.addEventListener('click', () => {
+    if (!activeBattle || battleRedraw.disabled) return;
+    battleRedrawSelecting = !battleRedrawSelecting;
+    renderBattle();
   });
   battleFlee.addEventListener('click', () => closeBattle('fled'));
   battlePractice.addEventListener('click', () => {

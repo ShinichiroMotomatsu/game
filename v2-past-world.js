@@ -3,7 +3,8 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.V2_PAST_WORLD = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
-  const FIELD_ENCOUNTER_GRACE_MS = 1800;
+  const FIELD_ENCOUNTER_GRACE_MS = 4000;
+  const FIELD_EXIT_SAFE_RADIUS = 55;
   const PAST_BIOMES = Object.freeze([
     Object.freeze({ id: 'coast', name: '潮風の海岸', center: Object.freeze([85, 530]) }),
     Object.freeze({ id: 'poison-swamp', name: '紫泥の沼', center: Object.freeze([150, 485]) }),
@@ -101,6 +102,7 @@
     PAST_BIOMES,
     PAST_ENCOUNTERS,
     FIELD_ENCOUNTER_GRACE_MS,
+    FIELD_EXIT_SAFE_RADIUS,
     advancePatrol,
     createPastEnemies,
     landmarkMemoryState,
