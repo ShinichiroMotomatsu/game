@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const vm = require('node:vm');
 
 test('mobile status preserves both HP and MP without a top HUD panel', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
@@ -106,4 +107,15 @@ test('settings expose compact authenticated cloud save controls', () => {
   assert.match(runtime, /buildCloudSaveEnvelope/);
   assert.match(runtime, /restoreCloudSaveEnvelope/);
   assert.doesNotMatch(runtime, /innerHTML\s*=/);
+});
+
+test('browser Supabase config contains only the project URL and publishable key', () => {
+  const config = fs.readFileSync('v2-supabase-config.public.js', 'utf8');
+  const context = { globalThis: {} };
+  vm.runInNewContext(config, context);
+  const publicConfig = context.globalThis.ROPPONGI_SUPABASE_CONFIG;
+
+  assert.deepEqual(Array.from(Object.keys(publicConfig)).sort(), ['publishableKey', 'url']);
+  assert.equal(publicConfig.url, 'https://xnromcineefyabmrnaro.supabase.co');
+  assert.match(publicConfig.publishableKey, /^sb_publishable_[A-Za-z0-9_-]+$/);
 });
