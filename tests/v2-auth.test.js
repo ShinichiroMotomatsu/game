@@ -1,7 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createAuthService, validEmail, validPassword } = require('../v2-auth.js');
+const {
+  EMAIL_CONFIRMATION_REDIRECT,
+  createAuthService,
+  validEmail,
+  validPassword
+} = require('../v2-auth.js');
 
 test('login accepts a normalized email and never returns provider error details', async () => {
   let credentials;
@@ -27,16 +32,63 @@ test('invalid credentials fail before contacting Supabase', async () => {
   assert.equal(contacted, false);
 });
 
-test('signup and logout expose only safe application results', async () => {
+test('signup uses the exact production confirmation redirect and exposes only safe results', async () => {
+  let signupRequest;
   const client = {
     auth: {
-      signUp: async () => ({ data: { user: { id: 'pending' }, session: null }, error: null }),
+      signUp: async request => {
+        signupRequest = request;
+        return { data: { user: { id: 'pending' }, session: null }, error: null };
+      },
       signOut: async () => ({ error: new Error('provider internals') })
     }
   };
   const service = createAuthService(client);
   assert.deepEqual(await service.signUp('family@example.com', 'long-password'), { ok: true, confirmationRequired: true });
+  assert.deepEqual(signupRequest, {
+    email: 'family@example.com',
+    password: 'long-password',
+    options: { emailRedirectTo: 'https://shinichiromotomatsu.github.io/game/v2.html' }
+  });
+  assert.equal(EMAIL_CONFIRMATION_REDIRECT, 'https://shinichiromotomatsu.github.io/game/v2.html');
   assert.deepEqual(await service.signOut(), { ok: false, reason: 'remote-error' });
+});
+
+test('pending signup can resend a confirmation email to the production game', async () => {
+  let resendRequest;
+  const client = {
+    auth: {
+      resend: async request => {
+        resendRequest = request;
+        return { data: {}, error: null };
+      }
+    }
+  };
+  const service = createAuthService(client);
+
+  assert.deepEqual(await service.resendConfirmation('  FAMILY@example.com '), { ok: true });
+  assert.deepEqual(resendRequest, {
+    type: 'signup',
+    email: 'family@example.com',
+    options: { emailRedirectTo: 'https://shinichiromotomatsu.github.io/game/v2.html' }
+  });
+});
+
+test('confirmation resend validates email locally and hides provider errors', async () => {
+  let contacted = false;
+  const client = {
+    auth: {
+      resend: async () => {
+        contacted = true;
+        return { data: null, error: new Error('provider internals') };
+      }
+    }
+  };
+  const service = createAuthService(client);
+
+  assert.deepEqual(await service.resendConfirmation('not-an-email'), { ok: false, reason: 'invalid-email' });
+  assert.equal(contacted, false);
+  assert.deepEqual(await service.resendConfirmation('family@example.com'), { ok: false, reason: 'resend-failed' });
 });
 
 test('session lookup and auth subscription use the injected client', async () => {

@@ -100,12 +100,17 @@ test('settings expose compact authenticated cloud save controls', () => {
   assert.match(html, /id="v2-cloud-password"[^>]*autocomplete="current-password"/);
   assert.match(html, /id="v2-cloud-sign-in"/);
   assert.match(html, /id="v2-cloud-sign-up"/);
+  assert.match(html, /id="v2-cloud-resend"/);
   assert.match(html, /id="v2-cloud-upload"/);
   assert.match(html, /id="v2-cloud-download"/);
+  assert.match(html, /v2-auth\.js\?edition=2/);
+  assert.match(html, /v2-supabase-app\.js\?edition=2/);
   assert.match(html, /v2-supabase-bundle\.js/);
   assert.match(css, /\.v2-cloud-actions/);
   assert.match(runtime, /buildCloudSaveEnvelope/);
   assert.match(runtime, /restoreCloudSaveEnvelope/);
+  assert.match(runtime, /detectSessionInUrl:\s*true/);
+  assert.match(runtime, /resendConfirmation/);
   assert.doesNotMatch(runtime, /innerHTML\s*=/);
 });
 

@@ -60,6 +60,16 @@ test('repository guidance keeps hosted database access out of local development'
   assert.match(gitignore, /supabase\/\.temp\//);
 });
 
+test('production auth guidance pins confirmation links to the published game', () => {
+  const readme = read('supabase/README.md');
+
+  assert.match(readme, /Authentication > URL Configuration/);
+  assert.match(readme, /Site URL.*https:\/\/shinichiromotomatsu\.github\.io\/game\/v2\.html/s);
+  assert.match(readme, /Redirect URLs.*https:\/\/shinichiromotomatsu\.github\.io\/game\/v2\.html/s);
+  assert.match(readme, /\{\{ \.ConfirmationURL \}\}/);
+  assert.match(readme, /送信済みの確認メール.*更新されません/);
+});
+
 test('GitHub Pages publishing is manual and uploads only the browser game', () => {
   const workflow = read('.github/workflows/deploy-pages.yml');
   const triggerBlock = workflow.match(/^on:\r?\n([\s\S]*?)^permissions:/m)?.[1] ?? '';

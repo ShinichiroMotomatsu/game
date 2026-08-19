@@ -48,3 +48,14 @@ Scoped Access Tokenを使う場合は、対象プロジェクトだけを選び�
 公開URLと認証画面を決めた後、`v2-supabase-config.public.js` の空欄へプロジェクトの`sb_publishable_...`キーを設定します。Publishable KeyとProject URLは公開情報であり、ブラウザからRLSを通して利用します。Secret Keyや`service_role` keyは絶対に含めません。
 
 設定画面のクラウド保存は、メール＋パスワード認証と明示的なアップロード・ダウンロードだけを提供します。自動同期は行わず、ダウンロード時は端末データを上書きする前に確認します。
+
+## 本番の認証URL
+
+Supabase Dashboardの **Authentication > URL Configuration** で、次の値を設定します。
+
+- Site URL: `https://shinichiromotomatsu.github.io/game/v2.html`
+- Redirect URLs: `https://shinichiromotomatsu.github.io/game/v2.html`
+
+本番ではワイルドカードではなく、上記の完全一致URLを使います。`supabase/config.toml` のlocalhost設定はローカルSupabase専用で、ホスト済みプロジェクトの設定には反映されません。
+
+**Authentication > Email Templates > Confirm signup** をカスタマイズした場合は、確認リンクに `{{ .ConfirmationURL }}` を使用します。送信済みの確認メールに含まれるURLは設定変更後も更新されません。公開版の設定画面から「確認メールを再送」を実行し、新しく届いたメールを使用します。
