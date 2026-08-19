@@ -31,7 +31,7 @@ function copyFile(relativePath, outputDirectory) {
 function copyRuntimeDirectory(relativeDirectory, outputDirectory) {
   const sourceDirectory = path.join(ROOT, relativeDirectory);
   for (const entry of fs.readdirSync(sourceDirectory, { withFileTypes: true })) {
-    if (!entry.isFile() || FORBIDDEN_ASSET_NAME.test(entry.name)) continue;
+    if (!entry.isFile() || path.extname(entry.name).toLowerCase() !== '.png' || FORBIDDEN_ASSET_NAME.test(entry.name)) continue;
     copyFile(path.join(relativeDirectory, entry.name), outputDirectory);
   }
 }

@@ -1,0 +1,10 @@
+{
+  "source": "assets/v2/roppongi-roads-past-evening.png",
+  "sourceSha256": "1142159f82ae202479b36b33fb07dbe144984615e679f83e7957010005f06a47",
+  "tiles": {
+    "0-0.png": "c3a0de856176eb8327437948ff0645372e5c46457e44e063e6552e612e4f4882",
+    "1-0.png": "47ff8cdcdee428e33a30bff5bdf587814b88676db9fe17caf1d10243cb8f130f",
+    "0-1.png": "edeff467899e0fb3d886172a67de534ad1016437cf749c2f2438399bb305a2aa",
+    "1-1.png": "c8d72de54ef35ef433678cc80cf29dff172ca1e3a1540f1f3ba8e3e4d2504a9e"
+  }
+}

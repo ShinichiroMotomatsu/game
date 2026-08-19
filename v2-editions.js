@@ -9,6 +9,7 @@
       label: '現代編-昼間',
       subtitle: 'MODERN · DAY',
       tileDirectory: 'day-runtime-tiles',
+      tileVersion: 1,
       landmarkDirectory: 'landmarks',
       uiTheme: 'modern',
       showMapLabels: true,
@@ -19,6 +20,7 @@
       label: '過去編-夕方',
       subtitle: 'PAST · EVENING',
       tileDirectory: 'past-evening-runtime-tiles',
+      tileVersion: 2,
       landmarkDirectory: 'past-landmarks',
       landmarkSizeOverrides: Object.freeze({
         // The source sprite is tightly cropped after removing sheet-edge bleed.

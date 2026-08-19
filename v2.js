@@ -150,7 +150,7 @@
     const tiles = [];
     for (let row = 0; row < tileRows; row++) {
       for (let col = 0; col < tileCols; col++) {
-        const source = `assets/v2/${definition.tileDirectory}/${col}-${row}.png?edition=1`;
+        const source = `assets/v2/${definition.tileDirectory}/${col}-${row}.png?edition=${definition.tileVersion}`;
         const key = tileAssetKey(editionId, col, row);
         tiles.push({ row, col, key, image: assetLoader.register(key, source), source });
       }
