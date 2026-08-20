@@ -196,3 +196,28 @@ Perspective: front-facing pseudo-3D overworld sprite rather than a flat overhead
 Lighting/mood: neutral ambient asset lighting with restrained warm window glow; no long directional cast shadow.
 Constraints: genuinely transparent background; no water, no terrain, no pier, no lighthouse, no rowboat, no extra building, no text, no UI, no watermark. Do not tilt or rotate the mast left, right, or downward.
 ```
+
+## 港のコンパクトな桟橋
+
+`harbor-pier-source.png` の短縮再制作
+
+```text
+Use case: precise-object-edit
+Asset type: transparent rotatable JRPG overworld pier component
+Input image: Image 1 is the exact pier asset to edit and the style/material reference.
+Primary request: Shorten the visible wooden pier to about 55–60 percent of its current length. Keep only four evenly spaced wooden deck bays between the clean squared seaward end and the low stone land-connection landing. Preserve the current pier width, warm brown boards, low round posts, rope details, dark metal brackets, stone landing, crisp painted texture, outline weight, and overall visual quality. Do not merely squash or vertically scale the existing art: reconstruct it naturally as a deliberately compact harbor pier with fewer repeated sections.
+Composition/framing: keep a square 2048×2048 transparent canvas. Center the shorter pier vertically and horizontally. Its midpoint must remain at the exact canvas center so rotation around the canvas center remains correct. The squared seaward end points to exact top center and the stone land connection points to exact bottom center. Leave generous and approximately balanced transparent padding above and below the shortened structure.
+Perspective: mostly top-down deck surface with only shallow edge thickness. It must remain visually natural when rotated to any coast direction.
+Constraints: genuine PNG alpha transparency outside the pier and landing; no checkerboard baked into pixels; no water; no terrain; no shoreline; no ship; no boat; no lighthouse; no building; no mast; no flags; no crates; no barrels; no text; no UI; no watermark; no new props; no directional cast shadow.
+```
+
+`harbor-pier-source.png` の透過背景補正
+
+```text
+Use case: background-extraction
+Asset type: transparent rotatable JRPG overworld pier component
+Input image: Image 1 is the exact compact pier edit target. The visible pale gray and white checkerboard is an incorrect baked background, not artwork.
+Primary request: Remove only the entire checkerboard and every background pixel, replacing them with genuine PNG alpha transparency. Preserve the compact four-bay wooden pier and low stone landing exactly as shown: same shape, pixel position, proportions, center point, colors, painted detail, warm boards, posts, ropes, brackets, stones, scale, vertical orientation, and balanced padding. Do not redraw, move, resize, rotate, stretch, crop, or restyle the pier.
+Composition/framing: retain the same square canvas and centered layout. Seaward end stays at top center, stone land connection stays at bottom center.
+Constraints: actual transparent alpha pixels everywhere outside the pier and landing; clean antialiased cutout edges; no gray or white checkerboard; no pale background; no halo; no new objects; no changes to the artwork; no water; no terrain; no text; no UI; no watermark.
+```

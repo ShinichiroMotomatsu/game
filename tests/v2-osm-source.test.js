@@ -167,9 +167,16 @@ test('Past Evening map build clips roads to an island and draws ports at coastal
   assert.match(builder, /HARBOR_PIER_SOURCE_PATH/);
   assert.match(builder, /HARBOR_SHIP_SOURCE_PATH/);
   assert.match(builder, /HARBOR_LIGHTHOUSE_SOURCE_PATH/);
+  assert.match(builder, /HARBOR_PIER_SCALE\s*=\s*0\.72/);
+  assert.match(builder, /HARBOR_LIGHTHOUSE_INLAND\s*=\s*0\.46/);
+  assert.match(builder, /HARBOR_LIGHTHOUSE_SIDE\s*=\s*0\.10/);
   assert.match(builder, /pier_sprite\.rotate/);
   assert.doesNotMatch(builder, /ship_sprite\.rotate|lighthouse_sprite\.rotate/);
+  assert.match(builder, /center\[0\]\s*-\s*outward\[0\]\s*\*\s*size\s*\*\s*HARBOR_LIGHTHOUSE_INLAND\s*\+\s*side\[0\]\s*\*\s*size\s*\*\s*HARBOR_LIGHTHOUSE_SIDE/);
+  assert.match(builder, /center\[1\]\s*-\s*outward\[1\]\s*\*\s*size\s*\*\s*HARBOR_LIGHTHOUSE_INLAND\s*\+\s*side\[1\]\s*\*\s*size\s*\*\s*HARBOR_LIGHTHOUSE_SIDE/);
   assert.match(builder, /composite_upright_harbor_prop/);
+  assert.match(builder, /canvas\.width\s*-\s*sprite\.width/);
+  assert.match(builder, /canvas\.height\s*-\s*sprite\.height/);
   assert.match(builder, /Image\.Resampling\.LANCZOS/);
   assert.match(builder, /alpha_composite/);
   assert.match(builder, /ImageChops\.multiply/);
