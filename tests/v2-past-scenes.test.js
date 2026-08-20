@@ -7,6 +7,7 @@ const {
   NPC_SPRITE_ASSETS,
   PAST_EVENT_ASSETS,
   PAST_SCENE_ASSETS,
+  PAST_STORY_VISUALS,
   npcPoseAt
 } = require('../v2-past-scenes.js');
 const {
@@ -21,7 +22,9 @@ test('the royal capital is rendered as ground, building, and character raster la
     'castle-town-buildings',
     'castle-town-ground',
     'crossroads-town',
-    'mist-citadel'
+    'mist-citadel',
+    'voyage-intro',
+    'watchtower-discovery'
   ]);
   for (const asset of Object.values(PAST_SCENE_ASSETS)) {
     assert.match(asset.path, /^assets\/v2\/past-scenes\/.+\.png$/);
@@ -40,13 +43,22 @@ test('watergate artwork is square and explicitly safe to rotate into all four di
 test('overworld event people and structures use transparent raster assets', () => {
   assert.deepEqual(Object.keys(PAST_EVENT_ASSETS).sort(), [
     'capital-gate', 'card-chest-frost', 'card-chest-mend',
-    'compass-altar-corrupted', 'compass-altar-restored', 'magic-tutor', 'old-watchtower',
+    'compass-altar-corrupted', 'compass-altar-restored', 'father-compass', 'magic-tutor', 'old-watchtower',
+    'star-crest',
     'watergate-closed', 'watergate-open'
   ]);
   for (const asset of Object.values(PAST_EVENT_ASSETS)) {
     assert.match(asset.path, /^assets\/v2\/past-events\/.+\.png$/);
     assert.equal(fs.existsSync(asset.path), true, `${asset.path} is missing`);
   }
+});
+
+test('the compass close-up and watchtower discovery reuse one exact star crest layer', () => {
+  assert.equal(PAST_STORY_VISUALS.compass.sceneId, 'voyage-intro');
+  assert.equal(PAST_STORY_VISUALS.compass.eventId, 'father-compass');
+  assert.equal(PAST_STORY_VISUALS.compass.crestId, 'star-crest');
+  assert.equal(PAST_STORY_VISUALS['watchtower-crest'].sceneId, 'watchtower-discovery');
+  assert.equal(PAST_STORY_VISUALS['watchtower-crest'].crestId, PAST_STORY_VISUALS.compass.crestId);
 });
 
 test('waterway props load only when the dungeon is active', () => {

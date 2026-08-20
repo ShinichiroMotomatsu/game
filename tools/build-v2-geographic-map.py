@@ -20,6 +20,7 @@ PREVIEW_PATH = ROOT / "tmp" / "v2-road-geographic-preview.png"
 LANDMARK_PREVIEW_PATH = ROOT / "tmp" / "v2-geographic-landmark-preview.png"
 PAST_LANDMARK_PREVIEW_PATH = ROOT / "tmp" / "v2-past-evening-landmark-preview.png"
 PAST_LAND_MASK_PATH = ROOT / "assets" / "v2" / "past-land-mask.png"
+HARBOR_SETPIECE_SOURCE_PATH = ROOT / "assets" / "v2" / "past-events" / "harbor-setpiece-source.png"
 COLLISION_DATA_PATH = ROOT / "assets" / "v2" / "road-collision-data.js"
 PAST_COLLISION_DATA_PATH = ROOT / "assets" / "v2" / "road-collision-past-data.js"
 LAYOUT_DATA_PATH = ROOT / "assets" / "v2" / "map-layout-data.js"
@@ -242,31 +243,26 @@ def coastal_road_ports(layout: dict, land_mask: Image.Image) -> list[tuple[float
     return ports
 
 
-def draw_past_ports(canvas: Image.Image, layout: dict, land_mask: Image.Image) -> None:
-    draw = ImageDraw.Draw(canvas, "RGBA")
+def draw_past_ports(canvas: Image.Image, layout: dict, land_mask: Image.Image) -> Image.Image:
+    high_resolution = canvas.convert("RGBA").resize(
+        (canvas.width * SUPERSAMPLE, canvas.height * SUPERSAMPLE),
+        Image.Resampling.LANCZOS,
+    )
+    harbor_source = Image.open(HARBOR_SETPIECE_SOURCE_PATH).convert("RGBA")
     for x, y, angle, road_width in coastal_road_ports(layout, land_mask):
-        length = 54
-        half_width = max(12, min(18, round(road_width * 0.65)))
-        tangent = math.cos(angle), math.sin(angle)
-        normal = -tangent[1], tangent[0]
-        points = [
-            (x + tangent[0] * length * direction + normal[0] * half_width * side,
-             y + tangent[1] * length * direction + normal[1] * half_width * side)
-            for direction, side in ((-0.28, -1), (1, -1), (1, 1), (-0.28, 1))
-        ]
-        draw.polygon(points, fill=(102, 67, 39, 255), outline=(226, 165, 80, 235), width=3)
-        for step in range(0, length, 10):
-            cx = x + tangent[0] * step
-            cy = y + tangent[1] * step
-            draw.line(
-                (cx - normal[0] * half_width, cy - normal[1] * half_width,
-                 cx + normal[0] * half_width, cy + normal[1] * half_width),
-                fill=(218, 157, 82, 160), width=2,
-            )
-        for side in (-1, 1):
-            post_x = x + tangent[0] * length * 0.8 + normal[0] * half_width * side
-            post_y = y + tangent[1] * length * 0.8 + normal[1] * half_width * side
-            draw.ellipse((post_x - 4, post_y - 4, post_x + 4, post_y + 4), fill=(44, 29, 23, 255))
+        size = round(max(128, min(158, 112 + road_width * 1.35)) * SUPERSAMPLE)
+        harbor_sprite = harbor_source.resize((size, size), Image.Resampling.LANCZOS)
+        # The authored pier points toward the top; rotate that outward axis to
+        # the exact road/shore crossing without redrawing low-resolution edges.
+        harbor_sprite = harbor_sprite.rotate(
+            math.degrees(angle) + 90,
+            resample=Image.Resampling.BICUBIC,
+            expand=True,
+        )
+        left = round(x * SUPERSAMPLE - harbor_sprite.width / 2)
+        top = round(y * SUPERSAMPLE - harbor_sprite.height / 2)
+        high_resolution.alpha_composite(harbor_sprite, (left, top))
+    return high_resolution.resize(canvas.size, Image.Resampling.LANCZOS).convert("RGB")
 
 def mask_to_runs(mask: Image.Image) -> list[list[list[int]]]:
     rows: list[list[list[int]]] = []
@@ -352,7 +348,7 @@ def render_map(layout: dict, background_path: Path, output_path: Path, palette: 
         island = Image.open(PAST_BACKGROUND_PATH).convert("RGB").resize((width, height), Image.Resampling.LANCZOS)
         # Keep the generated sea outside the stable island mask and all deterministic road work inside it.
         map_image = Image.composite(map_image, island, land_mask)
-        draw_past_ports(map_image, layout, land_mask)
+        map_image = draw_past_ports(map_image, layout, land_mask)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     map_image.save(output_path)
     return map_image

@@ -91,6 +91,28 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .v2-dialogue small { color: #ffbb61; font: 700 11px Georgia, "Yu Mincho", serif; letter-spacing: .12em; }
 .v2-dialogue p { margin: 10px 0 0; font: 500 clamp(14px, 2vw, 18px)/1.8 Georgia, "Yu Mincho", serif; }
 .v2-dialogue button { position: absolute; right: 20px; bottom: 20px; min-width: 64px; min-height: 44px; border: 1px solid #e1ad62; background: #7a3d2d; color: #fff0cf; font: inherit; font-weight: 700; cursor: pointer; }
+.v2-story-visual { position: fixed; z-index: -1; left: 50%; bottom: calc(max(18px, env(safe-area-inset-bottom)) + 144px); width: min(960px, calc(100vw - 24px)); aspect-ratio: 16 / 9; margin: 0; overflow: hidden; transform: translateX(-50%); border: 3px double #e3aa5d; border-radius: 10px 10px 0 0; background: #090610; box-shadow: 0 18px 70px #000e; }
+.v2-story-visual[hidden] { display: none; }
+.v2-story-visual-scene { width: 100%; height: 100%; object-fit: cover; }
+.v2-story-visual-object { position: absolute; z-index: 2; top: 18%; left: 50%; width: 36%; height: 62%; overflow: hidden; transform: translateX(-50%); filter: drop-shadow(0 10px 20px #000c); }
+.v2-story-visual-object[hidden] { display: none; }
+.v2-story-visual-object img { position: absolute; top: -24%; left: 0; width: 100%; height: auto; }
+.v2-story-visual-crest { position: absolute; z-index: 3; top: 45%; left: 40%; width: 20%; height: auto; filter: drop-shadow(0 0 10px #63cfff) drop-shadow(0 0 20px #1b65c4); }
+.v2-story-visual-crest[hidden] { display: none; }
+.v2-story-visual[data-visual="compass"] .v2-story-visual-scene { filter: brightness(.38) saturate(.75) blur(1px); transform: scale(1.015); }
+.v2-story-visual[data-visual="compass"] .v2-story-visual-crest { top: 27%; left: 41%; width: 18%; }
+.v2-watchtower-effect { position: fixed; z-index: 70; inset: 0; display: grid; place-items: center; overflow: hidden; pointer-events: none; opacity: 0; background: radial-gradient(circle, #8b3dcc66, #1c082dd9 42%, #040207f5 78%); }
+.v2-watchtower-effect[aria-hidden="true"] { display: none; }
+.v2-watchtower-effect strong { z-index: 2; padding: 14px 22px; border: 2px solid #ebc479; background: #190d22dd; color: #fff1cc; font: 800 clamp(17px, 4vw, 30px) Georgia, "Yu Mincho", serif; letter-spacing: .08em; text-shadow: 0 0 16px #bd66ff; }
+.v2-watchtower-effect-rings { position: absolute; width: min(70vmin, 620px); aspect-ratio: 1; border: 5px double #df9fff; border-radius: 50%; box-shadow: 0 0 35px #bd4fff, inset 0 0 55px #6a21b4; }
+.v2-watchtower-effect.is-active { animation: v2-watchtower-flash .9s ease both; }
+.v2-watchtower-effect.is-seal-release .v2-watchtower-effect-rings { animation: v2-seal-release .9s ease-out both; }
+.v2-watchtower-effect.is-mist-clearing { animation-name: v2-mist-clearing; animation-duration: 1.2s; }
+.v2-watchtower-effect.is-mist-clearing .v2-watchtower-effect-rings { animation: v2-mist-ring-clearing 1.2s ease-out both; }
+@keyframes v2-watchtower-flash { 0% { opacity: 0; filter: brightness(.5); } 24%, 68% { opacity: 1; } 100% { opacity: 0; filter: brightness(2.1); } }
+@keyframes v2-seal-release { from { opacity: 0; transform: scale(.2) rotate(-35deg); } 55% { opacity: 1; } to { opacity: 0; transform: scale(1.55) rotate(18deg); } }
+@keyframes v2-mist-clearing { 0% { opacity: 1; backdrop-filter: blur(10px); } 66% { opacity: .8; } 100% { opacity: 0; backdrop-filter: blur(0); } }
+@keyframes v2-mist-ring-clearing { from { opacity: .9; transform: scale(.8); } to { opacity: 0; transform: scale(2.2); } }
 .v2-shop { position: fixed; z-index: 35; inset: 0; display: grid; place-items: center; padding: 18px; background: #08050bb8; backdrop-filter: blur(5px); }
 .v2-shop[aria-hidden="true"] { display: none; }
 .v2-shop-panel { position: relative; width: min(760px, 96vw); max-height: min(720px, 92dvh); overflow: auto; padding: 20px 20px 76px; border: 3px double #dda653; border-radius: 9px; background: linear-gradient(145deg, #321b2ced, #130d17fa); color: #fff0d2; box-shadow: 0 24px 80px #000e, inset 0 0 50px #94492120; }
@@ -273,6 +295,7 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .v2-battle-enemy.is-hit img, .v2-battle-enemy.is-weak::before, .v2-combat-effect, .v2-combat-impact, .v2-battle-vital[data-hp-state="danger"] #v2-battle-player-hp, .v2-battle.is-player-hit .v2-battle-command, .v2-battle-damage-flash.is-active { animation-duration: .01ms; animation-iteration-count: 1; }
   .v2-rest-transition { transition-duration: .01ms; }
+  .v2-watchtower-effect.is-active, .v2-watchtower-effect.is-active .v2-watchtower-effect-rings { animation-duration: .01ms; }
 }
 @media (pointer: coarse), (max-width: 700px) {
   .v2-controls { display: grid; }
@@ -303,6 +326,7 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
   .v2-interaction-prompt { left: auto; right: max(12px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); min-width: 0; width: min(240px, calc(100vw - 158px)); min-height: 52px; padding: 8px 10px; transform: none; font-size: 11px; }
   .v2-interaction-prompt[aria-hidden="true"] { transform: translateY(8px); }
   .v2-dialogue { left: 0; bottom: 0; width: 100%; min-height: 0; max-height: 44dvh; padding: 14px 14px calc(62px + env(safe-area-inset-bottom)); transform: none; border-width: 2px 0 0; border-radius: 12px 12px 0 0; overflow: auto; }
+  .v2-story-visual { z-index: -1; bottom: calc(150px + env(safe-area-inset-bottom)); width: 100%; border-width: 2px 0; border-radius: 0; }
   .v2-dialogue p { margin-top: 7px; font-size: 14px; line-height: 1.55; }
   .v2-dialogue button { right: 12px; bottom: max(10px, env(safe-area-inset-bottom)); width: calc(100% - 24px); min-height: 44px; }
   .v2-shop { align-items: end; padding: 0; }
@@ -320,26 +344,26 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
   .v2-battle-enemy img { width: min(150px, 38vw); height: min(150px, 20dvh); }
   .v2-battle-hp { width: min(200px, 56vw); height: 12px; }
   .v2-battle-log { min-height: 38px; padding: 7px 10px; font-size: 11px; }
-  .v2-battle-command { display: grid; min-height: 0; grid-template-rows: auto minmax(0, 1fr) auto; padding: 7px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  .v2-battle-command { display: grid; min-height: 0; grid-template-rows: auto 126px auto; align-content: start; padding: 7px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
   .v2-battle-player-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 7px; margin-bottom: 5px; font-size: 10px; }
   .v2-battle-player-row > div { min-width: 0; }
   .v2-battle-player-row small { overflow: hidden; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
   .v2-battle-vital strong { font-size: 16px; }
   .v2-battle-preview-wrap { grid-column: 1 / -1; text-align: left; }
   #v2-battle-preview { max-width: 100%; font-size: 9px; }
-  .v2-battle-hand { height: 100%; grid-auto-columns: min(112px, 31vw); grid-template-columns: none; justify-content: start; gap: 7px; padding-bottom: 4px; overscroll-behavior-x: contain; scroll-snap-type: x proximity; }
+  .v2-battle-hand { height: 100%; grid-auto-columns: unset; grid-template-columns: repeat(5, minmax(0, 1fr)); justify-content: stretch; gap: 3px; padding-bottom: 4px; overflow-x: hidden; overscroll-behavior-x: none; scroll-snap-type: none; }
   .v2-enemy-intent-card { width: min(230px, 65vw); min-width: 0; grid-template-columns: 36px minmax(0, 1fr) auto; padding: 5px; }
   .v2-enemy-intent-icon { width: 37px; font-size: 19px; }
   .v2-enemy-intent-card b { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
   .v2-enemy-intent-card em { display: none; }
   .v2-enemy-intent-counter { min-width: 45px; padding: 3px 5px; }
-  .v2-card { min-height: 98px; scroll-snap-align: start; }
+  .v2-card { min-width: 0; min-height: 92px; padding: 0; scroll-snap-align: none; }
   .v2-card[aria-pressed="true"] { transform: translateY(-3px); }
-  .v2-card-art { height: 48px; }
-  .v2-card-art i { font-size: 24px; }
-  .v2-card-copy { min-height: 44px; padding: 4px 7px; }
-  .v2-card-copy strong { font-size: 12px; }
-  .v2-card-copy small { font-size: 7px; }
+  .v2-card-art { height: 76px; }
+  .v2-card-art i { transform: translateY(18px); font-size: 22px; }
+  .v2-card-copy { min-height: 38px; padding: 3px 2px; }
+  .v2-card-copy strong { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+  .v2-card-copy small { display: none; font-size: 7px; }
   .v2-card-kindbar { top: 24px; left: 4px; right: 4px; gap: 3px; padding: 3px 4px; font-size: 11px; letter-spacing: .02em; }
   .v2-card-kindbar small { padding: 1px 2px; font-size: 7px; }
   .v2-card-cost, .v2-card-mp-cost { top: 5px; height: 22px; }

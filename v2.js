@@ -38,6 +38,12 @@
   const dialogueSpeaker = document.querySelector('#v2-dialogue-speaker');
   const dialogueText = document.querySelector('#v2-dialogue-text');
   const dialogueNext = document.querySelector('#v2-dialogue-next');
+  const storyVisual = document.querySelector('#v2-story-visual');
+  const storyVisualScene = document.querySelector('#v2-story-visual-scene');
+  const storyVisualObject = document.querySelector('#v2-story-visual-object');
+  const storyVisualEvent = document.querySelector('#v2-story-visual-event');
+  const storyVisualCrest = document.querySelector('#v2-story-visual-crest');
+  const watchtowerEffect = document.querySelector('#v2-watchtower-effect');
   const shopOverlay = document.querySelector('#v2-shop');
   const shopTitle = document.querySelector('#v2-shop-title');
   const shopGold = document.querySelector('#v2-shop-gold');
@@ -86,7 +92,7 @@
   const { FIELD_ENCOUNTER_GRACE_MS, FIELD_ENCOUNTER_RADIUS, FIELD_EXIT_SAFE_RADIUS, advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, respawnPastEnemies, shouldStartEncounter } = pastWorldApi;
   const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
-  const { NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, npcPoseAt } = pastSceneApi;
+  const { NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, PAST_STORY_VISUALS, npcPoseAt } = pastSceneApi;
   const { createTypewriterLine, revealTypewriterLine, tickTypewriterLine, typewriterText } = dialogueApi;
   const {
     INN_DEFINITIONS,
@@ -282,6 +288,8 @@
   let battleRedrawSelecting = false;
   let battleRedrawIndices = new Set();
   let battleEffectTimer = 0;
+  let watchtowerEffectTimer = 0;
+  let watchtowerEffectActive = false;
   let encounterTransitioning = false;
   let encounterGraceUntil = 0;
   let encounterSafeCenter = null;
@@ -667,6 +675,52 @@
     return true;
   }
 
+  function renderStoryVisual(visualId) {
+    const visual = PAST_STORY_VISUALS[visualId];
+    storyVisual.hidden = !visual;
+    storyVisual.dataset.visual = visualId || '';
+    storyVisual.classList.toggle('is-crest-discovery', visualId === 'watchtower-crest');
+    if (!visual) {
+      storyVisualScene.removeAttribute('src');
+      storyVisualEvent.removeAttribute('src');
+      storyVisualCrest.removeAttribute('src');
+      storyVisualObject.hidden = true;
+      storyVisualCrest.hidden = true;
+      return;
+    }
+    const scene = PAST_SCENE_ASSETS[visual.sceneId];
+    storyVisualScene.src = `${scene.path}?story=1`;
+    storyVisualObject.hidden = !visual.eventId;
+    if (visual.eventId) storyVisualEvent.src = `${PAST_EVENT_ASSETS[visual.eventId].path}?story=1`;
+    else storyVisualEvent.removeAttribute('src');
+    storyVisualCrest.hidden = !visual.crestId;
+    if (visual.crestId) storyVisualCrest.src = `${PAST_EVENT_ASSETS[visual.crestId].path}?story=1`;
+    else storyVisualCrest.removeAttribute('src');
+  }
+
+  function playWatchtowerEffect(kind) {
+    if (watchtowerEffectActive) return Promise.resolve();
+    watchtowerEffectActive = true;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const duration = reducedMotion ? 20 : kind === 'mist-clearing' ? 1200 : 900;
+    watchtowerEffect.className = `v2-watchtower-effect is-${kind}`;
+    watchtowerEffect.querySelector('strong').textContent = kind === 'mist-clearing'
+      ? '紫の霧が晴れていく'
+      : '見張り台の封印が解ける';
+    watchtowerEffect.setAttribute('aria-hidden', 'false');
+    void watchtowerEffect.offsetWidth;
+    watchtowerEffect.classList.add('is-active');
+    return new Promise(resolve => {
+      watchtowerEffectTimer = window.setTimeout(() => {
+        watchtowerEffect.className = 'v2-watchtower-effect';
+        watchtowerEffect.setAttribute('aria-hidden', 'true');
+        watchtowerEffectTimer = 0;
+        watchtowerEffectActive = false;
+        resolve();
+      }, duration);
+    });
+  }
+
   function openStoryDialogue(dialogue) {
     if (!dialogue || currentEdition !== 'past') return;
     activeStoryDialogue = dialogue;
@@ -702,6 +756,7 @@
   function renderStoryDialogue() {
     if (!activeStoryDialogue) return;
     const line = activeStoryDialogue.lines[storyDialogueIndex];
+    renderStoryVisual(line.visualId);
     dialogueSpeaker.textContent = line.speaker;
     activeTypewriterLine = createTypewriterLine(line.text);
     paintTypewriterLine();
@@ -732,10 +787,15 @@
     activeTypewriterLine = null;
     storyDialogueIndex = 0;
     dialogueOverlay.setAttribute('aria-hidden', 'true');
+    renderStoryVisual(null);
     if (complete && eventId === 'crossroads-altar-awaken') {
       openBattle({ id: 'crossroads-boss', enemyId: 'crossroads-sentinel', boss: true, altarAwakening: true });
     } else if (complete && eventId === 'mist-bell-awaken') {
       openBattle({ id: 'mist-bell-boss', enemyId: 'mist-bell-warden', boss: true, altarAwakening: true });
+    } else if (complete && eventId === 'watchtower-seal-release') {
+      playWatchtowerEffect('seal-release').then(() => {
+        openBattle({ id: 'watchtower-boss', enemyId: 'mist-watcher', boss: true });
+      });
     } else if (complete && eventId === 'mist-boss-defeated') {
       commitStoryEvent(eventId);
       completeMemoryEvent('midtown-memory-restored');
@@ -1061,7 +1121,7 @@
   }
 
   function performStoryInteraction() {
-    if (currentEdition !== 'past' || !activeInteraction || activeStoryDialogue || activeBattle || activeServiceId) return;
+    if (currentEdition !== 'past' || !activeInteraction || activeStoryDialogue || activeBattle || activeServiceId || watchtowerEffectActive) return;
     const result = activatePastInteraction(storyState, activeInteraction.id);
     if (activeInteraction.id === 'mist-bell-tower-door' && result.dialogue) {
       const investigation = mistInvestigationResult(storyState);
@@ -1086,7 +1146,7 @@
       if (campaignState.bossDefeated) {
         openStoryDialogue(STORY_DIALOGUES['watchtower-cleared']);
       } else if (canChallengeWatchtower(campaignState)) {
-        openBattle({ id: 'watchtower-boss', enemyId: 'mist-watcher', boss: true });
+        openStoryDialogue(STORY_DIALOGUES['watchtower-seal-release']);
       } else {
         openStoryDialogue(STORY_DIALOGUES['watchtower-locked']);
       }
@@ -1288,7 +1348,7 @@
     if (
       event.isPrimary === false || event.button > 0 || !isMapDragOrigin(event) ||
       settingsPanel.getAttribute('aria-hidden') === 'false' || activeBattle || encounterTransitioning ||
-      activeStoryDialogue || activeServiceId || restTransitioning
+      activeStoryDialogue || activeServiceId || restTransitioning || watchtowerEffectActive
     ) return;
     event.preventDefault();
     resetMapDrag();
@@ -1406,7 +1466,7 @@
   }
 
   function update(dt) {
-    if (!ready || activeBattle || encounterTransitioning || activeStoryDialogue || activeServiceId || restTransitioning) return;
+    if (!ready || activeBattle || encounterTransitioning || activeStoryDialogue || activeServiceId || restTransitioning || watchtowerEffectActive) return;
     let dx = 0;
     let dy = 0;
     if (keys.has('w') || keys.has('arrowup')) dy--;
@@ -1982,6 +2042,28 @@
     ctx.restore();
   }
 
+  function drawWatchtowerFog(x, y, width, height) {
+    const time = performance.now() / 900;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    for (let index = 0; index < 8; index++) {
+      const phase = time + index * 1.37;
+      const fogX = x + Math.sin(phase * 0.83) * width * 0.38;
+      const fogY = y + Math.cos(phase * 0.61) * height * 0.3 + (index - 3.5) * height * 0.055;
+      const radiusX = width * (0.28 + (index % 3) * 0.055);
+      const radiusY = height * (0.08 + (index % 2) * 0.025);
+      const gradient = ctx.createRadialGradient(fogX, fogY, 0, fogX, fogY, radiusX);
+      gradient.addColorStop(0, 'rgba(181, 77, 255, .38)');
+      gradient.addColorStop(0.52, 'rgba(105, 45, 178, .24)');
+      gradient.addColorStop(1, 'rgba(65, 22, 105, 0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.ellipse(fogX, fogY, radiusX, radiusY, Math.sin(phase) * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawPastWatchtower() {
     if (currentEdition !== 'past' || activeAreaId() !== 'overworld' || !storyAllowsEncounters(storyState)) return;
     const interaction = pastStoryApi.PAST_INTERACTIONS.find(item => item.id === 'old-watchtower');
@@ -1998,6 +2080,7 @@
     ctx.globalAlpha = cleared ? 0.82 : 1;
     ctx.drawImage(image, -definition.width / 2, -definition.height + 12, definition.width, definition.height);
     ctx.globalAlpha = 1;
+    if (!cleared) drawWatchtowerFog(0, -102, definition.width * 1.25, definition.height);
     roundedRectanglePath(ctx, -92, 28, 184, 45, 7);
     ctx.fillStyle = '#201220ed';
     ctx.fill();
@@ -2444,6 +2527,7 @@
       ? `勝利 · ${activeBattle.reward.gold}G / ${activeBattle.reward.xp}EXP`
       : activeBattle.status === 'defeat' ? '王都で目覚める' : '行動する';
     battleFlee.hidden = tutorialRescue;
+    battleFlee.disabled = activeBattle.status !== 'active';
     const redrawWindowOpen = activeBattle.status === 'active' && activeBattle.turn === 1
       && activeBattle.openingRedrawAvailable && !activeBattle.selected.length;
     const canRedraw = redrawWindowOpen && (!battleRedrawSelecting || battleRedrawIndices.size > 0);
@@ -2759,8 +2843,11 @@
     battleOverlay.classList.remove('is-boss');
     battleOverlay.setAttribute('aria-hidden', 'true');
     battleFlee.hidden = false;
+    battleFlee.disabled = false;
     updateStoryStatus();
-    if (followUpDialogue) openStoryDialogue(followUpDialogue);
+    if (followUpDialogue && bossVictory) {
+      playWatchtowerEffect('mist-clearing').then(() => openStoryDialogue(followUpDialogue));
+    } else if (followUpDialogue) openStoryDialogue(followUpDialogue);
   }
 
   battleResolve.addEventListener('click', () => {

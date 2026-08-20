@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#071017" />
     <title>ROPPONGI CHRONICLES · 現代編-昼間 / 過去編-夕方</title>
-    <link rel="stylesheet" href="v2.css?edition=11" />
+    <link rel="stylesheet" href="v2.css?edition=12" />
   </head>
   <body>
     <main id="v2-shell">
@@ -17,6 +17,10 @@
       </div>
       <div id="v2-rest-transition" class="v2-rest-transition" aria-hidden="true">
         <span>夜が明けた……</span>
+      </div>
+      <div id="v2-watchtower-effect" class="v2-watchtower-effect" aria-hidden="true">
+        <div class="v2-watchtower-effect-rings" aria-hidden="true"></div>
+        <strong>見張り台の封印が解ける</strong>
       </div>
       <div class="v2-floating-controls">
         <button id="v2-info-toggle" class="v2-info-toggle" type="button" aria-label="情報パネルを隠す" aria-controls="v2-story-status" aria-expanded="true">
@@ -110,6 +114,13 @@
       </aside>
       <button id="v2-interaction-prompt" class="v2-interaction-prompt" type="button" aria-live="polite" aria-hidden="true" tabindex="-1" disabled></button>
       <section id="v2-dialogue" class="v2-dialogue" aria-hidden="true" aria-label="会話">
+        <figure id="v2-story-visual" class="v2-story-visual" aria-hidden="true" hidden>
+          <img id="v2-story-visual-scene" class="v2-story-visual-scene" alt="" />
+          <span id="v2-story-visual-object" class="v2-story-visual-object" hidden>
+            <img id="v2-story-visual-event" alt="" />
+          </span>
+          <img id="v2-story-visual-crest" class="v2-story-visual-crest" alt="" hidden />
+        </figure>
         <small id="v2-dialogue-speaker">地の文</small>
         <p id="v2-dialogue-text"></p>
         <button id="v2-dialogue-next" type="button">次へ</button>
@@ -180,14 +191,14 @@
     <script src="assets/v2/road-collision-data.js?edition=1"></script>
     <script src="assets/v2/road-collision-past-data.js?edition=1"></script>
     <script src="assets/v2/map-layout-data.js?edition=1"></script>
-    <script src="v2-editions.js?edition=2"></script>
+    <script src="v2-editions.js?edition=3"></script>
     <script src="v2-assets.js?edition=1"></script>
     <script src="v2-landmarks.js?edition=1"></script>
     <script src="v2-battle.js?edition=6"></script>
     <script src="v2-past-world.js?edition=6"></script>
     <script src="v2-past-campaign.js?edition=7"></script>
-    <script src="v2-past-scenes.js?edition=6"></script>
-    <script src="v2-past-story.js?edition=13"></script>
+    <script src="v2-past-scenes.js?edition=7"></script>
+    <script src="v2-past-story.js?edition=14"></script>
     <script src="v2-dialogue.js?edition=1"></script>
     <script src="v2-save.js?edition=4"></script>
     <script src="v2-cloud-save.js?edition=1"></script>
@@ -196,6 +207,6 @@
     <script src="v2-supabase-bundle.js?edition=1"></script>
     <script src="v2-supabase-app.js?edition=2"></script>
     <script src="v2-input.js?edition=3"></script>
-    <script src="v2.js?edition=17"></script>
+    <script src="v2.js?edition=18"></script>
   </body>
 </html>

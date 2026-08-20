@@ -30,6 +30,16 @@
       path: 'assets/v2/past-scenes/mist-citadel.png',
       width: 1600,
       height: 1100
+    }),
+    'voyage-intro': Object.freeze({
+      path: 'assets/v2/past-scenes/voyage-intro.png',
+      width: 1672,
+      height: 941
+    }),
+    'watchtower-discovery': Object.freeze({
+      path: 'assets/v2/past-scenes/watchtower-discovery.png',
+      width: 1672,
+      height: 941
     })
   });
 
@@ -42,7 +52,15 @@
     'watergate-closed': Object.freeze({ path: 'assets/v2/past-events/watergate-closed.png', width: 180, height: 180, rotationSafe: true }),
     'watergate-open': Object.freeze({ path: 'assets/v2/past-events/watergate-open.png', width: 180, height: 180, rotationSafe: true }),
     'compass-altar-corrupted': Object.freeze({ path: 'assets/v2/past-events/compass-altar-corrupted.png', width: 190, height: 174 }),
-    'compass-altar-restored': Object.freeze({ path: 'assets/v2/past-events/compass-altar-restored.png', width: 190, height: 127 })
+    'compass-altar-restored': Object.freeze({ path: 'assets/v2/past-events/compass-altar-restored.png', width: 190, height: 127 }),
+    'father-compass': Object.freeze({ path: 'assets/v2/past-events/father-compass.png', width: 1254, height: 1254 }),
+    'star-crest': Object.freeze({ path: 'assets/v2/past-events/star-crest.png', width: 1254, height: 1254 })
+  });
+
+  const PAST_STORY_VISUALS = Object.freeze({
+    voyage: Object.freeze({ sceneId: 'voyage-intro' }),
+    compass: Object.freeze({ sceneId: 'voyage-intro', eventId: 'father-compass', crestId: 'star-crest' }),
+    'watchtower-crest': Object.freeze({ sceneId: 'watchtower-discovery', crestId: 'star-crest' })
   });
 
   const NPC_SPRITE_ASSETS = Object.freeze({
@@ -72,5 +90,5 @@
     };
   }
 
-  return { NPC_PATROL_SPEED_SCALE, NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, npcPoseAt };
+  return { NPC_PATROL_SPEED_SCALE, NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, PAST_STORY_VISUALS, npcPoseAt };
 });
