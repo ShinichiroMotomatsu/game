@@ -41,6 +41,9 @@ test('Pages build contains the playable game without authoring source assets', (
       'tests',
       'assets/v2/PAST_ASSET_PROMPTS.md',
       'assets/v2/past-events/harbor-setpiece-source.png',
+      'assets/v2/past-events/harbor-pier-source.png',
+      'assets/v2/past-events/harbor-ship-source.png',
+      'assets/v2/past-events/harbor-lighthouse-source.png',
       'assets/v2/osm-road-source.json',
       'assets/v2/landmarks/roppongi-hills-source.png'
     ]) assert.equal(fs.existsSync(path.join(output, forbidden)), false, forbidden);

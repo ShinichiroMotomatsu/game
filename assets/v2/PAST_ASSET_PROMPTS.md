@@ -140,3 +140,59 @@ Composition: square canvas, the complete harbor isolated in the center, generous
 Lighting: neutral soft ambient asset lighting with subtle warm lighthouse glow; avoid directional cast shadows so the whole asset can be rotated to different shore directions without looking wrong.
 Constraints: genuinely transparent background; no ocean background; no land terrain background; no coast edge; no people; no labels; no text; no modern vehicles; no UI; no watermark. The asset will be rotated and composited over existing sea and shore pixels.
 ```
+
+## 港の固定疑似3D投影
+
+港全体を回転すると灯台や帆まで横倒しになるため、最終版では桟橋だけを回転し、船と灯台は常に画面上方向へ立つ独立レイヤーとして合成する。
+
+`harbor-pier-source.png` のベース生成
+
+```text
+Use case: precise-object-edit
+Asset type: transparent rotatable JRPG overworld pier component
+Input images: Image 1 is the current harbor setpiece and the edit target/style reference.
+Primary request: Isolate and retain only the clean wooden pier/deck and its low stone land-connection landing. Remove the sailing ship, rowboat, lighthouse, tower, flags, hanging lantern posts, tall masts, crates, barrels, ropes and every other tall or directional prop. Reconstruct any deck boards hidden behind removed objects.
+Style/medium: preserve the exact hand-painted high-resolution classic 16-bit/32-bit JRPG overworld style, materials, outline weight and warm brown palette of Image 1.
+Composition/framing: square transparent canvas; one straight pier runs vertically from a low stone landing at exact bottom center toward a clean squared seaward end at exact top center; centered; generous transparent padding; perfectly suitable for rotation to any coast direction.
+Perspective: mostly top-down deck surface with only very shallow edge thickness. No pseudo-3D vertical structures and no directional lighting or shadows, so rotation by 0/90/180/270 degrees remains visually natural.
+Constraints: genuinely transparent background; change the asset into a pier-only layer; no water, no terrain, no coast, no ship, no boat, no lighthouse, no building, no mast, no flags, no text, no UI, no watermark.
+```
+
+`harbor-pier-source.png` の透明背景補正
+
+```text
+Use case: background-extraction
+Asset type: transparent rotatable JRPG overworld pier component
+Input images: Image 1 is the pier-only edit target. Its visible pale checkerboard is an incorrect baked background, not part of the artwork.
+Primary request: Remove only the entire pale checkerboard/background and replace it with genuine PNG alpha transparency. Preserve the wooden pier, low posts, metal brackets, ropes on the posts, and bottom stone landing exactly as shown, including their shape, colors, texture, scale and centered vertical orientation.
+Composition/framing: keep the same square canvas and the same centered bottom-to-top pier placement.
+Constraints: actual transparent pixels everywhere outside the pier and landing; clean anti-aliased cutout edges; no white or gray checkerboard; no halo; no new objects; no restyling; no water; no terrain; no text; no UI; no watermark.
+```
+
+`harbor-lighthouse-source.png`
+
+```text
+Use case: precise-object-edit
+Asset type: transparent upright JRPG overworld lighthouse component
+Input images: Image 1 is the current harbor setpiece and the edit target/style reference.
+Primary request: Isolate the stone lighthouse from Image 1 as a separate reusable sprite. Remove the pier, ships, boats, ropes, barrels, crates, flags and every other harbor object. Preserve the lighthouse's blue-and-gold lantern roof, warm lit windows, round stone base and small front steps, while reconstructing clean hidden edges.
+Style/medium: preserve the exact hand-painted high-resolution classic 16-bit/32-bit JRPG overworld style, material detail, outline weight and palette of Image 1.
+Composition/framing: square transparent canvas; lighthouse centered; base contact point at exact bottom center; generous transparent padding above and to both sides; entire silhouette visible.
+Perspective: front-facing pseudo-3D overworld sprite. The stone base rests at the bottom and the tower rises strictly toward the top edge of the screen. Vertical walls stay vertical. Camera is in front with a slight view of the roof and front doorway, consistent with all buildings extending upward on the map.
+Lighting/mood: neutral ambient lighting with warm lantern glow; no long directional cast shadow.
+Constraints: genuinely transparent background; no water, no terrain, no pier, no ship, no boat, no extra building, no text, no UI, no watermark. Do not tilt or rotate the tower left, right, or downward.
+```
+
+`harbor-ship-source.png`
+
+```text
+Use case: precise-object-edit
+Asset type: transparent upright JRPG overworld harbor ship component
+Input images: Image 1 is the current harbor setpiece and the edit target/style reference.
+Primary request: Isolate the compact medieval single-mast sailing ship from Image 1 as a separate reusable harbor sprite. Remove the pier, lighthouse, rowboat, ropes connecting to the pier, crates, barrels, flags outside the ship and every other harbor object. Preserve the blue-and-gold hull, warm cabin windows, mast, rigging and cream sail, reconstructing clean hidden edges.
+Style/medium: preserve the exact hand-painted high-resolution classic 16-bit/32-bit JRPG overworld style, material detail, outline weight and palette of Image 1.
+Composition/framing: square transparent canvas; complete ship centered; hull contact/base at bottom center; mast and sail rise toward the top edge; generous transparent padding; entire silhouette visible.
+Perspective: front-facing pseudo-3D overworld sprite rather than a flat overhead token. The hull rests lower in the image and all vertical mast, sail and cabin details extend strictly upward on screen. Slight top-surface visibility is allowed, but the sprite must never appear sideways or upside-down.
+Lighting/mood: neutral ambient asset lighting with restrained warm window glow; no long directional cast shadow.
+Constraints: genuinely transparent background; no water, no terrain, no pier, no lighthouse, no rowboat, no extra building, no text, no UI, no watermark. Do not tilt or rotate the mast left, right, or downward.
+```

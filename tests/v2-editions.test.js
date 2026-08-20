@@ -28,7 +28,7 @@ test('both editions use four-tile seamless map directories', () => {
 
 test('Past Evening increments its tile cache version when the road-composited tiles change', () => {
   const past = editionDefinition('past');
-  assert.equal(past.tileVersion, 3);
+  assert.equal(past.tileVersion, 4);
 });
 
 test('Past Evening uses its own medieval landmark art with matching filenames', () => {
