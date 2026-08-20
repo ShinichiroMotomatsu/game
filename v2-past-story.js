@@ -1,8 +1,13 @@
 (function exposePastStory(root, factory) {
-  const api = factory();
+  const sideQuestApi = typeof module === 'object' && module.exports
+    ? require('./v2-past-sidequests.js')
+    : root?.V2_PAST_SIDEQUESTS;
+  const api = factory(sideQuestApi);
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.V2_PAST_STORY = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, () => {
+})(typeof globalThis !== 'undefined' ? globalThis : this, sideQuestApi => {
+  if (!sideQuestApi) throw new Error('Past sidequest data is required.');
+  const { SIDE_DUNGEONS, SIDE_QUESTS, sideQuestDungeonPointIsWalkable } = sideQuestApi;
   const CROSSROADS_DUNGEON_LAYOUT = (() => {
     const columns = 60;
     const rowCount = 45;
@@ -99,7 +104,14 @@
     'mist-bell-tower': Object.freeze({
       id: 'mist-bell-tower', name: '無響の鐘楼', width: 1800, height: 1400,
       spawn: Object.freeze([900, 1260])
-    })
+    }),
+    ...Object.fromEntries(Object.values(SIDE_DUNGEONS).map(dungeon => [dungeon.id, Object.freeze({
+      id: dungeon.id,
+      name: dungeon.name,
+      width: dungeon.width,
+      height: dungeon.height,
+      spawn: dungeon.spawn
+    })]))
   });
 
   const TOWN_BUILDINGS = Object.freeze([
@@ -208,7 +220,58 @@
     Object.freeze({ id: 'mist-resident', role: 'villager', sprite: 'villager-woman', name: '霧都の住民', point: Object.freeze([1045, 760]), patrol: Object.freeze({ axis: 'x', distance: 24, periodMs: 6800, phase: 0.3 }), dialogueId: 'mist-resident' })
   ]);
 
+  const SIDE_QUEST_DIALOGUES = Object.freeze({
+    'sidequest-board-open': Object.freeze({ id: 'sidequest-board-open', lines: Object.freeze([
+      Object.freeze({ speaker: 'クアドラ依頼板', text: '四門水路の復旧で三地方への道が開いた。「紫泥の沼の薬路」「氷灯の回廊」「熔火の避難路」の調査人を募る、とある。' }),
+      Object.freeze({ speaker: '主人公', text: 'どの依頼にも、父が使っていた青い星の印が添えられている。急ぐ順番は決められていない。三つとも手掛かりを追ってみよう。' }),
+      Object.freeze({ speaker: '地の文', text: '三つのサブクエストが始まった。推奨レベルは順に6・9・14。準備に合わせ、好きな順で挑戦できる。' })
+    ]) }),
+    'sidequest-board-active': Object.freeze({ id: 'sidequest-board-active', lines: Object.freeze([
+      Object.freeze({ speaker: 'クアドラ依頼板', text: '三地方の調査は継続中だ。地図の青い星印を頼りに、紫泥の沼・霜降りの谷・熔火の裂谷へ向かおう。' })
+    ]) }),
+    'sidequest-board-complete': Object.freeze({ id: 'sidequest-board-complete', lines: Object.freeze([
+      Object.freeze({ speaker: 'クアドラ依頼板', text: '三地方の道はすべて復旧した。孤立していた集落同士の往来も戻り、依頼書には感謝の印が連なっている。' })
+    ]) }),
+    'twin-star-vow': Object.freeze({ id: 'twin-star-vow', lines: Object.freeze([
+      Object.freeze({ speaker: '地の文', text: '三片の旅日誌を時の順に並べると、頁の星印が一つの光の道を描いた。' }),
+      Object.freeze({ speaker: '主人公', text: '父は地図を作る旅で、灯守の薬師ミラと出会い、誰かのもとへ帰る道を知ったんだ。' }),
+      Object.freeze({ speaker: '地の文', text: '最後に双星の紋章が浮かぶ。二人の旅は終わったのではない。同じ場所から始まる一枚の地図になった。' })
+    ]) }),
+    'fire-rat-chief-awakening': Object.freeze({ id: 'fire-rat-chief-awakening', onComplete: 'sidequest-midboss-awaken:fire-rat-chief', lines: Object.freeze([
+      Object.freeze({ speaker: '地の文', text: '黒曜石の足場を抜けると、熔岩の向こうへ続く道を火鼠の群れが塞いでいる。長の腰には、熱を寄せつけない革の長靴が結ばれている。' }),
+      Object.freeze({ speaker: '主人公', text: 'あの長靴があれば熔岩を渡れる。まず火鼠の長を退けよう。' })
+    ]) }),
+    'fire-rat-chief-cleared': Object.freeze({ id: 'fire-rat-chief-cleared', lines: Object.freeze([
+      Object.freeze({ speaker: '地の文', text: '火鼠の長が逃げ去り、「火鼠の長靴」を手に入れた。魔法の毛皮が熱を逃がし、熔岩の上を歩けるようになった。' })
+    ]) }),
+    ...Object.fromEntries(SIDE_QUESTS.flatMap(quest => {
+      const hazardLine = quest.id === 'sunken-shrine'
+        ? '毒泥は一歩ごとに命を削る。白い浄化石を結ぶ短い道を見極めよう。'
+        : quest.id === 'ice-lantern'
+          ? '氷床では足が滑り、ぬくもりが失われる。灯火を継いで奥へ進もう。'
+          : 'まず黒曜石の安全地帯を進み、熔岩を越す手段を探そう。';
+      return [
+        [`${quest.id}-entrance`, Object.freeze({ id: `${quest.id}-entrance`, lines: Object.freeze([
+          Object.freeze({ speaker: '地の文', text: `${quest.title}へ続く古道に、父の青い星印が刻まれている。${hazardLine}` })
+        ]) })],
+        [`${quest.id}-boss-awakening`, Object.freeze({ id: `${quest.id}-boss-awakening`, onComplete: `sidequest-boss-awaken:${quest.id}`, lines: Object.freeze([
+          Object.freeze({ speaker: '地の文', text: `最奥の祭壇には、地図師エルドと灯守の薬師が残した二つの印が並ぶ。その上を異形の力が覆っている。` }),
+          Object.freeze({ speaker: '主人公', text: '父の足跡を隠しているものを退け、ここに結ばれた道を取り戻す。' })
+        ]) })],
+        [`${quest.id}-boss-stable`, Object.freeze({ id: `${quest.id}-boss-stable`, lines: Object.freeze([
+          Object.freeze({ speaker: '地の文', text: `${quest.title}の祭壇は穏やかな光をたたえている。刻まれた父の旅日誌を読み返した。` }),
+          ...quest.journalLines.map(text => Object.freeze({ speaker: '父の旅日誌', text }))
+        ]) })],
+        [`${quest.id}-cleared`, Object.freeze({ id: `${quest.id}-cleared`, lines: Object.freeze([
+          Object.freeze({ speaker: '地の文', text: `${quest.title}の異変が鎮まり、祭壇の裏から父の旅日誌・第${quest.journalOrder}片が現れた。` }),
+          ...quest.journalLines.map(text => Object.freeze({ speaker: '父の旅日誌', text }))
+        ]) })]
+      ];
+    }))
+  });
+
   const STORY_DIALOGUES = Object.freeze({
+    ...SIDE_QUEST_DIALOGUES,
     arrival: Object.freeze({
       id: 'arrival',
       onComplete: 'arrival-complete',
@@ -487,6 +550,45 @@
     Object.freeze({ id: 'merchant-cache', area: 'crossroads-dungeon', point: Object.freeze([3150, 2130]), radius: 42, label: '商人の備蓄箱を開ける', actionId: 'dungeon-treasure:merchant-cache' }),
     Object.freeze({ id: 'rune-coffer', area: 'crossroads-dungeon', point: Object.freeze([570, 630]), radius: 42, label: '方位石の宝箱を開ける', actionId: 'dungeon-treasure:rune-coffer' }),
     Object.freeze({ id: 'crossroads-boss-altar', area: 'crossroads-dungeon', point: Object.freeze([1830, 150]), radius: 66, label: '北の祭壇を調べる', actionId: 'crossroads-boss' }),
+    Object.freeze({ id: 'quadra-sidequest-board', area: 'crossroads-town', point: Object.freeze([600, 690]), radius: 68, label: '旅人の依頼板を読む', actionId: 'sidequest-board', unlockAfter: 'crossroads-boss' }),
+    ...SIDE_QUESTS.map(quest => Object.freeze({
+      id: quest.entranceInteractionId,
+      area: 'overworld',
+      point: quest.overworldPoint,
+      radius: 38,
+      label: `${quest.title}へ入る`,
+      targetArea: quest.dungeonId,
+      spawn: SIDE_DUNGEONS[quest.dungeonId].spawn,
+      unlockAfter: 'crossroads-boss',
+      dialogueOnEnter: `${quest.id}-entrance`,
+      sideQuestId: quest.id
+    })),
+    ...SIDE_QUESTS.flatMap(quest => [
+      Object.freeze({
+        id: `${quest.id}-exit`, area: quest.dungeonId,
+        point: SIDE_DUNGEONS[quest.dungeonId].spawn, radius: 50,
+        label: '地上の街道へ戻る', targetArea: 'overworld', spawn: quest.overworldPoint,
+        sideQuestId: quest.id
+      }),
+      Object.freeze({
+        id: `${quest.id}-boss-altar`, area: quest.dungeonId,
+        point: Object.freeze([1350, 150]), radius: 72,
+        label: '最奥の祭壇を調べる', actionId: `sidequest-boss:${quest.id}`,
+        sideQuestId: quest.id
+      })
+    ]),
+    Object.freeze({
+      id: 'fire-rat-chief', area: 'molten-crown-caldera', point: Object.freeze([1350, 1050]), radius: 70,
+      label: '火鼠の群れを調べる', actionId: 'sidequest-midboss:fire-rat-chief', sideQuestId: 'molten-crown'
+    }),
+    Object.freeze({
+      id: 'molten-sluice-west', area: 'molten-crown-caldera', point: Object.freeze([630, 930]), radius: 58,
+      label: '西の冷却水門を動かす', actionId: 'sidequest-sluice:west', sideQuestId: 'molten-crown'
+    }),
+    Object.freeze({
+      id: 'molten-sluice-east', area: 'molten-crown-caldera', point: Object.freeze([2070, 930]), radius: 58,
+      label: '東の冷却水門を動かす', actionId: 'sidequest-sluice:east', sideQuestId: 'molten-crown'
+    }),
     Object.freeze({ id: 'mist-citadel-gate', area: 'overworld', point: Object.freeze([337, 240]), radius: 44, label: '霧の城塞都市へ入る', targetArea: 'mist-citadel', spawn: PAST_AREAS['mist-citadel'].spawn, unlockAfter: 'third-mission', dialogueOnEnter: 'mist-citadel-arrival' }),
     Object.freeze({ id: 'mist-citadel-exit', area: 'mist-citadel', point: Object.freeze([800, 1040]), radius: 58, label: '北の街道へ戻る', targetArea: 'overworld', spawn: Object.freeze([337, 240]) }),
     Object.freeze({ id: 'mist-bell-tower-door', area: 'mist-citadel', point: Object.freeze([800, 410]), radius: 70, label: '霧の向こうの鐘楼へ入る', targetArea: 'mist-bell-tower', spawn: PAST_AREAS['mist-bell-tower'].spawn, unlockAfter: 'mist-clues', dialogueOnEnter: 'mist-tower-entry' }),
@@ -625,6 +727,7 @@
     if (!interaction) return false;
     if (interaction.unlockAfter === 'king-audience') return storyAllowsEncounters(state);
     if (interaction.unlockAfter === 'first-mission-complete') return ['second-mission', 'second-mission-report', 'second-mission-complete', 'third-mission', 'third-mission-report', 'third-mission-complete'].includes(state.phase);
+    if (interaction.unlockAfter === 'crossroads-boss') return ['second-mission-report', 'second-mission-complete', 'third-mission', 'third-mission-report', 'third-mission-complete'].includes(state.phase);
     if (interaction.id === 'crossroads-dungeon-door') return state.crossroadsClues.length >= 2 || !['second-mission'].includes(state.phase);
     if (interaction.unlockAfter === 'third-mission') return ['third-mission', 'third-mission-report', 'third-mission-complete'].includes(state.phase);
     if (interaction.unlockAfter === 'mist-clues') return state.mistClues.length >= 2 || ['third-mission-report', 'third-mission-complete'].includes(state.phase);
@@ -692,10 +795,11 @@
     return closest;
   }
 
-  function canStandInPastArea(areaId, x, y, radius = 0) {
+  function canStandInPastArea(areaId, x, y, radius = 0, keyItems = []) {
     const area = PAST_AREAS[areaId];
     if (!area?.width || !area?.height) return false;
     if (areaId === 'crossroads-dungeon') return dungeonPointIsWalkable(x, y, radius);
+    if (SIDE_DUNGEONS[areaId]) return sideQuestDungeonPointIsWalkable(areaId, x, y, radius, keyItems);
     const margin = 34 + radius;
     if (x < margin || y < margin || x > area.width - margin || y > area.height - margin) return false;
     const collisionRects = areaId === 'castle-town'

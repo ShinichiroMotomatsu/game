@@ -66,6 +66,7 @@
   const assetApi = window.V2_ASSETS;
   const battleApi = window.V2_BATTLE;
   const pastWorldApi = window.V2_PAST_WORLD;
+  const pastSideQuestApi = window.V2_PAST_SIDEQUESTS;
   const pastCampaignApi = window.V2_PAST_CAMPAIGN;
   const pastSceneApi = window.V2_PAST_SCENES;
   const pastStoryApi = window.V2_PAST_STORY;
@@ -73,7 +74,7 @@
   const saveApi = window.V2_SAVE;
   const inputApi = window.V2_INPUT;
   const mapLayout = window.V2_MAP_LAYOUT;
-  if (!landmarkGeometry || !editionApi || !assetApi || !battleApi || !pastWorldApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !dialogueApi || !saveApi || !inputApi || !mapLayout) {
+  if (!landmarkGeometry || !editionApi || !assetApi || !battleApi || !pastWorldApi || !pastSideQuestApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !dialogueApi || !saveApi || !inputApi || !mapLayout) {
     loading.textContent = 'GAME MODULE ERROR';
     throw new Error('Game geometry, edition, or map layout data is missing.');
   }
@@ -90,6 +91,26 @@
   } = assetApi;
   const { CARD_ATTRIBUTE_LABELS, CARD_LIBRARY, DISCIPLINE_LABELS, ENEMY_INTENTS, createBattle, hpCondition, previewAction, redrawOpeningCards, resolveTurn, toggleCard } = battleApi;
   const { FIELD_ENCOUNTER_GRACE_MS, FIELD_ENCOUNTER_RADIUS, FIELD_EXIT_SAFE_RADIUS, advancePatrol, createPastEnemies, landmarkMemoryState, nextMemoryStage, respawnPastEnemies, shouldStartEncounter } = pastWorldApi;
+  const {
+    MAX_WARMTH,
+    SIDE_DUNGEONS,
+    SIDE_DUNGEON_ENCOUNTERS,
+    SIDE_QUEST_KEY_ITEMS,
+    SIDE_QUESTS,
+    activateCooledSluice,
+    acceptAvailableSideQuests,
+    cooledSluiceDestination,
+    createSideDungeonEnemies,
+    dungeonTileAt,
+    isNearActiveSideQuestEntrance,
+    isSideQuestArea,
+    markTwinStarVowSeen,
+    resolveDungeonStep,
+    sideQuestForArea,
+    sideQuestForEncounter,
+    sideQuestObjective,
+    sideQuestStatus
+  } = pastSideQuestApi;
   const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
   const { NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, PAST_STORY_VISUALS, npcPoseAt } = pastSceneApi;
@@ -99,6 +120,7 @@
     QUEST_REWARDS,
     SHOP_CATALOG,
     applyBattleVictory,
+    applySideQuestBattleVictory,
     battleProfile,
     buyProduct,
     campaignObjective,
@@ -119,6 +141,7 @@
     restAtInn,
     salePrice,
     sellProduct,
+    setSideQuestDebugCompletion,
     useItem
   } = pastCampaignApi;
   const {
@@ -157,6 +180,7 @@
   crossroadsDungeonMini.width = 210;
   crossroadsDungeonMini.height = 145;
   const crossroadsDungeonMiniContext = crossroadsDungeonMini.getContext('2d');
+  const sideDungeonMinis = new Map();
   const dungeonTileSprites = new Map();
   {
     const { columns, rows } = CROSSROADS_DUNGEON_LAYOUT;
@@ -172,6 +196,33 @@
         crossroadsDungeonMiniContext.fillRect(column * miniTileWidth, row * miniTileHeight, miniTileWidth + 0.5, miniTileHeight + 0.5);
       }
     }
+  }
+  for (const dungeon of Object.values(SIDE_DUNGEONS)) {
+    const sideMini = document.createElement('canvas');
+    sideMini.width = 210;
+    sideMini.height = 145;
+    const sideMiniContext = sideMini.getContext('2d');
+    const miniTileWidth = sideMini.width / dungeon.columns;
+    const miniTileHeight = sideMini.height / dungeon.rows.length;
+    sideMiniContext.fillStyle = '#151419';
+    sideMiniContext.fillRect(0, 0, sideMini.width, sideMini.height);
+    for (let row = 0; row < dungeon.rows.length; row += 1) {
+      for (let column = 0; column < dungeon.columns; column += 1) {
+        const tile = dungeon.rows[row][column];
+        if (tile === '#') continue;
+        sideMiniContext.fillStyle = tile === 'P'
+          ? '#8b4e94'
+          : tile === 'I'
+            ? '#8ad9ee'
+            : tile === 'L'
+              ? '#e16b37'
+              : tile === 'B'
+                ? '#ffd56d'
+                : '#77736f';
+        sideMiniContext.fillRect(column * miniTileWidth, row * miniTileHeight, miniTileWidth + 0.4, miniTileHeight + 0.4);
+      }
+    }
+    sideDungeonMinis.set(dungeon.id, sideMini);
   }
 
   // Build-time color extraction stores the collision mask as row runs. Reading
@@ -281,6 +332,12 @@
     history.replaceState(null, '', `${location.pathname}${restartRequest.search}${location.hash}`);
   }
   let pastEnemies = createPastEnemies(maskScale);
+  let sideDungeonEnemies = [];
+  let dungeonWarmth = MAX_WARMTH;
+  let lastDungeonTileKey = '';
+  let dungeonSlideDirection = null;
+  let terrainNotice = '';
+  let terrainNoticeUntil = 0;
   let memoryStage = Number.parseInt(localStorage.getItem('roppongi-past-memory-stage') || '0', 10);
   if (!Number.isFinite(memoryStage)) memoryStage = 0;
   let activeBattle = null;
@@ -303,6 +360,9 @@
     campaignState = restartCampaignKeepingGrowth(campaignState);
     savePastStory();
     savePastCampaign();
+  }
+  if (isSideQuestArea(storyState.area)) {
+    sideDungeonEnemies = createSideDungeonEnemies(storyState.area);
   }
   pastEnemies = pastEnemies.map(enemy => campaignState.defeatedRoadEnemies.includes(enemy.id)
     ? { ...enemy, active: false, respawnAt: performance.now() + 300000 }
@@ -327,7 +387,8 @@
     ['past-crossroads-town', [...PAST_AREAS['crossroads-town'].spawn]],
     ['past-crossroads-dungeon', [...PAST_AREAS['crossroads-dungeon'].spawn]],
     ['past-mist-citadel', [...PAST_AREAS['mist-citadel'].spawn]],
-    ['past-mist-bell-tower', [...PAST_AREAS['mist-bell-tower'].spawn]]
+    ['past-mist-bell-tower', [...PAST_AREAS['mist-bell-tower'].spawn]],
+    ...SIDE_QUESTS.map(quest => [`past-${quest.dungeonId}`, [...PAST_AREAS[quest.dungeonId].spawn]])
   ]);
   let showCollision = false;
   let assetLoadGeneration = 0;
@@ -349,7 +410,20 @@
     ['veil-moth', 'frost-wisp.png'],
     ['fog-knight', 'gutter-goblin.png'],
     ['bell-wraith', 'mist-slime.png'],
-    ['mist-bell-warden', 'crossroads-sentinel.png']
+    ['mist-bell-warden', 'crossroads-sentinel.png'],
+    ['miasma-slime', 'mist-slime.png'],
+    ['marsh-leech', 'bog-mandrake.png'],
+    ['spore-mandrake', 'bog-mandrake.png'],
+    ['miasma-root', 'bog-mandrake.png'],
+    ['ice-wisp', 'frost-wisp.png'],
+    ['snow-wolf', 'rune-wolf.png'],
+    ['frost-beetle', 'ash-golem.png'],
+    ['glacier-beast', 'rune-wolf.png'],
+    ['lava-lizard', 'ember-lizard.png'],
+    ['ash-bat', 'crag-harpy.png'],
+    ['obsidian-golem', 'ash-golem.png'],
+    ['fire-rat-chief', 'gutter-goblin.png'],
+    ['crown-drake', 'ember-lizard.png']
   ];
   const overworldEventAssetIds = Object.freeze([
     'capital-gate', 'old-watchtower', 'magic-tutor', 'card-chest-frost', 'card-chest-mend'
@@ -437,6 +511,12 @@
         eventAssetKey('card-chest-frost'),
         eventAssetKey('card-chest-mend')
       ];
+    }
+    if (isSideQuestArea(activeAreaId())) {
+      const enemyKeys = SIDE_DUNGEON_ENCOUNTERS
+        .filter(encounter => encounter.dungeonId === activeAreaId())
+        .map(encounter => enemyAssetKey(encounter.enemyId));
+      return [...playerAssets, ...new Set(enemyKeys)];
     }
     return [
       ...playerAssets,
@@ -589,9 +669,15 @@
     storyExp.textContent = remainingExp === null
       ? `EXP ${campaignState.exp} / MAX`
       : `EXP ${campaignState.exp} / 次まで ${remainingExp}`;
-    storyObjectiveLabel.textContent = storyState.phase === 'first-mission'
-      ? campaignObjective(campaignState)
-      : storyObjective(storyState);
+    const sideQuest = sideQuestForArea(storyState.area);
+    const baseObjective = sideQuest
+      ? sideQuestObjective(campaignState.sideQuests, storyState.area)
+      : storyState.phase === 'first-mission'
+        ? campaignObjective(campaignState)
+        : storyObjective(storyState);
+    const warmth = storyState.area === 'ice-lantern-cavern' ? `　ぬくもり ${dungeonWarmth}/${MAX_WARMTH}` : '';
+    const notice = terrainNotice && performance.now() < terrainNoticeUntil ? `${terrainNotice}　` : '';
+    storyObjectiveLabel.textContent = `${notice}${baseObjective}${warmth}`;
     storyStatus.dataset.phase = storyState.phase;
     storyStatus.dataset.level = String(campaignState.level);
     storyStatus.dataset.energy = String(profile.energy);
@@ -606,7 +692,8 @@
       const completionFlags = {
         watchtower: campaignState.bossDefeated,
         crossroads: campaignState.crossroadsBossDefeated,
-        'mist-citadel': campaignState.mistBossDefeated
+        'mist-citadel': campaignState.mistBossDefeated,
+        ...Object.fromEntries(SIDE_QUESTS.map(quest => [quest.id, campaignState.sideQuests.completedQuestIds.includes(quest.id)]))
       };
       const completed = Boolean(completionFlags[button.dataset.debugQuest]);
       button.setAttribute('aria-pressed', String(completed));
@@ -618,19 +705,27 @@
     const completionFlags = {
       watchtower: campaignState.bossDefeated,
       crossroads: campaignState.crossroadsBossDefeated,
-      'mist-citadel': campaignState.mistBossDefeated
+      'mist-citadel': campaignState.mistBossDefeated,
+      ...Object.fromEntries(SIDE_QUESTS.map(quest => [quest.id, campaignState.sideQuests.completedQuestIds.includes(quest.id)]))
     };
     const completed = Boolean(completionFlags[questId]);
-    const result = setDebugQuestCompletion(storyState, campaignState, questId, !completed);
-    storyState = createPastStory(result.story);
-    campaignState = createPastCampaign(result.campaign);
+    if (SIDE_QUESTS.some(quest => quest.id === questId)) {
+      campaignState = createPastCampaign(setSideQuestDebugCompletion(campaignState, questId, !completed));
+    } else {
+      const result = setDebugQuestCompletion(storyState, campaignState, questId, !completed);
+      storyState = createPastStory(result.story);
+      campaignState = createPastCampaign(result.campaign);
+    }
     pastEnemies = respawnPastEnemies(pastEnemies);
     savePastStory();
     savePastCampaign();
     updateStoryStatus();
     updateInteractionPrompt(null);
     prepareActiveLocation();
-    const questNames = { watchtower: '古い見張り台', crossroads: '四門水路', 'mist-citadel': '霧の城塞都市' };
+    const questNames = {
+      watchtower: '古い見張り台', crossroads: '四門水路', 'mist-citadel': '霧の城塞都市',
+      ...Object.fromEntries(SIDE_QUESTS.map(quest => [quest.id, quest.title]))
+    };
     const questName = questNames[questId] || questId;
     questDebugStatus.textContent = `${questName}を${!completed ? 'クリア済み' : '未クリア'}へ変更しました。`;
   }
@@ -788,7 +883,13 @@
     storyDialogueIndex = 0;
     dialogueOverlay.setAttribute('aria-hidden', 'true');
     renderStoryVisual(null);
-    if (complete && eventId === 'crossroads-altar-awaken') {
+    if (complete && eventId?.startsWith('sidequest-boss-awaken:')) {
+      const questId = eventId.split(':')[1];
+      const quest = SIDE_QUESTS.find(candidate => candidate.id === questId);
+      if (quest) openBattle({ id: quest.bossEncounterId, enemyId: quest.bossEnemyId, boss: true, altarAwakening: true, sideQuestId: quest.id });
+    } else if (complete && eventId === 'sidequest-midboss-awaken:fire-rat-chief') {
+      openBattle({ id: 'sidequest-fire-rat-chief', enemyId: 'fire-rat-chief', boss: true, altarAwakening: true, sideQuestId: 'molten-crown' });
+    } else if (complete && eventId === 'crossroads-altar-awaken') {
       openBattle({ id: 'crossroads-boss', enemyId: 'crossroads-sentinel', boss: true, altarAwakening: true });
     } else if (complete && eventId === 'mist-bell-awaken') {
       openBattle({ id: 'mist-bell-boss', enemyId: 'mist-bell-warden', boss: true, altarAwakening: true });
@@ -913,6 +1014,16 @@
             updateStoryStatus();
             renderService();
           }
+        }));
+      }
+      for (const keyItemId of campaignState.sideQuests.keyItems) {
+        const keyItem = SIDE_QUEST_KEY_ITEMS[keyItemId];
+        if (!keyItem) continue;
+        entries.push(createServiceButton({
+          name: `重要品　${keyItem.name}`,
+          detail: keyItem.description,
+          badge: '売れない',
+          disabled: true
         }));
       }
       const deckNames = profile.deck.map(cardId => CARD_LIBRARY[cardId]?.name).filter(Boolean);
@@ -1080,6 +1191,19 @@
 
   function pastInteractionAvailable(interaction) {
     if (!storyUnlocksInteraction(storyState, interaction)) return false;
+    if (interaction.actionId === 'sidequest-board') return campaignState.crossroadsBossDefeated;
+    if (interaction.sideQuestId && interaction.id === SIDE_QUESTS.find(quest => quest.id === interaction.sideQuestId)?.entranceInteractionId) {
+      return ['active', 'completed'].includes(sideQuestStatus(campaignState.sideQuests, interaction.sideQuestId, campaignState.crossroadsBossDefeated));
+    }
+    if (interaction.actionId?.startsWith('sidequest-boss:')) {
+      return ['active', 'completed'].includes(sideQuestStatus(campaignState.sideQuests, interaction.sideQuestId, campaignState.crossroadsBossDefeated));
+    }
+    if (interaction.actionId === 'sidequest-midboss:fire-rat-chief') {
+      return !campaignState.sideQuests.keyItems.includes('fire-rat-boots');
+    }
+    if (interaction.actionId?.startsWith('sidequest-sluice:')) {
+      return campaignState.sideQuests.keyItems.includes('fire-rat-boots');
+    }
     if (interaction.actionId === 'learn-first-magic') return true;
     if (interaction.cardId) return canDiscoverCard(campaignState, interaction.cardId);
     if (interaction.actionId?.startsWith('dungeon-treasure:')) {
@@ -1100,6 +1224,17 @@
     if (storyState.area !== previousArea && storyState.area !== 'overworld') {
       pastEnemies = respawnPastEnemies(pastEnemies);
     }
+    if (isSideQuestArea(storyState.area)) {
+      sideDungeonEnemies = createSideDungeonEnemies(storyState.area);
+      dungeonWarmth = MAX_WARMTH;
+      lastDungeonTileKey = '';
+      dungeonSlideDirection = null;
+      terrainNotice = '';
+      encounterGraceUntil = performance.now() + FIELD_ENCOUNTER_GRACE_MS;
+    } else if (isSideQuestArea(previousArea)) {
+      sideDungeonEnemies = [];
+      dungeonSlideDirection = null;
+    }
     savePastStory();
     activeLocationKey = locationKey('past', storyState.area);
     const spawn = result.spawn || PAST_AREAS[storyState.area].spawn;
@@ -1109,6 +1244,7 @@
       ? nearestWalkablePoint(intendedSpawn, (x, y) => canStandAt(x, y))
       : intendedSpawn;
     encounterSafeCenter = enteringField ? [...safeSpawn] : null;
+    if (isSideQuestArea(storyState.area)) encounterSafeCenter = [...safeSpawn];
     player.x = safeSpawn[0];
     player.y = safeSpawn[1];
     player.facing = storyState.area === 'castle' ? 'up' : 'down';
@@ -1198,6 +1334,61 @@
       openStoryDialogue(campaignState.mistBossDefeated
         ? STORY_DIALOGUES['mist-boss-cleared']
         : STORY_DIALOGUES['mist-bell-awakening']);
+    }
+    if (result.actionId === 'sidequest-board') {
+      const before = campaignState.sideQuests;
+      const accepted = acceptAvailableSideQuests(before, campaignState.crossroadsBossDefeated);
+      if (accepted !== before) {
+        campaignState = { ...campaignState, sideQuests: accepted };
+        savePastCampaign();
+        updateStoryStatus();
+        openStoryDialogue(STORY_DIALOGUES['sidequest-board-open']);
+      } else if (accepted.twinStarVowUnlocked && !accepted.twinStarVowSeen) {
+        campaignState = { ...campaignState, sideQuests: markTwinStarVowSeen(accepted) };
+        savePastCampaign();
+        openStoryDialogue(STORY_DIALOGUES['twin-star-vow']);
+      } else {
+        openStoryDialogue(STORY_DIALOGUES[accepted.twinStarVowUnlocked ? 'sidequest-board-complete' : 'sidequest-board-active']);
+      }
+    }
+    if (result.actionId?.startsWith('sidequest-boss:')) {
+      const questId = result.actionId.split(':')[1];
+      const completed = campaignState.sideQuests.completedQuestIds.includes(questId);
+      openStoryDialogue(STORY_DIALOGUES[`${questId}-${completed ? 'boss-stable' : 'boss-awakening'}`]);
+    }
+    if (result.actionId === 'sidequest-midboss:fire-rat-chief') {
+      openStoryDialogue(STORY_DIALOGUES['fire-rat-chief-awakening']);
+    }
+    if (result.actionId?.startsWith('sidequest-sluice:')) {
+      const sluiceId = result.actionId.split(':')[1];
+      const destination = cooledSluiceDestination(campaignState.sideQuests, sluiceId);
+      if (destination) {
+        player.x = destination[0] + (sluiceId === 'west' ? -85 : 85);
+        player.y = destination[1];
+        lastDungeonTileKey = '';
+        centerCameraOnPlayer();
+        openStoryDialogue({
+          id: `cooled-sluice-shortcut-${sluiceId}`,
+          lines: [{ speaker: '地の文', text: '冷え固まった導水路を抜け、反対側の水門へ移動した。二つの水門が最奥への近道を結んでいる。' }]
+        });
+      } else {
+        const nextSideQuests = activateCooledSluice(campaignState.sideQuests, sluiceId);
+        const changed = nextSideQuests !== campaignState.sideQuests;
+        campaignState = { ...campaignState, sideQuests: nextSideQuests };
+        if (changed) savePastCampaign();
+        const linked = nextSideQuests.cooledSluiceIds.length === 2;
+        openStoryDialogue({
+          id: `cooled-sluice-${sluiceId}`,
+          lines: [{
+            speaker: '地の文',
+            text: linked
+              ? '二つの冷却水門がつながり、熔岩の下に冷え固まった導水路が現れた。東西を結ぶ近道として使える。'
+              : changed
+                ? '冷却水門を開くと、熔岩の一部が黒曜石へ変わった。反対側の水門も動かせば近道がつながりそうだ。'
+                : 'この冷却水門は動いている。反対側の水門が開けば近道になる。'
+          }]
+        });
+      }
     }
   }
 
@@ -1396,7 +1587,7 @@
   function canStandAt(x, y) {
     const r = player.footRadius;
     if (currentEdition === 'past' && activeAreaId() !== 'overworld') {
-      return canStandInPastArea(activeAreaId(), x, y, r);
+      return canStandInPastArea(activeAreaId(), x, y, r, campaignState.sideQuests.keyItems);
     }
     const diagonal = r * Math.SQRT1_2;
     const onRoad = [
@@ -1465,6 +1656,53 @@
     loadAssetsInBackground(assetKeys);
   }
 
+  function handleSideDungeonTerrainStep() {
+    const areaId = activeAreaId();
+    if (!isSideQuestArea(areaId)) return;
+    const dungeon = SIDE_DUNGEONS[areaId];
+    const column = Math.floor(player.x / dungeon.tileSize);
+    const row = Math.floor(player.y / dungeon.tileSize);
+    const tileKey = `${areaId}:${column}:${row}`;
+    if (tileKey === lastDungeonTileKey) return;
+    lastDungeonTileKey = tileKey;
+    const step = resolveDungeonStep({
+      dungeonId: areaId,
+      tile: dungeonTileAt(areaId, player.x, player.y),
+      hp: campaignState.currentHp,
+      warmth: dungeonWarmth,
+      keyItems: campaignState.sideQuests.keyItems
+    });
+    dungeonWarmth = step.warmth;
+    if (step.hp !== campaignState.currentHp) {
+      campaignState = { ...campaignState, currentHp: step.hp };
+      savePastCampaign();
+    }
+    if (step.message) {
+      terrainNotice = step.message;
+      terrainNoticeUntil = performance.now() + 1800;
+    }
+    updateStoryStatus();
+  }
+
+  function updateSideDungeonEnemies(dt) {
+    const areaId = activeAreaId();
+    if (!isSideQuestArea(areaId)) return;
+    const now = performance.now();
+    if (encounterSafeCenter && Math.hypot(player.x - encounterSafeCenter[0], player.y - encounterSafeCenter[1]) >= 90) {
+      encounterSafeCenter = null;
+    }
+    sideDungeonEnemies = sideDungeonEnemies.map(enemy => {
+      if (!enemy.active && now >= enemy.respawnAt) {
+        return { ...enemy, active: true, x: enemy.patrol[0][0], y: enemy.patrol[0][1], patrolIndex: 1 };
+      }
+      return advancePatrol(enemy, dt);
+    });
+    const encounter = now >= encounterGraceUntil && !encounterSafeCenter
+      ? sideDungeonEnemies.find(enemy => shouldStartEncounter(player, enemy, 18, now))
+      : null;
+    if (encounter) openBattle({ ...encounter, sideQuestId: sideQuestForArea(areaId)?.id });
+  }
+
   function update(dt) {
     if (!ready || activeBattle || encounterTransitioning || activeStoryDialogue || activeServiceId || restTransitioning || watchtowerEffectActive) return;
     let dx = 0;
@@ -1480,6 +1718,23 @@
       movementStrength = mapDrag.movement.strength;
     }
 
+    const standingTile = isSideQuestArea(activeAreaId()) ? dungeonTileAt(activeAreaId(), player.x, player.y) : '';
+    if (activeAreaId() === 'ice-lantern-cavern' && standingTile === 'I') {
+      if (dx || dy) {
+        const length = Math.hypot(dx, dy);
+        dungeonSlideDirection = { x: dx / length, y: dy / length };
+      } else if (dungeonSlideDirection) {
+        dx = dungeonSlideDirection.x;
+        dy = dungeonSlideDirection.y;
+        movementStrength = 0.82;
+      }
+    } else if (dx || dy) {
+      const length = Math.hypot(dx, dy);
+      dungeonSlideDirection = { x: dx / length, y: dy / length };
+    } else {
+      dungeonSlideDirection = null;
+    }
+
     if (dx || dy) {
       const length = Math.hypot(dx, dy);
       dx /= length;
@@ -1489,6 +1744,7 @@
       player.facing = Math.abs(dx) > Math.abs(dy)
         ? (dx > 0 ? 'right' : 'left')
         : (dy > 0 ? 'down' : 'up');
+      handleSideDungeonTerrainStep();
     }
 
     if (currentEdition === 'past' && activeAreaId() === 'overworld') {
@@ -1503,10 +1759,18 @@
         }
         return advancePatrol(enemy, dt);
       });
-      const encounter = now >= encounterGraceUntil && pastEnemies.find(enemy => !encounterSafeCenter && storyEncounterMode(storyState, enemy.id) !== 'hidden'
+      const sideQuestEntranceSafe = isNearActiveSideQuestEntrance(
+        campaignState.sideQuests,
+        campaignState.crossroadsBossDefeated,
+        player.x,
+        player.y,
+        maskScale
+      );
+      const encounter = now >= encounterGraceUntil && pastEnemies.find(enemy => !encounterSafeCenter && !sideQuestEntranceSafe && storyEncounterMode(storyState, enemy.id) !== 'hidden'
         && shouldStartEncounter(player, enemy, FIELD_ENCOUNTER_RADIUS * maskScale, now));
       if (encounter) openBattle(encounter);
     }
+    updateSideDungeonEnemies(dt);
 
     const dynamicNpcPoints = new Map(localNpcs().map(npc => {
       const pose = npcPoseAt(npc, performance.now());
@@ -1568,6 +1832,10 @@
       drawMistBellTower();
       return;
     }
+    if (currentEdition === 'past' && isSideQuestArea(activeAreaId())) {
+      drawSideQuestDungeon();
+      return;
+    }
     for (const tile of editionTiles.get(currentEdition)) {
       if (!imageIsLoaded(tile.image)) continue;
       ctx.drawImage(tile.image, tile.col * tileW, tile.row * tileH, tileW, tileH);
@@ -1609,6 +1877,35 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(background, 0, 0, area.width, area.height);
     for (const building of CROSSROADS_BUILDINGS) drawTownBuildingLabel(building);
+    drawQuadraQuestBoard();
+  }
+
+  function drawQuadraQuestBoard() {
+    if (!campaignState.crossroadsBossDefeated) return;
+    const interaction = pastStoryApi.PAST_INTERACTIONS.find(item => item.id === 'quadra-sidequest-board');
+    if (!interaction) return;
+    const [x, y] = interaction.point;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = '#34251d';
+    ctx.fillRect(-62, -78, 124, 70);
+    ctx.strokeStyle = '#d9ab63';
+    ctx.lineWidth = 5;
+    ctx.strokeRect(-62, -78, 124, 70);
+    ctx.fillStyle = '#ead7ad';
+    for (let note = 0; note < 3; note += 1) {
+      ctx.save();
+      ctx.rotate((note - 1) * 0.07);
+      ctx.fillRect(-48 + note * 34, -65 + (note % 2) * 5, 30, 42);
+      ctx.restore();
+    }
+    ctx.fillStyle = '#261812';
+    ctx.fillRect(-7, -8, 14, 62);
+    ctx.fillStyle = '#ffe0a0';
+    ctx.font = '700 13px Georgia, "Yu Mincho", serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('旅人の依頼板', 0, 70);
+    ctx.restore();
   }
 
   function drawMistCitadel() {
@@ -1698,6 +1995,214 @@
       ctx.textAlign = 'center';
       ctx.fillText(campaignState.mistBossDefeated ? '澄んだ霧鐘' : '眠る霧鐘', altar.point[0], altar.point[1] + 5);
       ctx.restore();
+    }
+  }
+
+  function buildSideDungeonTileSprite(dungeon, tile, variant) {
+    const key = `side:${dungeon.id}:${tile}:${variant}`;
+    if (dungeonTileSprites.has(key)) return dungeonTileSprites.get(key);
+    const size = dungeon.tileSize;
+    const sprite = document.createElement('canvas');
+    sprite.width = size * 2;
+    sprite.height = size * 2;
+    const paint = sprite.getContext('2d');
+    paint.scale(2, 2);
+    const palette = dungeon.biome === 'poison'
+      ? { floor: '#4d4a46', floor2: '#5d574d', wall: '#292d25', edge: '#78905a' }
+      : dungeon.biome === 'ice'
+        ? { floor: '#536878', floor2: '#6f8490', wall: '#263746', edge: '#a9d8e7' }
+        : { floor: '#4c4540', floor2: '#625149', wall: '#211d1e', edge: '#9d4c35' };
+    const gradient = paint.createLinearGradient(0, 0, size, size);
+    gradient.addColorStop(0, variant % 2 ? palette.floor : palette.floor2);
+    gradient.addColorStop(1, palette.floor);
+    paint.fillStyle = gradient;
+    paint.fillRect(0, 0, size, size);
+    paint.strokeStyle = `${palette.edge}66`;
+    paint.strokeRect(2.5, 2.5, size - 5, size - 5);
+
+    if (tile === '#') {
+      paint.fillStyle = palette.wall;
+      paint.fillRect(0, 0, size, size);
+      for (let row = 0; row < 4; row += 1) {
+        for (let column = 0; column < 4; column += 1) {
+          const offset = (row * 4 + column + variant) % 4;
+          paint.fillStyle = offset % 2 ? `${palette.floor}cc` : `${palette.floor2}aa`;
+          paint.fillRect(column * 15 + offset - 2, row * 15 + (offset % 3) - 2, 16, 15);
+        }
+      }
+      paint.strokeStyle = '#1119';
+      paint.beginPath();
+      paint.moveTo(8 + variant * 4, 4);
+      paint.lineTo(20, 23);
+      paint.lineTo(15, 41);
+      paint.stroke();
+    } else if (tile === 'P') {
+      const mire = paint.createRadialGradient(24, 22, 2, 30, 30, 42);
+      mire.addColorStop(0, '#9b5daf');
+      mire.addColorStop(0.55, '#584269');
+      mire.addColorStop(1, '#283d32');
+      paint.fillStyle = mire;
+      paint.fillRect(0, 0, size, size);
+      for (let bubble = 0; bubble < 6; bubble += 1) {
+        paint.strokeStyle = bubble % 2 ? '#c895d2aa' : '#9bc767aa';
+        paint.beginPath();
+        paint.arc(8 + ((bubble * 17 + variant * 5) % 48), 9 + ((bubble * 23) % 43), 2 + bubble % 3, 0, Math.PI * 2);
+        paint.stroke();
+      }
+    } else if (tile === 'I') {
+      const ice = paint.createLinearGradient(0, 0, size, size);
+      ice.addColorStop(0, '#d6f6ff');
+      ice.addColorStop(0.45, '#72b9d5');
+      ice.addColorStop(1, '#3f769d');
+      paint.fillStyle = ice;
+      paint.fillRect(0, 0, size, size);
+      paint.strokeStyle = '#efffffaa';
+      paint.beginPath();
+      paint.moveTo(4, 42 - variant * 3);
+      paint.lineTo(20, 31);
+      paint.lineTo(31, 36);
+      paint.lineTo(53, 17);
+      paint.stroke();
+    } else if (tile === 'L') {
+      paint.fillStyle = '#271c1b';
+      paint.fillRect(0, 0, size, size);
+      paint.strokeStyle = '#ff9b35';
+      paint.lineWidth = 6;
+      paint.beginPath();
+      paint.moveTo(-4, 12 + variant * 5);
+      paint.bezierCurveTo(15, 4, 22, 35, 38, 24);
+      paint.bezierCurveTo(49, 16, 53, 48, 66, 39);
+      paint.stroke();
+      paint.strokeStyle = '#ffdf62';
+      paint.lineWidth = 2;
+      paint.stroke();
+    }
+
+    if (tile === 'B') {
+      paint.fillStyle = '#30231c';
+      paint.fillRect(19, 31, 22, 16);
+      paint.fillStyle = '#ffb13d';
+      paint.beginPath();
+      paint.moveTo(30, 8);
+      paint.quadraticCurveTo(43, 24, 30, 35);
+      paint.quadraticCurveTo(17, 24, 30, 8);
+      paint.fill();
+      paint.fillStyle = '#fff0a8';
+      paint.beginPath();
+      paint.arc(30, 26, 5, 0, Math.PI * 2);
+      paint.fill();
+    } else if (tile === 'C') {
+      paint.strokeStyle = '#e6ffe1';
+      paint.lineWidth = 3;
+      paint.beginPath();
+      paint.arc(30, 30, 18, 0, Math.PI * 2);
+      paint.moveTo(30, 8);
+      paint.lineTo(30, 52);
+      paint.moveTo(8, 30);
+      paint.lineTo(52, 30);
+      paint.stroke();
+    } else if (tile === 'S') {
+      paint.fillStyle = '#242d32';
+      paint.fillRect(8, 12, 44, 36);
+      paint.strokeStyle = '#8ab8c4';
+      paint.lineWidth = 4;
+      for (let bar = 0; bar < 4; bar += 1) {
+        paint.beginPath();
+        paint.moveTo(15 + bar * 10, 14);
+        paint.lineTo(15 + bar * 10, 46);
+        paint.stroke();
+      }
+    } else if (tile === '>') {
+      paint.fillStyle = '#28252a';
+      for (let step = 0; step < 6; step += 1) paint.fillRect(8 + step * 3, 7 + step * 8, 44 - step * 6, 6);
+    }
+
+    dungeonTileSprites.set(key, sprite);
+    return sprite;
+  }
+
+  function drawSideQuestDungeon() {
+    const dungeon = SIDE_DUNGEONS[activeAreaId()];
+    if (!dungeon) return;
+    const firstColumn = Math.max(0, Math.floor(camera.x / dungeon.tileSize) - 1);
+    const lastColumn = Math.min(dungeon.columns - 1, Math.ceil((camera.x + innerWidth / camera.zoom) / dungeon.tileSize) + 1);
+    const firstRow = Math.max(0, Math.floor(camera.y / dungeon.tileSize) - 1);
+    const lastRow = Math.min(dungeon.rows.length - 1, Math.ceil((camera.y + innerHeight / camera.zoom) / dungeon.tileSize) + 1);
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    for (let row = firstRow; row <= lastRow; row += 1) {
+      for (let column = firstColumn; column <= lastColumn; column += 1) {
+        const tile = dungeon.rows[row][column];
+        const sprite = buildSideDungeonTileSprite(dungeon, tile, (row * 7 + column * 11) % 4);
+        ctx.drawImage(sprite, column * dungeon.tileSize, row * dungeon.tileSize, dungeon.tileSize + 0.5, dungeon.tileSize + 0.5);
+      }
+    }
+    ctx.restore();
+    drawSideQuestDungeonEvents();
+  }
+
+  function drawSideQuestDungeonEvents() {
+    const quest = sideQuestForArea(activeAreaId());
+    if (!quest) return;
+    const completed = campaignState.sideQuests.completedQuestIds.includes(quest.id);
+    const altar = pastStoryApi.PAST_INTERACTIONS.find(interaction => interaction.id === `${quest.id}-boss-altar`);
+    if (altar) {
+      const [x, y] = altar.point;
+      ctx.save();
+      ctx.translate(x, y);
+      const glow = ctx.createRadialGradient(0, 0, 10, 0, 0, 95);
+      glow.addColorStop(0, completed ? '#9dffe0cc' : '#b36be2bb');
+      glow.addColorStop(1, 'transparent');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(0, 0, 95, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = completed ? '#537b68' : '#493655';
+      ctx.beginPath();
+      ctx.moveTo(-62, 34);
+      ctx.lineTo(-46, -28);
+      ctx.lineTo(0, -56);
+      ctx.lineTo(46, -28);
+      ctx.lineTo(62, 34);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = completed ? '#c3ffe5' : '#e3b4ff';
+      ctx.lineWidth = 5;
+      ctx.stroke();
+      ctx.fillStyle = '#fff3c5';
+      ctx.font = '900 32px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(completed ? '✦' : '◆', 0, -3);
+      ctx.restore();
+    }
+    if (quest.id === 'molten-crown' && !campaignState.sideQuests.keyItems.includes('fire-rat-boots')) {
+      const midboss = SIDE_DUNGEON_ENCOUNTERS.find(encounter => encounter.id === 'sidequest-fire-rat-chief');
+      if (midboss) drawDungeonEnemySprite({ ...midboss, x: midboss.patrol[0][0], y: midboss.patrol[0][1] }, 1.15);
+    }
+    if (quest.id === 'molten-crown') {
+      for (const sluiceId of ['west', 'east']) {
+        const active = campaignState.sideQuests.cooledSluiceIds.includes(sluiceId);
+        const interaction = pastStoryApi.PAST_INTERACTIONS.find(item => item.id === `molten-sluice-${sluiceId}`);
+        if (!interaction) continue;
+        const [x, y] = interaction.point;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.strokeStyle = active ? '#8fe9ff' : '#b96a48';
+        ctx.fillStyle = active ? '#24586a' : '#3b2926';
+        ctx.lineWidth = 5;
+        ctx.fillRect(-34, -27, 68, 54);
+        ctx.strokeRect(-34, -27, 68, 54);
+        ctx.beginPath();
+        ctx.arc(0, 0, 17, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#fff0cc';
+        ctx.font = '700 11px Georgia, "Yu Mincho", serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(active ? '冷却中' : '停止中', 0, 45);
+        ctx.restore();
+      }
     }
   }
 
@@ -1975,6 +2480,22 @@
     ctx.restore();
   }
 
+  function drawDungeonEnemySprite(enemy, scale = 1) {
+    const image = pastEnemyImages.get(enemy.enemyId);
+    if (!image?.complete || !image.naturalWidth) return;
+    const height = 50 * scale;
+    const width = height * image.naturalWidth / image.naturalHeight;
+    const bob = Math.sin(performance.now() / 280 + enemy.x) * 1.5;
+    ctx.save();
+    ctx.translate(enemy.x, enemy.y);
+    ctx.fillStyle = '#09060999';
+    ctx.beginPath();
+    ctx.ellipse(0, 2, width * 0.28, 5 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.drawImage(image, -width / 2, -height + 4 + bob, width, height);
+    ctx.restore();
+  }
+
   function drawLocalCharacters() {
     const now = performance.now();
     const characters = [
@@ -1982,6 +2503,10 @@
         const pose = npcPoseAt(npc, now);
         return { y: pose.y, draw: () => drawPastNpc(npc, pose, now) };
       }),
+      ...sideDungeonEnemies.filter(enemy => enemy.active && isSideQuestArea(activeAreaId())).map(enemy => ({
+        y: enemy.y,
+        draw: () => drawDungeonEnemySprite(enemy)
+      })),
       { y: player.y, draw: drawPlayer }
     ].sort((left, right) => left.y - right.y);
     for (const character of characters) character.draw();
@@ -2040,6 +2565,47 @@
     ctx.textAlign = 'center';
     ctx.fillText('交差路の街', 0, 41);
     ctx.restore();
+  }
+
+  function drawSideQuestEntrances() {
+    if (currentEdition !== 'past' || activeAreaId() !== 'overworld') return;
+    for (const quest of SIDE_QUESTS) {
+      const status = sideQuestStatus(campaignState.sideQuests, quest.id, campaignState.crossroadsBossDefeated);
+      if (!['active', 'completed'].includes(status)) continue;
+      const x = quest.overworldPoint[0] * maskScale;
+      const y = quest.overworldPoint[1] * maskScale;
+      const color = quest.id === 'sunken-shrine' ? '#b47ad0' : quest.id === 'ice-lantern' ? '#9de7ff' : '#ff9a55';
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = '#17131ddd';
+      ctx.beginPath();
+      ctx.moveTo(-42, 18);
+      ctx.lineTo(-34, -42);
+      ctx.quadraticCurveTo(0, -70, 34, -42);
+      ctx.lineTo(42, 18);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 5;
+      ctx.stroke();
+      ctx.globalAlpha = 0.35 + Math.sin(performance.now() / 430) * 0.12;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(0, -16, 23, 35, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      roundedRectanglePath(ctx, -88, 27, 176, 34, 7);
+      ctx.fillStyle = '#21131fe8';
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#fff0cf';
+      ctx.font = '700 12px Georgia, "Yu Mincho", serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${quest.title}${status === 'completed' ? '・鎮静' : `・Lv${quest.recommendedLevel}`}`, 0, 49);
+      ctx.restore();
+    }
   }
 
   function drawWatchtowerFog(x, y, width, height) {
@@ -2355,6 +2921,8 @@
         mctx.strokeStyle = '#9a82c4';
         mctx.lineWidth = 3;
         mctx.strokeRect(12, 8, 186, 129);
+      } else if (isSideQuestArea(areaId)) {
+        mctx.drawImage(sideDungeonMinis.get(areaId), 0, 0);
       } else {
         const baseAssetId = areaId === 'castle' ? 'castle-interior' : areaId === 'castle-town' ? 'castle-town-ground' : areaId;
         const baseImage = pastSceneImages.get(baseAssetId);
@@ -2378,6 +2946,20 @@
           mctx.beginPath();
           mctx.arc(altar.point[0], altar.point[1], 46, 0, Math.PI * 2);
           mctx.stroke();
+        }
+      } else if (isSideQuestArea(areaId)) {
+        const quest = sideQuestForArea(areaId);
+        mctx.strokeStyle = campaignState.sideQuests.completedQuestIds.includes(quest.id) ? '#b9ffe4' : '#e5adff';
+        mctx.lineWidth = 12;
+        mctx.beginPath();
+        mctx.arc(1350, 150, 42, 0, Math.PI * 2);
+        mctx.stroke();
+        mctx.fillStyle = '#dc6258';
+        for (const enemy of sideDungeonEnemies) {
+          if (!enemy.active) continue;
+          mctx.beginPath();
+          mctx.arc(enemy.x, enemy.y, 18, 0, Math.PI * 2);
+          mctx.fill();
         }
       }
       mctx.fillStyle = '#fff';
@@ -2462,6 +3044,7 @@
         drawDepthSortedEntities();
         drawPastCapitalGate();
         drawPastCrossroadsGate();
+        drawSideQuestEntrances();
         drawPastEnemies();
         drawPastMagicTutor();
       }
@@ -2750,6 +3333,9 @@
     const bossVictory = result === 'victory' && encounter?.id === 'watchtower-boss';
     const crossroadsBossVictory = result === 'victory' && encounter?.id === 'crossroads-boss';
     const mistBossVictory = result === 'victory' && encounter?.id === 'mist-bell-boss';
+    const completedSideQuest = result === 'victory' ? sideQuestForEncounter(encounter?.id) : null;
+    const sideQuestBossVictory = Boolean(completedSideQuest);
+    const fireRatVictory = result === 'victory' && encounter?.id === 'sidequest-fire-rat-chief';
     let followUpDialogue = null;
     if (result === 'rescued' && encounter?.tutorialRescue) {
       const rescuedStory = completeStoryEvent(storyState, 'arrival-rescue-complete');
@@ -2767,10 +3353,15 @@
         encounterId: encounter.id
       });
       campaignState = outcome.state;
+      const sideQuestOutcome = applySideQuestBattleVictory(campaignState, encounter.id);
+      campaignState = sideQuestOutcome.state;
       savePastCampaign();
       savePastStory();
       const now = performance.now();
       pastEnemies = pastEnemies.map(enemy => enemy.id === encounter.id
+        ? { ...enemy, active: false, respawnAt: now + 300000 }
+        : enemy);
+      sideDungeonEnemies = sideDungeonEnemies.map(enemy => enemy.id === encounter.id
         ? { ...enemy, active: false, respawnAt: now + 300000 }
         : enemy);
       if (bossVictory) {
@@ -2800,6 +3391,34 @@
           id: 'mist-bell-victory-result',
           onComplete: 'mist-boss-defeated',
           lines: [...levelLines, ...STORY_DIALOGUES['mist-boss-cleared'].lines]
+        };
+      } else if (sideQuestBossVictory) {
+        const levelLines = outcome.leveledUp
+          ? [{ speaker: '地の文', text: `レベルが${campaignState.level}に上がった！ HPとMPが全回復した。` }]
+          : [];
+        const vowLines = campaignState.sideQuests.twinStarVowUnlocked && !campaignState.sideQuests.twinStarVowSeen
+          ? STORY_DIALOGUES['twin-star-vow'].lines
+          : [];
+        if (vowLines.length) {
+          campaignState = { ...campaignState, sideQuests: markTwinStarVowSeen(campaignState.sideQuests) };
+          savePastCampaign();
+        }
+        followUpDialogue = {
+          id: `${completedSideQuest.id}-victory-result`,
+          lines: [
+            ...levelLines,
+            { speaker: '地の文', text: sideQuestOutcome.message },
+            ...STORY_DIALOGUES[`${completedSideQuest.id}-cleared`].lines,
+            ...vowLines
+          ]
+        };
+      } else if (fireRatVictory) {
+        followUpDialogue = {
+          id: 'fire-rat-chief-victory-result',
+          lines: [
+            { speaker: '地の文', text: sideQuestOutcome.message },
+            ...STORY_DIALOGUES['fire-rat-chief-cleared'].lines
+          ]
         };
       } else if (outcome.leveledUp) {
         followUpDialogue = {
@@ -2832,9 +3451,12 @@
         pastEnemies = pastEnemies.map(enemy => enemy.id === encounter.id
           ? { ...enemy, active: false, respawnAt: now + 5000 }
           : enemy);
+        sideDungeonEnemies = sideDungeonEnemies.map(enemy => enemy.id === encounter.id
+          ? { ...enemy, active: false, respawnAt: now + 5000 }
+          : enemy);
       }
     }
-    if (!practice && activeAreaId() === 'overworld' && ['victory', 'fled'].includes(result)) {
+    if (!practice && (activeAreaId() === 'overworld' || isSideQuestArea(activeAreaId())) && ['victory', 'fled'].includes(result)) {
       encounterGraceUntil = performance.now() + FIELD_ENCOUNTER_GRACE_MS;
     }
     activeBattle = null;
