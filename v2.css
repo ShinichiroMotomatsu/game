@@ -100,7 +100,7 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .v2-story-visual-crest { position: absolute; z-index: 3; top: 45%; left: 40%; width: 20%; height: auto; filter: drop-shadow(0 0 10px #63cfff) drop-shadow(0 0 20px #1b65c4); }
 .v2-story-visual-crest[hidden] { display: none; }
 .v2-story-visual[data-visual="compass"] .v2-story-visual-scene { filter: brightness(.38) saturate(.75) blur(1px); transform: scale(1.015); }
-.v2-story-visual[data-visual="compass"] .v2-story-visual-crest { top: 27%; left: 41%; width: 18%; }
+.v2-story-visual[data-visual="compass"] .v2-story-visual-crest { top: 39.8%; left: 48.9%; width: 18%; transform: translate(-50%, -50%); }
 .v2-watchtower-effect { position: fixed; z-index: 70; inset: 0; display: grid; place-items: center; overflow: hidden; pointer-events: none; opacity: 0; background: radial-gradient(circle, #8b3dcc66, #1c082dd9 42%, #040207f5 78%); }
 .v2-watchtower-effect[aria-hidden="true"] { display: none; }
 .v2-watchtower-effect strong { z-index: 2; padding: 14px 22px; border: 2px solid #ebc479; background: #190d22dd; color: #fff1cc; font: 800 clamp(17px, 4vw, 30px) Georgia, "Yu Mincho", serif; letter-spacing: .08em; text-shadow: 0 0 16px #bd66ff; }

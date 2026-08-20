@@ -32,6 +32,6 @@ test('past runtime tiles were generated from the final road-composited map', () 
 
 test('past tile and runtime scripts use the current cache versions', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
-  assert.match(html, /v2-editions\.js\?edition=3/);
+  assert.match(html, /v2-editions\.js\?edition=4/);
   assert.match(html, /v2\.js\?edition=18/);
 });

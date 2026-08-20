@@ -164,12 +164,18 @@ test('Past Evening map build clips roads to an island and draws ports at coastal
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(builder, /past_land_mask/);
   assert.match(builder, /draw_past_ports/);
-  assert.match(builder, /HARBOR_SETPIECE_SOURCE_PATH/);
-  assert.match(builder, /harbor_sprite\.rotate/);
+  assert.match(builder, /HARBOR_PIER_SOURCE_PATH/);
+  assert.match(builder, /HARBOR_SHIP_SOURCE_PATH/);
+  assert.match(builder, /HARBOR_LIGHTHOUSE_SOURCE_PATH/);
+  assert.match(builder, /pier_sprite\.rotate/);
+  assert.doesNotMatch(builder, /ship_sprite\.rotate|lighthouse_sprite\.rotate/);
+  assert.match(builder, /composite_upright_harbor_prop/);
   assert.match(builder, /Image\.Resampling\.LANCZOS/);
   assert.match(builder, /alpha_composite/);
   assert.match(builder, /ImageChops\.multiply/);
-  assert.equal(fs.existsSync(path.join('assets', 'v2', 'past-events', 'harbor-setpiece-source.png')), true);
+  for (const name of ['harbor-pier-source.png', 'harbor-ship-source.png', 'harbor-lighthouse-source.png']) {
+    assert.equal(fs.existsSync(path.join('assets', 'v2', 'past-events', name)), true, name);
+  }
   assert.match(html, /road-collision-past-data\.js/);
   assert.match(runtime, /V2_ROAD_COLLISION_PAST/);
 });

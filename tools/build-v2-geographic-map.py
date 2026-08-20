@@ -20,7 +20,9 @@ PREVIEW_PATH = ROOT / "tmp" / "v2-road-geographic-preview.png"
 LANDMARK_PREVIEW_PATH = ROOT / "tmp" / "v2-geographic-landmark-preview.png"
 PAST_LANDMARK_PREVIEW_PATH = ROOT / "tmp" / "v2-past-evening-landmark-preview.png"
 PAST_LAND_MASK_PATH = ROOT / "assets" / "v2" / "past-land-mask.png"
-HARBOR_SETPIECE_SOURCE_PATH = ROOT / "assets" / "v2" / "past-events" / "harbor-setpiece-source.png"
+HARBOR_PIER_SOURCE_PATH = ROOT / "assets" / "v2" / "past-events" / "harbor-pier-source.png"
+HARBOR_SHIP_SOURCE_PATH = ROOT / "assets" / "v2" / "past-events" / "harbor-ship-source.png"
+HARBOR_LIGHTHOUSE_SOURCE_PATH = ROOT / "assets" / "v2" / "past-events" / "harbor-lighthouse-source.png"
 COLLISION_DATA_PATH = ROOT / "assets" / "v2" / "road-collision-data.js"
 PAST_COLLISION_DATA_PATH = ROOT / "assets" / "v2" / "road-collision-past-data.js"
 LAYOUT_DATA_PATH = ROOT / "assets" / "v2" / "map-layout-data.js"
@@ -243,25 +245,72 @@ def coastal_road_ports(layout: dict, land_mask: Image.Image) -> list[tuple[float
     return ports
 
 
+def composite_upright_harbor_prop(
+    canvas: Image.Image,
+    source: Image.Image,
+    anchor: tuple[float, float],
+    target_height: int,
+) -> None:
+    # Tall pseudo-3D props use a bottom-center ground anchor. They are never
+    # rotated with the coast, so every mast and wall rises toward screen top.
+    content_bounds = source.getchannel("A").getbbox()
+    if content_bounds is None:
+        raise ValueError("Harbor prop source has no visible pixels")
+    sprite = source.crop(content_bounds)
+    target_width = max(1, round(sprite.width / sprite.height * target_height))
+    sprite = sprite.resize((target_width, target_height), Image.Resampling.LANCZOS)
+    left = round(anchor[0] - sprite.width / 2)
+    top = round(anchor[1] - sprite.height)
+    canvas.alpha_composite(sprite, (left, top))
+
+
 def draw_past_ports(canvas: Image.Image, layout: dict, land_mask: Image.Image) -> Image.Image:
     high_resolution = canvas.convert("RGBA").resize(
         (canvas.width * SUPERSAMPLE, canvas.height * SUPERSAMPLE),
         Image.Resampling.LANCZOS,
     )
-    harbor_source = Image.open(HARBOR_SETPIECE_SOURCE_PATH).convert("RGBA")
+    pier_source = Image.open(HARBOR_PIER_SOURCE_PATH).convert("RGBA")
+    ship_source = Image.open(HARBOR_SHIP_SOURCE_PATH).convert("RGBA")
+    lighthouse_source = Image.open(HARBOR_LIGHTHOUSE_SOURCE_PATH).convert("RGBA")
     for x, y, angle, road_width in coastal_road_ports(layout, land_mask):
         size = round(max(128, min(158, 112 + road_width * 1.35)) * SUPERSAMPLE)
-        harbor_sprite = harbor_source.resize((size, size), Image.Resampling.LANCZOS)
-        # The authored pier points toward the top; rotate that outward axis to
-        # the exact road/shore crossing without redrawing low-resolution edges.
-        harbor_sprite = harbor_sprite.rotate(
+        pier_sprite = pier_source.resize((size, size), Image.Resampling.LANCZOS)
+        # Only the low, mostly top-down deck follows the road/shore direction.
+        # Rotating the former combined sprite also turned towers and masts
+        # sideways, contradicting the map's consistent pseudo-3D projection.
+        pier_sprite = pier_sprite.rotate(
             math.degrees(angle) + 90,
             resample=Image.Resampling.BICUBIC,
             expand=True,
         )
-        left = round(x * SUPERSAMPLE - harbor_sprite.width / 2)
-        top = round(y * SUPERSAMPLE - harbor_sprite.height / 2)
-        high_resolution.alpha_composite(harbor_sprite, (left, top))
+        center = x * SUPERSAMPLE, y * SUPERSAMPLE
+        left = round(center[0] - pier_sprite.width / 2)
+        top = round(center[1] - pier_sprite.height / 2)
+        high_resolution.alpha_composite(pier_sprite, (left, top))
+
+        outward = math.cos(angle), math.sin(angle)
+        side = -outward[1], outward[0]
+        prop_anchors = (
+            (
+                center[0] + outward[0] * size * 0.12 + side[0] * size * 0.24,
+                center[1] + outward[1] * size * 0.12 + side[1] * size * 0.24,
+                ship_source,
+                round(size * 0.66),
+            ),
+            (
+                center[0] + outward[0] * size * 0.08 - side[0] * size * 0.24,
+                center[1] + outward[1] * size * 0.08 - side[1] * size * 0.24,
+                lighthouse_source,
+                round(size * 0.5),
+            ),
+        )
+        for anchor_x, anchor_y, source, target_height in sorted(prop_anchors, key=lambda item: item[1]):
+            composite_upright_harbor_prop(
+                high_resolution,
+                source,
+                (anchor_x, anchor_y),
+                target_height,
+            )
     return high_resolution.resize(canvas.size, Image.Resampling.LANCZOS).convert("RGB")
 
 def mask_to_runs(mask: Image.Image) -> list[list[list[int]]]:
