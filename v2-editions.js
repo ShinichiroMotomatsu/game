@@ -20,7 +20,7 @@
       label: '過去編-夕方',
       subtitle: 'PAST · EVENING',
       tileDirectory: 'past-evening-runtime-tiles',
-      tileVersion: 6,
+      tileVersion: 7,
       landmarkDirectory: 'past-landmarks',
       landmarkSizeOverrides: Object.freeze({
         // The source sprite is tightly cropped after removing sheet-edge bleed.

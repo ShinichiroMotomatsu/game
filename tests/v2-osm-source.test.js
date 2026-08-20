@@ -177,6 +177,14 @@ test('Past Evening map build clips roads to an island and leaves coastal road en
   assert.match(runtime, /V2_ROAD_COLLISION_PAST/);
 });
 
+test('Past Evening biome build never restores pre-biome city strips beside roads', () => {
+  const builder = fs.readFileSync(path.join('tools', 'build-v2-past-biomes.py'), 'utf8');
+  assert.match(builder, /TERRAIN\s*=\s*ASSETS/);
+  assert.doesNotMatch(builder, /road-collision-mask|ImageFilter|MaxFilter|Image\.composite/);
+  assert.doesNotMatch(builder, /past-evening-(?:source|runtime)-tiles/);
+  assert.match(builder, /Roads are rendered deterministically by build-v2-geographic-map\.py/);
+});
+
 test('future events can unlock memory fog through a stable game event API', () => {
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(runtime, /window\.V2_GAME_EVENTS/);
