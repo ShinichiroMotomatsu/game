@@ -55,8 +55,8 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const css = fs.readFileSync('v2.css', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
-  assert.match(html, /v2\.js\?edition=17/);
-  assert.match(html, /v2\.css\?edition=11/);
+  assert.match(html, /v2\.js\?edition=18/);
+  assert.match(html, /v2\.css\?edition=12/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);
   assert.match(runtime, /shell\.addEventListener\('pointerdown'/);
@@ -134,6 +134,33 @@ test('battle cards use a large high-contrast type band and redraw any selected o
   assert.match(css, /\.v2-battle-vital strong[^}]*font-size:\s*clamp\(/);
   assert.match(css, /\.v2-card[^}]*min-height:\s*118px/);
   assert.match(css, /\.v2-card-art[^}]*height:\s*60px/);
+});
+
+test('all five battle cards fit on a phone without horizontal scrolling', () => {
+  const css = fs.readFileSync('v2.css', 'utf8');
+  const mobile = css.match(/@media \(max-width: 700px\) \{[\s\S]*?\n\}/)?.[0] || '';
+
+  assert.match(mobile, /\.v2-battle-hand[^}]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(mobile, /\.v2-battle-hand[^}]*overflow-x:\s*hidden/s);
+  assert.match(mobile, /\.v2-card-kindbar small[^}]*font-size:\s*(?:7|8|9)px/s);
+  assert.match(mobile, /\.v2-card-copy small[^}]*display:\s*none/s);
+});
+
+test('victory disables fleeing and the first boss uses seal and mist-clearing presentation', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const css = fs.readFileSync('v2.css', 'utf8');
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const battleRenderer = runtime.match(/function renderBattle\(\)[\s\S]*?\n  function resetBattleEffects/)?.[0] || '';
+
+  assert.match(battleRenderer, /battleFlee\.disabled\s*=\s*activeBattle\.status\s*!==\s*'active'/);
+  assert.match(html, /id="v2-story-visual"/);
+  assert.match(html, /id="v2-watchtower-effect"/);
+  assert.match(runtime, /function playWatchtowerEffect/);
+  assert.match(runtime, /function drawWatchtowerFog/);
+  assert.match(runtime, /watchtower-seal-release/);
+  assert.match(runtime, /watchtower-crest/);
+  assert.match(css, /is-seal-release/);
+  assert.match(css, /is-mist-clearing/);
 });
 
 test('settings offer an inherited chapter restart without erasing growth', () => {

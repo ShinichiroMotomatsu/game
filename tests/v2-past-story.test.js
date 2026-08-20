@@ -45,6 +45,18 @@ test('chapter one is driven by the hero mystery and answers one question while o
   assert.match(cleared, /外から|目覚め/);
 });
 
+test('a new game opens aboard ship, shows the father compass, and later reveals the matching crest', () => {
+  const openingVisuals = STORY_DIALOGUES.arrival.lines.map(line => line.visualId);
+  const clearedVisuals = STORY_DIALOGUES['watchtower-cleared'].lines.map(line => line.visualId).filter(Boolean);
+  const sealRelease = STORY_DIALOGUES['watchtower-seal-release'];
+
+  assert.deepEqual(openingVisuals, ['voyage', 'compass', 'voyage']);
+  assert.match(STORY_DIALOGUES.arrival.lines.map(line => line.text).join(''), /船|新大陸|羅針盤/);
+  assert.ok(clearedVisuals.includes('watchtower-crest'));
+  assert.equal(sealRelease.onComplete, 'watchtower-seal-release');
+  assert.match(sealRelease.lines.map(line => line.text).join(''), /封印|霧|羅針盤/);
+});
+
 test('chapter two requires any two of three independent clues before the waterway opens', () => {
   const door = PAST_INTERACTIONS.find(interaction => interaction.id === 'crossroads-dungeon-door');
   let story = createPastStory({ phase: 'second-mission', area: 'crossroads-town' });
@@ -581,8 +593,8 @@ test('the overworld consistently filters enemies and routes the tutorial battle 
 
 test('the tutorial story and runtime scripts use fresh browser cache versions', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
-  assert.match(html, /v2-past-story\.js\?edition=13/);
-  assert.match(html, /v2\.js\?edition=17/);
+  assert.match(html, /v2-past-story\.js\?edition=14/);
+  assert.match(html, /v2\.js\?edition=18/);
 });
 
 test('the western road contains two visible card discoveries', () => {

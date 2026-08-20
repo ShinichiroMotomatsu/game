@@ -164,7 +164,12 @@ test('Past Evening map build clips roads to an island and draws ports at coastal
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(builder, /past_land_mask/);
   assert.match(builder, /draw_past_ports/);
+  assert.match(builder, /HARBOR_SETPIECE_SOURCE_PATH/);
+  assert.match(builder, /harbor_sprite\.rotate/);
+  assert.match(builder, /Image\.Resampling\.LANCZOS/);
+  assert.match(builder, /alpha_composite/);
   assert.match(builder, /ImageChops\.multiply/);
+  assert.equal(fs.existsSync(path.join('assets', 'v2', 'past-events', 'harbor-setpiece-source.png')), true);
   assert.match(html, /road-collision-past-data\.js/);
   assert.match(runtime, /V2_ROAD_COLLISION_PAST/);
 });

@@ -72,3 +72,71 @@ Lighting/mood: warm upper-right sunset rim light, readable silhouettes.
 Scene/backdrop: perfectly flat solid pure green RGB(0,255,0), HEX #00FF00 chroma-key background for local removal.
 Constraints: background is one uniform #00FF00 with no shadows, gradients, texture, floor, reflection or lighting variation; no use of green in the enemies; no cast shadows; no smoke extending into another cell; no characters besides the three specified enemies; no text, labels, grid lines, UI, watermark or logos.
 ```
+
+## 父の羅針盤と星の紋章
+
+`star-crest.png`
+
+```text
+Use case: stylized-concept
+Asset type: reusable transparent JRPG story emblem overlay
+Primary request: Create exactly one distinctive ancient navigation crest: an eight-point star with four elongated cardinal points, an inner compass ring, and a small diamond at the center. It must read immediately as both a star emblem and a compass motif.
+Style: hand-painted classic 16-bit/32-bit era JRPG upgraded to high resolution, antique gold and brass with subtle blue-white magical inlay, crisp clean silhouette, suitable for a polished fantasy RPG.
+Composition: perfectly centered, front-facing, symmetrical, square canvas, generous transparent padding around the emblem.
+Lighting: neutral asset lighting, restrained inner magical glow only.
+Constraints: genuinely transparent background; no frame; no plaque; no text; no letters; no numbers; no runes; no watermark; no external cast shadow; no additional objects. The same file will be reused on a compass dial and on a stone seal, so keep the emblem isolated and highly legible.
+```
+
+`father-compass.png`
+
+```text
+Use case: stylized-concept
+Asset type: transparent JRPG story item close-up
+Primary request: Create an ornate antique brass pocket compass belonging to a missing explorer father. Show it open, viewed perfectly straight from above. The circular dial must be a plain deep midnight-blue enamel surface with a large clean empty center area; do not draw any compass rose, star, needle, emblem, letters, degree numbers, or markings in that center because a separate exact crest PNG will be overlaid there at runtime.
+Style: hand-painted classic 16-bit/32-bit era JRPG upgraded to high resolution, warm aged brass, subtle scratches and inherited heirloom character, polished game production art.
+Composition: centered square asset, compass fills about 78% of the canvas, lid open behind the body but does not cover the dial, generous transparent padding.
+Lighting: soft neutral studio lighting, clear edges, restrained warm highlights.
+Constraints: genuinely transparent background; no hands; no person; no table; no scenery; no text; no letters; no numbers; no watermark; no star emblem; no compass rose in the empty dial center.
+```
+
+## 導入航海と見張り台の発見シーン
+
+`voyage-intro.png`
+
+```text
+Use case: stylized-concept
+Asset type: wide JRPG story cutscene background
+Primary request: Opening voyage to a newly discovered continent. A small medieval ocean-going sailing ship advances across a calm dark-blue sea at golden sunset. Camera is on the ship's wooden deck looking forward over the bow. A young dark-haired traveler in simple casual adventurer clothes stands from behind at the railing. Far ahead, a mysterious green-and-rocky new continent rises on the horizon, clearly the destination.
+Style: hand-painted classic 16-bit/32-bit era JRPG upgraded to high resolution, polished fantasy adventure game cutscene, rich readable shapes, restrained painterly pixel texture matching an existing isometric fantasy RPG.
+Composition: cinematic landscape 16:9, traveler in lower-left third, bow and rigging frame the scene, continent centered in the distance, ample visual space for a dialogue panel at the bottom.
+Mood: first journey, curiosity and quiet anticipation, ordinary sword-and-sail fantasy world with no hint this is a memory.
+Lighting: warm evening sun from upper right, long soft light across deck and sea.
+Constraints: no text, no captions, no UI, no logos, no watermark, no modern objects, no visible compass, no monsters, no magic effects.
+```
+
+`watchtower-discovery.png`
+
+```text
+Use case: stylized-concept
+Asset type: wide JRPG story cutscene background
+Primary request: Inside the top chamber of an ancient coastal watchtower immediately after a curse has been broken. In the center foreground is a weathered round stone-and-bronze seal plate set into a cracked pedestal, with a large perfectly blank dark circular medallion area reserved for a separate exact star crest PNG overlay at runtime. Faint remnants of purple mist drift out through open arched windows. The sea and evening sky can be glimpsed beyond.
+Style: hand-painted classic 16-bit/32-bit era JRPG upgraded to high resolution, polished fantasy adventure game cutscene, detailed masonry, old navigation instruments and chains, readable silhouettes.
+Composition: cinematic landscape 16:9, blank circular medallion centered in the middle third and clearly visible, chamber framing around it, space at the bottom for dialogue.
+Mood: mystery resolved but a larger secret discovered; ordinary sword-and-magic fantasy, no memory symbolism.
+Lighting: warm evening light entering from upper right, cool purple haze receding, subtle golden rim on the seal plate.
+Constraints: do not draw any star, compass rose, crest, emblem, letters, numbers, runes, text, captions, UI, logo, watermark, characters, monster, or battle effect on the blank medallion. It must remain plain and unobstructed for compositing.
+```
+
+## 港セットピース
+
+`harbor-setpiece-source.png`
+
+```text
+Use case: stylized-concept
+Asset type: transparent top-down isometric RPG map setpiece
+Primary request: A polished small medieval coastal harbor setpiece for a fantasy overworld. Build one straight, clean wooden pier oriented vertically from land at the bottom toward open water at the top. A compact single-mast medieval sailing ship is neatly moored along the left side of the pier. A small stone lighthouse with warm lantern windows stands on a round stone platform along the right side near the seaward end. Add a few tidy crates, rope coils, bollards, and one tiny rowboat. The pier edges must be smooth and intentionally constructed, not jagged.
+Style: hand-painted classic 16-bit/32-bit era JRPG upgraded to high resolution, strict top-down with slight isometric depth matching a detailed fantasy overworld, crisp readable silhouettes.
+Composition: square canvas, the complete harbor isolated in the center, generous transparent padding on all sides, land connection at exact bottom center, seaward end at exact top center. Keep all parts within the canvas.
+Lighting: neutral soft ambient asset lighting with subtle warm lighthouse glow; avoid directional cast shadows so the whole asset can be rotated to different shore directions without looking wrong.
+Constraints: genuinely transparent background; no ocean background; no land terrain background; no coast edge; no people; no labels; no text; no modern vehicles; no UI; no watermark. The asset will be rotated and composited over existing sea and shore pixels.
+```

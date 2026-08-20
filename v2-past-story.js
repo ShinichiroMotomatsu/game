@@ -213,9 +213,9 @@
       id: 'arrival',
       onComplete: 'arrival-complete',
       lines: Object.freeze([
-        Object.freeze({ speaker: '地の文', text: '父である地図師エルドは、夕映えの新大陸へ旅立ったまま消息を絶った。' }),
-        Object.freeze({ speaker: '地の文', text: '数年後、父が残した星の羅針盤が突然この海を指した。主人公はその足跡を追い、長い航海へ出た。' }),
-        Object.freeze({ speaker: '地の文', text: '船は新大陸の西の港へたどり着いた。港の先に見える王都ロプンギアで、まず父の手掛かりを探そう。' })
+        Object.freeze({ speaker: '地の文', visualId: 'voyage', text: '父である地図師エルドは、夕映えの新大陸へ旅立ったまま消息を絶った。主人公を乗せた船は今、その足跡を追って西の海を進んでいる。' }),
+        Object.freeze({ speaker: '主人公', visualId: 'compass', text: '父が残した星の羅針盤……。どれだけ船が揺れても、針と青い星の紋章は新大陸だけを指している。父があの島にいるなら、必ず見つけ出す。' }),
+        Object.freeze({ speaker: '地の文', visualId: 'voyage', text: 'やがて船は新大陸の西の港へたどり着いた。港の先に見える王都ロプンギアで、まず父の手掛かりを探そう。' })
       ])
     }),
     'capital-arrival': Object.freeze({
@@ -437,12 +437,20 @@
         Object.freeze({ speaker: '地の文', text: '西の港街道を徘徊する魔物から四つの封印片を集め、魔法の力を得る必要がありそうだ。' })
       ])
     }),
+    'watchtower-seal-release': Object.freeze({
+      id: 'watchtower-seal-release',
+      onComplete: 'watchtower-seal-release',
+      lines: Object.freeze([
+        Object.freeze({ speaker: '地の文', text: '四つの封印片が見張り台のくぼみへ吸い込まれ、星の羅針盤が強く震え始めた。' }),
+        Object.freeze({ speaker: '主人公', text: '羅針盤の光が、紫の霧を押し返している……。封印が解ける！' })
+      ])
+    }),
     'watchtower-cleared': Object.freeze({
       id: 'watchtower-cleared',
       lines: Object.freeze([
         Object.freeze({ speaker: '地の文', text: '紫霧の番人が崩れ落ち、見張り台を覆っていた霧が晴れていく。' }),
         Object.freeze({ speaker: '主人公', text: '外から何者かが入り込んだ跡はない。ここに眠っていた古い仕組みが、父の羅針盤に反応して目覚めたのか……。' }),
-        Object.freeze({ speaker: '地の文', text: '床の金属箱には、父の羅針盤と同じ星の紋章が刻まれていた。父は確かにここへ来ていた。' }),
+        Object.freeze({ speaker: '地の文', visualId: 'watchtower-crest', text: '床の金属箱には、父の羅針盤とまったく同じ青い星の紋章が刻まれていた。父は確かにここへ来ていた。' }),
         Object.freeze({ speaker: '王都兵', text: '見張り台の霧が晴れたのを見て迎えに来た。王がお待ちだ。報告のため王城へ戻ろう。' })
       ])
     })

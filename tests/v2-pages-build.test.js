@@ -25,6 +25,10 @@ test('Pages build contains the playable game without authoring source assets', (
       'assets/v2/landmarks/roppongi-hills.png',
       'assets/v2/past-scenes/castle-interior.png',
       'assets/v2/past-scenes/mist-citadel.png',
+      'assets/v2/past-scenes/voyage-intro.png',
+      'assets/v2/past-scenes/watchtower-discovery.png',
+      'assets/v2/past-events/father-compass.png',
+      'assets/v2/past-events/star-crest.png',
       'assets/v2/past-events/watergate-closed.png',
       'assets/v2/past-events/watergate-open.png',
       'assets/v2/past-events/compass-altar-corrupted.png',
@@ -36,6 +40,7 @@ test('Pages build contains the playable game without authoring source assets', (
       'supabase',
       'tests',
       'assets/v2/PAST_ASSET_PROMPTS.md',
+      'assets/v2/past-events/harbor-setpiece-source.png',
       'assets/v2/osm-road-source.json',
       'assets/v2/landmarks/roppongi-hills-source.png'
     ]) assert.equal(fs.existsSync(path.join(output, forbidden)), false, forbidden);
