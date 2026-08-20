@@ -73,6 +73,25 @@ test('opening redraw is unavailable after selecting an action or after turn one'
   assert.equal(redrawOpeningCards(battle, [], () => 0), battle);
 });
 
+test('draw effects cycle unplayed cards while the battle hand stays fixed at five', () => {
+  const battle = {
+    ...createBattle('mist-slime', () => 0),
+    hand: ['focus', 'guard', 'slash', 'spark', 'frost'],
+    deck: ['parry', 'cleave', 'feint', 'flame-edge', 'fortress', 'mend'],
+    discard: [],
+    selected: ['focus'],
+    selectedIndices: [0]
+  };
+  const cardsBefore = [...battle.hand, ...battle.deck, ...battle.discard].sort();
+
+  const next = resolveTurn(battle, () => 0);
+
+  assert.equal(next.hand.length, 5);
+  assert.deepEqual(next.hand, ['slash', 'spark', 'frost', 'parry', 'cleave']);
+  assert.deepEqual(next.discard, ['focus', 'guard']);
+  assert.deepEqual([...next.hand, ...next.deck, ...next.discard].sort(), cardsBefore);
+});
+
 test('every card has explicit type and attribute labels independent of its artwork glyph', () => {
   for (const card of Object.values(CARD_LIBRARY)) {
     assert.ok(DISCIPLINE_LABELS[card.discipline], `${card.id} has no type label`);

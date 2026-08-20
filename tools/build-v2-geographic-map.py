@@ -23,6 +23,10 @@ PAST_LAND_MASK_PATH = ROOT / "assets" / "v2" / "past-land-mask.png"
 HARBOR_PIER_SOURCE_PATH = ROOT / "assets" / "v2" / "past-events" / "harbor-pier-source.png"
 HARBOR_SHIP_SOURCE_PATH = ROOT / "assets" / "v2" / "past-events" / "harbor-ship-source.png"
 HARBOR_LIGHTHOUSE_SOURCE_PATH = ROOT / "assets" / "v2" / "past-events" / "harbor-lighthouse-source.png"
+HARBOR_PIER_SCALE = 0.72
+HARBOR_SHIP_OUTWARD = 0.16
+HARBOR_LIGHTHOUSE_INLAND = 0.46
+HARBOR_LIGHTHOUSE_SIDE = 0.10
 COLLISION_DATA_PATH = ROOT / "assets" / "v2" / "road-collision-data.js"
 PAST_COLLISION_DATA_PATH = ROOT / "assets" / "v2" / "road-collision-past-data.js"
 LAYOUT_DATA_PATH = ROOT / "assets" / "v2" / "map-layout-data.js"
@@ -261,6 +265,9 @@ def composite_upright_harbor_prop(
     sprite = sprite.resize((target_width, target_height), Image.Resampling.LANCZOS)
     left = round(anchor[0] - sprite.width / 2)
     top = round(anchor[1] - sprite.height)
+    # Keep upright ships and towers fully visible at ports close to the map edge.
+    left = max(0, min(left, canvas.width - sprite.width))
+    top = max(0, min(top, canvas.height - sprite.height))
     canvas.alpha_composite(sprite, (left, top))
 
 
@@ -274,7 +281,8 @@ def draw_past_ports(canvas: Image.Image, layout: dict, land_mask: Image.Image) -
     lighthouse_source = Image.open(HARBOR_LIGHTHOUSE_SOURCE_PATH).convert("RGBA")
     for x, y, angle, road_width in coastal_road_ports(layout, land_mask):
         size = round(max(128, min(158, 112 + road_width * 1.35)) * SUPERSAMPLE)
-        pier_sprite = pier_source.resize((size, size), Image.Resampling.LANCZOS)
+        pier_size = round(size * HARBOR_PIER_SCALE)
+        pier_sprite = pier_source.resize((pier_size, pier_size), Image.Resampling.LANCZOS)
         # Only the low, mostly top-down deck follows the road/shore direction.
         # Rotating the former combined sprite also turned towers and masts
         # sideways, contradicting the map's consistent pseudo-3D projection.
@@ -292,16 +300,16 @@ def draw_past_ports(canvas: Image.Image, layout: dict, land_mask: Image.Image) -
         side = -outward[1], outward[0]
         prop_anchors = (
             (
-                center[0] + outward[0] * size * 0.12 + side[0] * size * 0.24,
-                center[1] + outward[1] * size * 0.12 + side[1] * size * 0.24,
+                center[0] + outward[0] * size * HARBOR_SHIP_OUTWARD + side[0] * size * 0.22,
+                center[1] + outward[1] * size * HARBOR_SHIP_OUTWARD + side[1] * size * 0.22,
                 ship_source,
-                round(size * 0.66),
+                round(size * 0.58),
             ),
             (
-                center[0] + outward[0] * size * 0.08 - side[0] * size * 0.24,
-                center[1] + outward[1] * size * 0.08 - side[1] * size * 0.24,
+                center[0] - outward[0] * size * HARBOR_LIGHTHOUSE_INLAND + side[0] * size * HARBOR_LIGHTHOUSE_SIDE,
+                center[1] - outward[1] * size * HARBOR_LIGHTHOUSE_INLAND + side[1] * size * HARBOR_LIGHTHOUSE_SIDE,
                 lighthouse_source,
-                round(size * 0.5),
+                round(size * 0.44),
             ),
         )
         for anchor_x, anchor_y, source, target_height in sorted(prop_anchors, key=lambda item: item[1]):

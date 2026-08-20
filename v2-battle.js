@@ -20,6 +20,7 @@
 
   const DISCIPLINE_LABELS = Object.freeze({ sword: '剣', technique: '技', guard: '守', magic: '魔法' });
   const CARD_ATTRIBUTE_LABELS = Object.freeze({ neutral: '無', fire: '炎', ice: '氷', heal: '癒', insight: '心' });
+  const HAND_SIZE = 5;
 
   const ENEMY_LIBRARY = Object.freeze({
     'mist-slime': Object.freeze({ id: 'mist-slime', name: '宵霧のスライム', maxHp: 26, attack: 9, gold: 8, xp: 12, intent: '体当たり', weakness: 'fire' }),
@@ -136,7 +137,7 @@
       ? profile.deck.filter(cardId => CARD_LIBRARY[cardId])
       : defaultDeck();
     const battleDeck = expandedBattleDeck(configuredDeck.length ? configuredDeck : defaultDeck());
-    const opening = drawCards(shuffled(battleDeck, random), [], 5, random);
+    const opening = drawCards(shuffled(battleDeck, random), [], HAND_SIZE, random);
     const maxHp = Math.max(1, Math.floor(Number(profile.maxHp) || 42));
     const hp = Math.max(1, Math.min(maxHp, Math.floor(Number(profile.hp) || maxHp)));
     const energy = Math.max(1, Math.min(4, Math.floor(Number(profile.energy) || 1)));
@@ -363,8 +364,12 @@
       : Math.min(battle.enemy.maxHp, enemyHp + intent.heal);
     if (recoveredHp > enemyHp) effects.push({ type: 'heal', target: 'enemy', amount: recoveredHp - enemyHp });
     const remainingHand = removeSelectedFromHand(battle.hand, spent);
-    const needed = Math.max(0, 5 + action.draw - remainingHand.length);
+    const needed = Math.max(0, HAND_SIZE + action.draw - remainingHand.length);
     const nextDraw = drawCards(battle.deck, [...battle.discard, ...spent], needed, random);
+    const replenishedHand = [...remainingHand, ...nextDraw.cards];
+    const overflowCount = Math.max(0, replenishedHand.length - HAND_SIZE);
+    const cycledCards = replenishedHand.slice(0, overflowCount);
+    const nextHand = replenishedHand.slice(overflowCount);
     const intentPattern = battle.enemy.intentPattern || INTENT_PATTERN;
     const intentRevealTurns = action.revealIntent ? 3 : Math.max(0, currentRevealTurns - 1);
     return {
@@ -379,8 +384,8 @@
         intentId: intentPattern[(battle.enemy.intentIndex + 1) % intentPattern.length]
       },
       deck: nextDraw.deck,
-      discard: nextDraw.discard,
-      hand: [...remainingHand, ...nextDraw.cards].slice(0, 7),
+      discard: [...nextDraw.discard, ...cycledCards],
+      hand: nextHand,
       selected: [],
       selectedIndices: [],
       selectedCost: 0,
