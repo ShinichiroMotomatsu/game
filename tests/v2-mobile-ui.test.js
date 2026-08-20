@@ -56,7 +56,7 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
   assert.match(html, /v2\.js\?edition=18/);
-  assert.match(html, /v2\.css\?edition=12/);
+  assert.match(html, /v2\.css\?edition=13/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);
   assert.match(runtime, /shell\.addEventListener\('pointerdown'/);
@@ -161,6 +161,15 @@ test('victory disables fleeing and the first boss uses seal and mist-clearing pr
   assert.match(runtime, /watchtower-crest/);
   assert.match(css, /is-seal-release/);
   assert.match(css, /is-mist-clearing/);
+});
+
+test('the compass crest is centered on the blue dial at every responsive size', () => {
+  const css = fs.readFileSync('v2.css', 'utf8');
+  const compassCrest = css.match(/\.v2-story-visual\[data-visual="compass"\] \.v2-story-visual-crest\s*\{[^}]+\}/)?.[0] || '';
+
+  assert.match(compassCrest, /top:\s*39\.8%/);
+  assert.match(compassCrest, /left:\s*48\.9%/);
+  assert.match(compassCrest, /transform:\s*translate\(-50%,\s*-50%\)/);
 });
 
 test('settings offer an inherited chapter restart without erasing growth', () => {
