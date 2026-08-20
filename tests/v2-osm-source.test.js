@@ -158,30 +158,20 @@ test('the opening fantasy presentation does not reveal the memory premise', () =
   assert.doesNotMatch(runtime, /fillText\(['"]思い出せない場所/);
 });
 
-test('Past Evening map build clips roads to an island and draws ports at coastal road ends', () => {
+test('Past Evening map build clips roads to an island and leaves coastal road ends undecorated', () => {
   const builder = fs.readFileSync(path.join('tools', 'build-v2-geographic-map.py'), 'utf8');
   const html = fs.readFileSync('v2.html', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(builder, /past_land_mask/);
-  assert.match(builder, /draw_past_ports/);
-  assert.match(builder, /HARBOR_PIER_SOURCE_PATH/);
-  assert.match(builder, /HARBOR_SHIP_SOURCE_PATH/);
-  assert.match(builder, /HARBOR_LIGHTHOUSE_SOURCE_PATH/);
-  assert.match(builder, /HARBOR_PIER_SCALE\s*=\s*0\.72/);
-  assert.match(builder, /HARBOR_LIGHTHOUSE_INLAND\s*=\s*0\.46/);
-  assert.match(builder, /HARBOR_LIGHTHOUSE_SIDE\s*=\s*0\.10/);
-  assert.match(builder, /pier_sprite\.rotate/);
-  assert.doesNotMatch(builder, /ship_sprite\.rotate|lighthouse_sprite\.rotate/);
-  assert.match(builder, /center\[0\]\s*-\s*outward\[0\]\s*\*\s*size\s*\*\s*HARBOR_LIGHTHOUSE_INLAND\s*\+\s*side\[0\]\s*\*\s*size\s*\*\s*HARBOR_LIGHTHOUSE_SIDE/);
-  assert.match(builder, /center\[1\]\s*-\s*outward\[1\]\s*\*\s*size\s*\*\s*HARBOR_LIGHTHOUSE_INLAND\s*\+\s*side\[1\]\s*\*\s*size\s*\*\s*HARBOR_LIGHTHOUSE_SIDE/);
-  assert.match(builder, /composite_upright_harbor_prop/);
-  assert.match(builder, /canvas\.width\s*-\s*sprite\.width/);
-  assert.match(builder, /canvas\.height\s*-\s*sprite\.height/);
-  assert.match(builder, /Image\.Resampling\.LANCZOS/);
-  assert.match(builder, /alpha_composite/);
+  assert.doesNotMatch(builder, /HARBOR_|harbor-|coastal_road_ports|draw_past_ports|composite_upright_harbor_prop/);
   assert.match(builder, /ImageChops\.multiply/);
-  for (const name of ['harbor-pier-source.png', 'harbor-ship-source.png', 'harbor-lighthouse-source.png']) {
-    assert.equal(fs.existsSync(path.join('assets', 'v2', 'past-events', name)), true, name);
+  for (const name of [
+    'harbor-setpiece-source.png',
+    'harbor-pier-source.png',
+    'harbor-ship-source.png',
+    'harbor-lighthouse-source.png'
+  ]) {
+    assert.equal(fs.existsSync(path.join('assets', 'v2', 'past-events', name)), false, name);
   }
   assert.match(html, /road-collision-past-data\.js/);
   assert.match(runtime, /V2_ROAD_COLLISION_PAST/);
