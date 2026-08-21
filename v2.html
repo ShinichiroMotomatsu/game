@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#071017" />
     <title>ROPPONGI CHRONICLES · 現代編-昼間 / 過去編-夕方</title>
-    <link rel="stylesheet" href="v2.css?edition=13" />
+    <link rel="stylesheet" href="v2.css?edition=14" />
   </head>
   <body>
     <main id="v2-shell">
@@ -94,7 +94,24 @@
         </div>
         <p id="v2-story-objective">西の港から王都ロプンギアへ向かう</p>
       </aside>
-      <aside class="v2-map"><canvas id="v2-mini" width="210" height="145"></canvas><span>↑ N</span></aside>
+      <aside class="v2-map">
+        <canvas id="v2-mini" width="210" height="145"></canvas><span>↑ N</span>
+        <div id="v2-quest-compass" class="v2-quest-compass" aria-live="polite" hidden>
+          <span class="v2-quest-compass-dial" aria-hidden="true">
+            <b>N</b>
+            <svg id="v2-quest-compass-needle" viewBox="0 0 64 64">
+              <path class="v2-quest-needle-north" d="M32 5 39 32 32 28 25 32Z" />
+              <path class="v2-quest-needle-south" d="M32 59 39 32 32 36 25 32Z" />
+              <circle cx="32" cy="32" r="4" />
+            </svg>
+          </span>
+          <span class="v2-quest-compass-copy">
+            <small>MAIN QUEST</small>
+            <strong id="v2-quest-compass-target">次の目的地</strong>
+            <em id="v2-quest-compass-distance">方向を確認中</em>
+          </span>
+        </div>
+      </aside>
       <aside class="v2-landmark-info v2-landmarks-modern">
         <small>LANDMARKS · 05</small>
         <ul>
@@ -203,6 +220,7 @@
     <script src="v2-past-campaign.js?edition=8"></script>
     <script src="v2-past-scenes.js?edition=7"></script>
     <script src="v2-past-story.js?edition=15"></script>
+    <script src="v2-quest-compass.js?edition=1"></script>
     <script src="v2-dialogue.js?edition=1"></script>
     <script src="v2-save.js?edition=4"></script>
     <script src="v2-cloud-save.js?edition=1"></script>
@@ -211,6 +229,6 @@
     <script src="v2-supabase-bundle.js?edition=1"></script>
     <script src="v2-supabase-app.js?edition=2"></script>
     <script src="v2-input.js?edition=3"></script>
-    <script src="v2.js?edition=19"></script>
+    <script src="v2.js?edition=20"></script>
   </body>
 </html>

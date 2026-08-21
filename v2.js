@@ -33,6 +33,10 @@
   const storyExp = document.querySelector('#v2-story-exp');
   const openBagButton = document.querySelector('#v2-open-bag');
   const storyObjectiveLabel = document.querySelector('#v2-story-objective');
+  const questCompass = document.querySelector('#v2-quest-compass');
+  const questCompassNeedle = document.querySelector('#v2-quest-compass-needle');
+  const questCompassTarget = document.querySelector('#v2-quest-compass-target');
+  const questCompassDistance = document.querySelector('#v2-quest-compass-distance');
   const interactionPrompt = document.querySelector('#v2-interaction-prompt');
   const dialogueOverlay = document.querySelector('#v2-dialogue');
   const dialogueSpeaker = document.querySelector('#v2-dialogue-speaker');
@@ -70,11 +74,12 @@
   const pastCampaignApi = window.V2_PAST_CAMPAIGN;
   const pastSceneApi = window.V2_PAST_SCENES;
   const pastStoryApi = window.V2_PAST_STORY;
+  const questCompassApi = window.V2_QUEST_COMPASS;
   const dialogueApi = window.V2_DIALOGUE;
   const saveApi = window.V2_SAVE;
   const inputApi = window.V2_INPUT;
   const mapLayout = window.V2_MAP_LAYOUT;
-  if (!landmarkGeometry || !editionApi || !assetApi || !battleApi || !pastWorldApi || !pastSideQuestApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !dialogueApi || !saveApi || !inputApi || !mapLayout) {
+  if (!landmarkGeometry || !editionApi || !assetApi || !battleApi || !pastWorldApi || !pastSideQuestApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !questCompassApi || !dialogueApi || !saveApi || !inputApi || !mapLayout) {
     loading.textContent = 'GAME MODULE ERROR';
     throw new Error('Game geometry, edition, or map layout data is missing.');
   }
@@ -113,6 +118,7 @@
   } = pastSideQuestApi;
   const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
+  const { mainQuestCompassTarget, questCompassBearing } = questCompassApi;
   const { NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, PAST_STORY_VISUALS, npcPoseAt } = pastSceneApi;
   const { createTypewriterLine, revealTypewriterLine, tickTypewriterLine, typewriterText } = dialogueApi;
   const {
@@ -641,6 +647,43 @@
 
   function activeAreaId() {
     return currentEdition === 'past' ? storyState.area : 'overworld';
+  }
+
+  function updateQuestCompass() {
+    const target = currentEdition === 'past'
+      ? mainQuestCompassTarget(storyState, campaignState)
+      : null;
+    if (!target || target.area !== activeAreaId()) {
+      questCompass.hidden = true;
+      questCompass.removeAttribute('data-proximity');
+      return;
+    }
+
+    const coordinateScale = activeAreaId() === 'overworld' ? maskScale : 1;
+    const reading = questCompassBearing(player, target.point, coordinateScale);
+    if (!reading) {
+      questCompass.hidden = true;
+      return;
+    }
+
+    const mapDistance = reading.distance / coordinateScale;
+    const arrivalRadius = Math.max(48, Number(target.radius) || 0);
+    const proximity = mapDistance <= arrivalRadius
+      ? { id: 'near', label: '目的地付近' }
+      : mapDistance < 180
+        ? { id: 'soon', label: 'もうすぐ' }
+        : mapDistance < 420
+          ? { id: 'ahead', label: 'この先' }
+          : { id: 'far', label: '遠方' };
+
+    questCompass.hidden = false;
+    questCompass.dataset.proximity = proximity.id;
+    questCompass.dataset.bearing = String(Math.round(reading.bearing));
+    questCompassNeedle.style.transform = `rotate(${reading.bearing.toFixed(2)}deg)`;
+    if (questCompassTarget.textContent !== target.label) questCompassTarget.textContent = target.label;
+    if (questCompassDistance.textContent !== proximity.label) questCompassDistance.textContent = proximity.label;
+    const accessibleLabel = `メインクエストの羅針盤。${target.label}は${proximity.label}。`;
+    if (questCompass.getAttribute('aria-label') !== accessibleLabel) questCompass.setAttribute('aria-label', accessibleLabel);
   }
 
   function activeWorldSize() {
@@ -2909,6 +2952,7 @@
   }
 
   function drawMini() {
+    updateQuestCompass();
     mctx.clearRect(0, 0, 210, 145);
     const areaId = activeAreaId();
     if (currentEdition === 'past' && areaId !== 'overworld') {

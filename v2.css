@@ -53,7 +53,24 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 #v2-collision-status.active { color: #40e6ad; font-weight: bold; }
 .v2-map { top: 92px; right: 18px; padding: 8px; }
 .v2-map canvas { display: block; width: 210px; height: 145px; border: 1px solid #817557; }
-.v2-map span { position: absolute; top: 11px; right: 12px; color: #efd16b; font-size: 10px; font-weight: bold; }
+.v2-map > span { position: absolute; top: 11px; right: 12px; color: #efd16b; font-size: 10px; font-weight: bold; }
+.v2-quest-compass { display: none; width: 210px; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 9px; margin-top: 7px; padding-top: 7px; border-top: 1px solid #a38b4d55; }
+#v2-shell[data-theme="past"] .v2-quest-compass { display: grid; }
+.v2-quest-compass[hidden] { display: none !important; }
+.v2-quest-compass-dial { position: relative; display: grid; width: 44px; height: 44px; place-items: center; overflow: hidden; border: 2px solid #d8ae55; border-radius: 50%; background: radial-gradient(circle at 48% 42%, #173f69 0 28%, #09243d 58%, #061521 100%); box-shadow: inset 0 0 0 2px #fff2bb22, inset 0 0 13px #4fb5ff33, 0 3px 10px #0009; }
+.v2-quest-compass-dial::before, .v2-quest-compass-dial::after { content: ""; position: absolute; z-index: 0; background: #d8ae5544; }
+.v2-quest-compass-dial::before { width: 1px; height: 100%; }
+.v2-quest-compass-dial::after { width: 100%; height: 1px; }
+.v2-quest-compass-dial > b { position: absolute; z-index: 2; top: 2px; color: #ffe9a7; font: 800 7px/1 Georgia, serif; text-shadow: 0 1px 2px #000; }
+#v2-quest-compass-needle { position: relative; z-index: 1; width: 38px; height: 38px; transform-origin: 50% 50%; transition: transform .12s linear; filter: drop-shadow(0 1px 2px #000b); }
+.v2-quest-needle-north { fill: #72d9ff; stroke: #e9f8ff; stroke-width: 1; }
+.v2-quest-needle-south { fill: #9b4d57; stroke: #e6af9e; stroke-width: 1; }
+#v2-quest-compass-needle circle { fill: #f2c960; stroke: #fff1bd; stroke-width: 1.2; }
+.v2-quest-compass-copy { display: grid; min-width: 0; gap: 1px; }
+.v2-quest-compass-copy small { color: #d6a954; font-size: 7px; letter-spacing: .13em; }
+.v2-quest-compass-copy strong { overflow: hidden; color: #fff0d3; font: 700 11px/1.3 Georgia, "Yu Mincho", serif; text-overflow: ellipsis; white-space: nowrap; }
+.v2-quest-compass-copy em { color: #9fb6bf; font-size: 8px; font-style: normal; }
+.v2-quest-compass[data-proximity="near"] .v2-quest-compass-dial { animation: v2-quest-compass-arrived 1.25s ease-in-out infinite; }
 .v2-landmark-info { top: 265px; right: 18px; width: 228px; padding: 10px 12px; }
 .v2-landmark-info small, .v2-landmark-info strong, .v2-landmark-info span { display: block; }
 .v2-landmark-info small { color: #d6b85d; font-size: 8px; letter-spacing: .16em; }
@@ -63,7 +80,7 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .v2-landmark-info span { margin-top: 1px; color: #9faeb2; font-size: 9px; }
 .v2-landmarks-past { display: none; }
 #v2-shell[data-theme="past"] .v2-landmarks-modern { display: none; }
-#v2-shell[data-theme="past"] .v2-landmarks-past { display: block; }
+#v2-shell[data-theme="past"] .v2-landmarks-past { display: block; top: 322px; }
 #v2-shell[data-area="castle-town"] .v2-landmark-info,
 #v2-shell[data-area="castle"] .v2-landmark-info,
 #v2-shell[data-area="castle-town"] .v2-help,
@@ -292,10 +309,13 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 @keyframes v2-encounter-close { 0%, 35% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes v2-encounter-title { 0%, 45% { opacity: 0; transform: scale(1.8); } 76% { opacity: 1; } 100% { opacity: 0; transform: scale(.85); } }
 @keyframes v2-encounter-reveal { from { opacity: 1; filter: brightness(1); } to { opacity: 0; filter: brightness(4); } }
+@keyframes v2-quest-compass-arrived { 0%, 100% { box-shadow: inset 0 0 0 2px #fff2bb22, inset 0 0 13px #4fb5ff33, 0 3px 10px #0009; } 50% { box-shadow: inset 0 0 0 2px #fff2bb66, inset 0 0 18px #73ddff88, 0 0 15px #f1c45b77; } }
 @media (prefers-reduced-motion: reduce) {
   .v2-battle-enemy.is-hit img, .v2-battle-enemy.is-weak::before, .v2-combat-effect, .v2-combat-impact, .v2-battle-vital[data-hp-state="danger"] #v2-battle-player-hp, .v2-battle.is-player-hit .v2-battle-command, .v2-battle-damage-flash.is-active { animation-duration: .01ms; animation-iteration-count: 1; }
   .v2-rest-transition { transition-duration: .01ms; }
   .v2-watchtower-effect.is-active, .v2-watchtower-effect.is-active .v2-watchtower-effect-rings { animation-duration: .01ms; }
+  #v2-quest-compass-needle { transition-duration: .01ms; }
+  .v2-quest-compass[data-proximity="near"] .v2-quest-compass-dial { animation-duration: .01ms; animation-iteration-count: 1; }
 }
 @media (pointer: coarse), (max-width: 700px) {
   .v2-controls { display: grid; }
@@ -320,7 +340,14 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
   #v2-shell[data-theme="past"] .v2-map { top: calc(max(6px, env(safe-area-inset-top)) + 140px); }
   #v2-shell[data-theme="past"] .v2-story-status.is-collapsed + .v2-map { top: calc(max(6px, env(safe-area-inset-top)) + 54px); }
   .v2-map canvas { width: 112px; height: 78px; }
-  .v2-map span { top: 6px; right: 7px; font-size: 8px; }
+  .v2-map > span { top: 6px; right: 7px; font-size: 8px; }
+  .v2-quest-compass { width: 112px; grid-template-columns: 34px minmax(0, 1fr); gap: 5px; margin-top: 4px; padding-top: 4px; }
+  .v2-quest-compass-dial { width: 34px; height: 34px; border-width: 1px; }
+  .v2-quest-compass-dial > b { top: 1px; font-size: 6px; }
+  #v2-quest-compass-needle { width: 30px; height: 30px; }
+  .v2-quest-compass-copy small { display: none; }
+  .v2-quest-compass-copy strong { font-size: 8px; }
+  .v2-quest-compass-copy em { font-size: 7px; }
   .v2-controls { left: max(10px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); width: 116px; height: 116px; }
   .v2-controls button { min-width: 38px; min-height: 38px; font-size: 16px; touch-action: none; }
   .v2-interaction-prompt { left: auto; right: max(12px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); min-width: 0; width: min(240px, calc(100vw - 158px)); min-height: 52px; padding: 8px 10px; transform: none; font-size: 11px; }

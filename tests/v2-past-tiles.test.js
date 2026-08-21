@@ -34,5 +34,5 @@ test('past tile and runtime scripts use the current cache versions', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
   assert.match(html, /v2-editions\.js\?edition=7/);
   assert.match(html, /v2-battle\.js\?edition=8/);
-  assert.match(html, /v2\.js\?edition=19/);
+  assert.match(html, /v2\.js\?edition=20/);
 });

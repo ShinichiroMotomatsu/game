@@ -600,7 +600,7 @@ test('the overworld consistently filters enemies and routes the tutorial battle 
 test('the tutorial story and runtime scripts use fresh browser cache versions', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
   assert.match(html, /v2-past-story\.js\?edition=15/);
-  assert.match(html, /v2\.js\?edition=19/);
+  assert.match(html, /v2\.js\?edition=20/);
 });
 
 test('the western road contains two visible card discoveries', () => {
