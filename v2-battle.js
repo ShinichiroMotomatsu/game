@@ -15,7 +15,10 @@
     'flame-edge': Object.freeze({ id: 'flame-edge', name: '炎刃', discipline: 'sword', element: 'fire', attribute: 'fire', icon: '焔', cost: 1, damage: 9, description: '炎をまとわせて斬りつける' }),
     fortress: Object.freeze({ id: 'fortress', name: '城壁', discipline: 'guard', attribute: 'neutral', icon: '城', cost: 1, block: 10, description: '堅牢な壁で身を守る' }),
     mend: Object.freeze({ id: 'mend', name: '癒光', discipline: 'magic', attribute: 'heal', icon: '癒', cost: 1, mpCost: 3, heal: 14, description: 'MP3・HPを14回復する' }),
-    'cross-slash': Object.freeze({ id: 'cross-slash', name: '十字斬り', discipline: 'sword', attribute: 'neutral', icon: '十', cost: 1, damage: 10, description: '交差する二筋の剣閃を放つ' })
+    'cross-slash': Object.freeze({ id: 'cross-slash', name: '十字斬り', discipline: 'sword', attribute: 'neutral', icon: '十', cost: 1, damage: 10, description: '交差する二筋の剣閃を放つ' }),
+    purify: Object.freeze({ id: 'purify', name: '浄光', discipline: 'magic', attribute: 'heal', icon: '浄', cost: 1, mpCost: 4, heal: 24, description: 'MP4・HPを24回復し心を整える' }),
+    sunfire: Object.freeze({ id: 'sunfire', name: '陽炎', discipline: 'magic', element: 'fire', attribute: 'fire', icon: '陽', cost: 1, mpCost: 4, damage: 13, description: 'MP4・灯守の炎で敵を焼く' }),
+    starflare: Object.freeze({ id: 'starflare', name: '星焔', discipline: 'magic', element: 'fire', attribute: 'fire', icon: '星', cost: 1, mpCost: 7, damage: 18, description: 'MP7・双星の炎を解き放つ' })
   });
 
   const DISCIPLINE_LABELS = Object.freeze({ sword: '剣', technique: '技', guard: '守', magic: '魔法' });
@@ -35,6 +38,35 @@
     'veil-moth': Object.freeze({ id: 'veil-moth', name: '帳霧の蛾', maxHp: 50, attack: 14, gold: 23, xp: 32, intent: '眠り鱗粉', weakness: 'fire' }),
     'fog-knight': Object.freeze({ id: 'fog-knight', name: '霧甲の騎士', maxHp: 62, attack: 16, gold: 29, xp: 42, intent: '無音の剣', weakness: 'ice' }),
     'bell-wraith': Object.freeze({ id: 'bell-wraith', name: '鐘音の亡霊', maxHp: 56, attack: 15, gold: 26, xp: 38, intent: '反響する叫び', weakness: 'fire' }),
+    'miasma-slime': Object.freeze({ id: 'miasma-slime', name: '瘴気スライム', maxHp: 52, attack: 13, gold: 24, xp: 40, intent: '毒泡', weakness: 'fire' }),
+    'marsh-leech': Object.freeze({ id: 'marsh-leech', name: '沼牙ヒル', maxHp: 58, attack: 15, gold: 28, xp: 44, intent: '吸血牙', weakness: 'ice' }),
+    'spore-mandrake': Object.freeze({ id: 'spore-mandrake', name: '胞子マンドラ', maxHp: 64, attack: 14, gold: 30, xp: 48, intent: '眠り胞子', weakness: 'fire' }),
+    'miasma-root': Object.freeze({
+      id: 'miasma-root', name: '瘴根のヌシ', maxHp: 145, attack: 16, gold: 240, xp: 260,
+      intent: '腐蝕する根', weakness: 'fire', boss: true,
+      intentPattern: Object.freeze(['ward', 'assault', 'grand-spell', 'renew'])
+    }),
+    'ice-wisp': Object.freeze({ id: 'ice-wisp', name: '氷晶ウィスプ', maxHp: 76, attack: 17, gold: 38, xp: 62, intent: '氷灯', weakness: 'fire' }),
+    'snow-wolf': Object.freeze({ id: 'snow-wolf', name: '雪原オオカミ', maxHp: 88, attack: 19, gold: 45, xp: 70, intent: '白牙', weakness: 'fire' }),
+    'frost-beetle': Object.freeze({ id: 'frost-beetle', name: '凍甲虫', maxHp: 96, attack: 18, gold: 48, xp: 76, intent: '氷甲突進', weakness: 'fire' }),
+    'glacier-beast': Object.freeze({
+      id: 'glacier-beast', name: '氷河の番獣', maxHp: 230, attack: 21, gold: 420, xp: 430,
+      intent: '凍土の咆哮', weakness: 'fire', boss: true,
+      intentPattern: Object.freeze(['assault', 'ward', 'grand-spell', 'assault', 'renew'])
+    }),
+    'lava-lizard': Object.freeze({ id: 'lava-lizard', name: '熔岩トカゲ', maxHp: 135, attack: 24, gold: 62, xp: 96, intent: '熔尾', weakness: 'ice' }),
+    'ash-bat': Object.freeze({ id: 'ash-bat', name: '灰翼コウモリ', maxHp: 122, attack: 26, gold: 66, xp: 102, intent: '灰嵐', weakness: 'ice' }),
+    'obsidian-golem': Object.freeze({ id: 'obsidian-golem', name: '黒曜ゴーレム', maxHp: 170, attack: 28, gold: 82, xp: 120, intent: '黒曜拳', weakness: 'ice' }),
+    'fire-rat-chief': Object.freeze({
+      id: 'fire-rat-chief', name: '火鼠の長', maxHp: 240, attack: 25, gold: 180, xp: 280,
+      intent: '火走り', weakness: 'ice', boss: true,
+      intentPattern: Object.freeze(['assault', 'grand-spell', 'ward', 'renew'])
+    }),
+    'crown-drake': Object.freeze({
+      id: 'crown-drake', name: '熔冠竜', maxHp: 420, attack: 32, gold: 720, xp: 700,
+      intent: '王冠火砕流', weakness: 'ice', boss: true,
+      intentPattern: Object.freeze(['grand-spell', 'assault', 'ward', 'assault', 'renew'])
+    }),
     'mist-watcher': Object.freeze({
       id: 'mist-watcher', name: '紫霧の番人', maxHp: 70, attack: 8, gold: 120, xp: 80,
       intent: '紫霧の爪', weakness: 'fire', boss: true,

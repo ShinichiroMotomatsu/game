@@ -1,41 +1,29 @@
 from pathlib import Path
 
-from PIL import Image, ImageFilter
+from PIL import Image
 
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets" / "v2"
 GENERATED = Path(r"C:\Users\ShinichiroMotomatu\.codex\generated_images\019fda35-90a3-7903-bfb1-31deeabd2ab7")
-TERRAIN = GENERATED / "exec-0269dd9f-4ac8-435b-9ab8-ed0360b99b4a.png"
 SPRITES = GENERATED / "exec-78419840-0a11-42a4-b2d9-7725cd8adc55.png"
+TERRAIN = ASSETS / "roppongi-city-blocks-past-evening-biomes-source.png"
 SOURCE = ASSETS / "roppongi-city-blocks-past-evening-island-source.png"
-VERSIONED = ASSETS / "roppongi-city-blocks-past-evening-biomes-source.png"
-MASK = ASSETS / "road-collision-mask.png"
 
 
-def build_map() -> None:
-    original = Image.open(SOURCE).convert("RGB")
-    terrain = Image.open(TERRAIN).convert("RGB").resize(original.size, Image.Resampling.LANCZOS)
-    # Restore the exact original road surface and shoulders. The generated art only supplies terrain.
-    roads = Image.open(MASK).convert("L").resize(original.size, Image.Resampling.NEAREST)
-    roads = roads.filter(ImageFilter.MaxFilter(31)).filter(ImageFilter.GaussianBlur(2))
-    composed = Image.composite(original, terrain, roads)
-    composed.save(VERSIONED, optimize=True)
-    composed.save(SOURCE, optimize=True)
-
-    source_dir = ASSETS / "past-evening-source-tiles"
-    runtime_dir = ASSETS / "past-evening-runtime-tiles"
-    source_dir.mkdir(exist_ok=True)
-    runtime_dir.mkdir(exist_ok=True)
-    width, height = composed.size
-    x_edges = [0, (width + 1) // 2, width]
-    y_edges = [0, (height + 1) // 2, height]
-    for row in range(2):
-        for col in range(2):
-            tile = composed.crop((x_edges[col], y_edges[row], x_edges[col + 1], y_edges[row + 1]))
-            tile.save(source_dir / f"{col}-{row}.png", optimize=True)
-            runtime = tile.resize((tile.width * 4, tile.height * 4), Image.Resampling.LANCZOS)
-            runtime.save(runtime_dir / f"{col}-{row}.png", optimize=True)
+def build_map(
+    *,
+    terrain_path: Path = TERRAIN,
+    output_path: Path = SOURCE,
+) -> Image.Image:
+    # Roads are rendered deterministically by build-v2-geographic-map.py.
+    # Keep this layer terrain-only: restoring an older road reserve also
+    # restores strips of the pre-biome city between roads and the new biomes.
+    with Image.open(terrain_path) as terrain:
+        composed = terrain.convert("RGB")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    composed.save(output_path, optimize=True)
+    return composed
 
 
 def build_monsters() -> None:

@@ -55,7 +55,7 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const css = fs.readFileSync('v2.css', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
-  assert.match(html, /v2\.js\?edition=18/);
+  assert.match(html, /v2\.js\?edition=19/);
   assert.match(html, /v2\.css\?edition=13/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);

@@ -1,9 +1,20 @@
 (function exposePastCampaign(root, factory) {
-  const api = factory();
+  const sideQuestApi = typeof module === 'object' && module.exports
+    ? require('./v2-past-sidequests.js')
+    : root?.V2_PAST_SIDEQUESTS;
+  const api = factory(sideQuestApi);
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.V2_PAST_CAMPAIGN = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, () => {
-  const CAMPAIGN_SCHEMA_VERSION = 6;
+})(typeof globalThis !== 'undefined' ? globalThis : this, sideQuestApi => {
+  if (!sideQuestApi) throw new Error('Past sidequest data is required.');
+  const {
+    SIDE_QUESTS,
+    completeSideQuest,
+    createSideQuestProgress,
+    grantSideQuestKeyItem,
+    sideQuestForEncounter
+  } = sideQuestApi;
+  const CAMPAIGN_SCHEMA_VERSION = 7;
   const STARTER_DECK = Object.freeze(['slash', 'focus', 'guard']);
   const DISCOVERABLE_CARDS = Object.freeze({
     spark: Object.freeze({ id: 'spark', name: '火花の札', unlockAfter: 'first-victory', description: 'MP2で炎属性の一撃を放つ最初の魔法カード' }),
@@ -20,7 +31,9 @@
   const FIRST_QUEST_LOADOUT = Object.freeze(['bronze-sword', 'leather-armor', 'herb', 'herb']);
   const QUEST_REWARDS = Object.freeze({
     'crossroads-blade': Object.freeze({ id: 'crossroads-blade', type: 'weapon', name: '交差路の剣', price: 560, attack: 7, description: '四方へ伸びる刃紋を刻んだ剣。攻撃力＋7' }),
-    'bellsteel-sword': Object.freeze({ id: 'bellsteel-sword', type: 'weapon', name: '鐘鋼の剣', price: 980, attack: 10, description: '霧鐘の青銅を鍛え直した剣。攻撃力＋10' })
+    'bellsteel-sword': Object.freeze({ id: 'bellsteel-sword', type: 'weapon', name: '鐘鋼の剣', price: 980, attack: 10, description: '霧鐘の青銅を鍛え直した剣。攻撃力＋10' }),
+    'lampkeeper-cloak': Object.freeze({ id: 'lampkeeper-cloak', type: 'armor', name: '灯守の外套', price: 1350, defense: 11, description: '消えない灯のぬくもりを宿す外套。守備力＋11' }),
+    'twin-star-sword': Object.freeze({ id: 'twin-star-sword', type: 'weapon', name: '双星の剣', price: 2400, attack: 15, description: '二つの星が同じ道を指す剣。攻撃力＋15' })
   });
   const DUNGEON_TREASURES = Object.freeze([
     Object.freeze({ id: 'armory-coffer', name: '武具庫の宝箱', weaponId: 'crossroads-blade' }),
@@ -115,7 +128,10 @@
   const UNLOCKABLE_CARD_IDS = new Set([
     ...Object.keys(DISCOVERABLE_CARDS),
     ...SHOP_CATALOG.card.map(card => card.id),
-    'cross-slash'
+    'cross-slash',
+    'purify',
+    'sunfire',
+    'starflare'
   ]);
 
   function levelDefinition(level) {
@@ -198,7 +214,8 @@
       bossDefeated,
       openedDungeonChests: sanitizeIds(saved.openedDungeonChests, value => DUNGEON_TREASURES.some(treasure => treasure.id === value)),
       crossroadsBossDefeated: Boolean(saved.crossroadsBossDefeated),
-      mistBossDefeated: Boolean(saved.mistBossDefeated)
+      mistBossDefeated: Boolean(saved.mistBossDefeated),
+      sideQuests: createSideQuestProgress(saved.sideQuests)
     };
   }
 
@@ -210,7 +227,8 @@
       equipment: { ...state.equipment },
       ownedEquipment: [...state.ownedEquipment],
       inventory: { ...state.inventory },
-      ownedCards: [...state.ownedCards]
+      ownedCards: [...state.ownedCards],
+      sideQuests: createSideQuestProgress()
     });
   }
 
@@ -472,6 +490,63 @@
     return { ...state, watchtowerReached: true };
   }
 
+  function applySideQuestBattleVictory(state, encounterId) {
+    if (encounterId === 'sidequest-fire-rat-chief') {
+      const sideQuests = grantSideQuestKeyItem(state.sideQuests, 'fire-rat-boots');
+      if (sideQuests === state.sideQuests) return { state, completedQuestId: null, message: '火鼠の長はすでに退けている。' };
+      return {
+        state: { ...state, sideQuests },
+        completedQuestId: null,
+        message: '火鼠の長が守っていた「火鼠の長靴」を手に入れた。熔岩の上を歩けるようになった。'
+      };
+    }
+
+    const quest = sideQuestForEncounter(encounterId);
+    if (!quest || state.sideQuests.completedQuestIds.includes(quest.id)) {
+      return { state, completedQuestId: null, message: '' };
+    }
+    let sideQuests = completeSideQuest(state.sideQuests, quest.id);
+    if (quest.rewardKeyItemId) sideQuests = grantSideQuestKeyItem(sideQuests, quest.rewardKeyItemId);
+    const ownedCards = quest.rewardCardId && !state.ownedCards.includes(quest.rewardCardId)
+      ? [...state.ownedCards, quest.rewardCardId]
+      : state.ownedCards;
+    const ownedEquipment = quest.rewardEquipmentId && !state.ownedEquipment.includes(quest.rewardEquipmentId)
+      ? [...state.ownedEquipment, quest.rewardEquipmentId]
+      : state.ownedEquipment;
+    const rewards = [
+      quest.rewardCardId ? `新しい札「${quest.rewardCardId === 'purify' ? '浄光' : quest.rewardCardId === 'sunfire' ? '陽炎' : '星焔'}」` : '',
+      quest.rewardEquipmentId ? QUEST_REWARDS[quest.rewardEquipmentId]?.name : '',
+      quest.rewardKeyItemId ? '沼守りの護符' : ''
+    ].filter(Boolean).join('と');
+    return {
+      state: { ...state, sideQuests, ownedCards, ownedEquipment },
+      completedQuestId: quest.id,
+      message: `${quest.title}を鎮め、父の旅日誌・第${quest.journalOrder}片と${rewards}を手に入れた。`
+    };
+  }
+
+  function setSideQuestDebugCompletion(state, questId, completed) {
+    const quest = SIDE_QUESTS.find(candidate => candidate.id === questId);
+    if (!quest) return state;
+    if (completed) {
+      return applySideQuestBattleVictory(state, quest.bossEncounterId).state;
+    }
+    const completedQuestIds = state.sideQuests.completedQuestIds.filter(id => id !== questId);
+    const removedKeyItems = new Set([quest.rewardKeyItemId]);
+    if (questId === 'molten-crown') removedKeyItems.add('fire-rat-boots');
+    return {
+      ...state,
+      sideQuests: createSideQuestProgress({
+        ...state.sideQuests,
+        acceptedQuestIds: [...new Set([...state.sideQuests.acceptedQuestIds, questId])],
+        completedQuestIds,
+        keyItems: state.sideQuests.keyItems.filter(id => !removedKeyItems.has(id)),
+        cooledSluiceIds: questId === 'molten-crown' ? [] : state.sideQuests.cooledSluiceIds,
+        twinStarVowSeen: false
+      })
+    };
+  }
+
   function applyBattleVictory(state, {
     xp = 0,
     playerHp = state.currentHp,
@@ -540,6 +615,7 @@
     TOWN_SHOP_INVENTORY,
     WATCHTOWER_SEALS,
     applyBattleVictory,
+    applySideQuestBattleVictory,
     battleProfile,
     buyProduct,
     campaignObjective,
@@ -560,6 +636,7 @@
     restAtInn,
     salePrice,
     sellProduct,
+    setSideQuestDebugCompletion,
     useItem
   };
 });
