@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#071017" />
     <title>ROPPONGI CHRONICLES · 現代編-昼間 / 過去編-夕方</title>
-    <link rel="stylesheet" href="v2.css?edition=15" />
+    <link rel="stylesheet" href="v2.css?edition=16" />
   </head>
   <body>
     <main id="v2-shell">
@@ -17,6 +17,9 @@
       </div>
       <div id="v2-rest-transition" class="v2-rest-transition" aria-hidden="true">
         <span>夜が明けた……</span>
+      </div>
+      <div id="v2-portal-transition" class="v2-portal-transition" aria-hidden="true">
+        <span>リターンポータルを通過中……</span>
       </div>
       <div id="v2-watchtower-effect" class="v2-watchtower-effect" aria-hidden="true">
         <div class="v2-watchtower-effect-rings" aria-hidden="true"></div>
@@ -93,9 +96,12 @@
           <button id="v2-open-bag" type="button">もちもの</button>
         </div>
         <p id="v2-story-objective">西の港から王都ロプンギアへ向かう</p>
+        <button id="v2-open-atlas" class="v2-open-atlas" type="button">エルドの全体地図</button>
       </aside>
       <aside class="v2-map">
-        <canvas id="v2-mini" width="210" height="145"></canvas><span>↑ N</span>
+        <button id="v2-mini-open" class="v2-mini-open" type="button" aria-label="エルドの全体地図を開く">
+          <canvas id="v2-mini" width="210" height="145"></canvas><span>↑ N</span>
+        </button>
         <div id="v2-quest-compass" class="v2-quest-compass" aria-live="polite" hidden>
           <span class="v2-quest-compass-dial" aria-hidden="true">
             <b>N</b>
@@ -132,6 +138,34 @@
           <li><strong>増上大聖堂</strong><span>祈りの回廊</span></li>
         </ul>
       </aside>
+      <section id="v2-atlas" class="v2-atlas" aria-hidden="true" aria-label="エルドの全体地図">
+        <div class="v2-atlas-panel" role="dialog" aria-modal="true" aria-labelledby="v2-atlas-title">
+          <header>
+            <div><small>ELD'S SURVEY MAP</small><strong id="v2-atlas-title">エルドの全体地図</strong></div>
+            <button id="v2-atlas-close" type="button" aria-label="全体地図を閉じる">×</button>
+          </header>
+          <div class="v2-atlas-layout">
+            <div class="v2-atlas-map-wrap">
+              <canvas id="v2-atlas-canvas" width="900" height="625" aria-label="新大陸の調査地図"></canvas>
+              <div class="v2-atlas-legend" aria-label="地図記号">
+                <span data-status="restored">復旧済み</span>
+                <span data-status="offline">停止中</span>
+                <span data-status="corrupted">異常</span>
+                <span data-status="unknown">推定</span>
+                <span data-status="blue-star">青星紋</span>
+              </div>
+            </div>
+            <aside class="v2-atlas-detail">
+              <small>調査地点</small>
+              <strong id="v2-atlas-node-name">地図上の地点を選択</strong>
+              <p id="v2-atlas-node-note">実線は復旧した経路、点線はエルドが推定した未確認経路です。</p>
+              <div id="v2-atlas-node-list" class="v2-atlas-node-list" aria-label="調査地点一覧"></div>
+              <p id="v2-atlas-travel-note" class="v2-atlas-travel-note" aria-live="polite">復旧したリターンポータルの上から利用できます。</p>
+              <button id="v2-atlas-travel" type="button" disabled>この地点へ移動</button>
+            </aside>
+          </div>
+        </div>
+      </section>
       <button id="v2-interaction-prompt" class="v2-interaction-prompt" type="button" aria-live="polite" aria-hidden="true" tabindex="-1" disabled></button>
       <section id="v2-dialogue" class="v2-dialogue" aria-hidden="true" aria-label="会話">
         <figure id="v2-story-visual" class="v2-story-visual" aria-hidden="true" hidden>
@@ -219,7 +253,8 @@
     <script src="v2-past-sidequests.js?edition=3"></script>
     <script src="v2-past-campaign.js?edition=8"></script>
     <script src="v2-past-scenes.js?edition=8"></script>
-    <script src="v2-past-story.js?edition=16"></script>
+    <script src="v2-past-story.js?edition=17"></script>
+    <script src="v2-return-portals.js?edition=1"></script>
     <script src="v2-quest-compass.js?edition=1"></script>
     <script src="v2-dialogue.js?edition=1"></script>
     <script src="v2-save.js?edition=4"></script>
@@ -229,6 +264,6 @@
     <script src="v2-supabase-bundle.js?edition=1"></script>
     <script src="v2-supabase-app.js?edition=2"></script>
     <script src="v2-input.js?edition=3"></script>
-    <script src="v2.js?edition=21"></script>
+    <script src="v2.js?edition=22"></script>
   </body>
 </html>
