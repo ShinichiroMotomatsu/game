@@ -5,6 +5,23 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
   const NPC_PATROL_SPEED_SCALE = 0.5;
 
+  const PAST_CREST_DESIGNS = Object.freeze({
+    'blue-star': Object.freeze({
+      id: 'blue-star', name: '青星紋', rayCount: 8, equalRays: true,
+      centerMeaning: '帰る場所', owner: 'エルド',
+      colors: Object.freeze(['blue-glass', 'brass']),
+      sourcePath: 'assets/v2/past-events/crest-sources/blue-star-crest.svg'
+    }),
+    'twin-star': Object.freeze({
+      id: 'twin-star', name: '双星紋', equalStars: true, connectedByRoad: true,
+      stars: Object.freeze([
+        Object.freeze({ owner: 'エルド', color: 'blue-glass' }),
+        Object.freeze({ owner: 'ミラ', color: 'amber-glass' })
+      ]),
+      sourcePath: 'assets/v2/past-events/crest-sources/twin-star-crest.svg'
+    })
+  });
+
   const PAST_SCENE_ASSETS = Object.freeze({
     'castle-town-ground': Object.freeze({
       path: 'assets/v2/past-scenes/castle-town-ground.png',
@@ -54,20 +71,25 @@
     'compass-altar-corrupted': Object.freeze({ path: 'assets/v2/past-events/compass-altar-corrupted.png', width: 190, height: 174 }),
     'compass-altar-restored': Object.freeze({ path: 'assets/v2/past-events/compass-altar-restored.png', width: 190, height: 127 }),
     'father-compass': Object.freeze({ path: 'assets/v2/past-events/father-compass.png', width: 1254, height: 1254 }),
-    'star-crest': Object.freeze({ path: 'assets/v2/past-events/star-crest.png', width: 1254, height: 1254 })
+    'blue-star-crest': Object.freeze({ path: 'assets/v2/past-events/blue-star-crest.png', width: 512, height: 512 }),
+    'twin-star-crest': Object.freeze({ path: 'assets/v2/past-events/twin-star-crest.png', width: 640, height: 512 })
   });
 
   const PAST_STORY_VISUALS = Object.freeze({
     voyage: Object.freeze({ sceneId: 'voyage-intro' }),
-    compass: Object.freeze({ sceneId: 'voyage-intro', eventId: 'father-compass', crestId: 'star-crest' }),
-    'watchtower-crest': Object.freeze({ sceneId: 'watchtower-discovery', crestId: 'star-crest' })
+    compass: Object.freeze({ sceneId: 'voyage-intro', eventId: 'father-compass', crestId: 'blue-star-crest' }),
+    'watchtower-crest': Object.freeze({ sceneId: 'watchtower-discovery', crestId: 'blue-star-crest' }),
+    'brothers-message': Object.freeze({ sceneId: 'crossroads-town', crestId: 'blue-star-crest' }),
+    'twin-star-vow': Object.freeze({ sceneId: 'crossroads-town', crestId: 'twin-star-crest' }),
+    'brother-rescue': Object.freeze({ sceneId: 'mist-citadel', npcId: 'younger-brother' })
   });
 
   const NPC_SPRITE_ASSETS = Object.freeze({
     'villager-man': 'assets/v2/past-scenes/villager-man.png',
     'villager-woman': 'assets/v2/past-scenes/villager-woman.png',
     soldier: 'assets/v2/past-scenes/soldier.png',
-    king: 'assets/v2/past-scenes/king.png'
+    king: 'assets/v2/past-scenes/king.png',
+    'younger-brother': 'assets/v2/past-scenes/younger-brother.png'
   });
 
   function npcPoseAt(npc, elapsedMs = 0) {
@@ -90,5 +112,5 @@
     };
   }
 
-  return { NPC_PATROL_SPEED_SCALE, NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, PAST_STORY_VISUALS, npcPoseAt };
+  return { NPC_PATROL_SPEED_SCALE, NPC_SPRITE_ASSETS, PAST_CREST_DESIGNS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, PAST_STORY_VISUALS, npcPoseAt };
 });

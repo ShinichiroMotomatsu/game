@@ -64,6 +64,11 @@
 
   const CROSSROADS_CLUE_IDS = Object.freeze(['merchant-timing', 'reverse-gates', 'underground-bell']);
   const MIST_CLUE_IDS = Object.freeze(['lost-patrol', 'night-bell', 'masked-assembly']);
+  const BROTHER_MESSAGE_PHASES = Object.freeze([
+    'second-mission-report', 'second-mission-complete',
+    'third-mission', 'third-mission-report', 'third-mission-complete'
+  ]);
+  const BROTHER_RESCUE_PHASES = Object.freeze(['third-mission-report', 'third-mission-complete']);
   const CROSSROADS_WATERGATES = Object.freeze([
     Object.freeze({ id: 'north-watergate', direction: 'north', name: '北の水門', point: Object.freeze([1830, 1050]), rotationQuarterTurns: 0 }),
     Object.freeze({ id: 'east-watergate', direction: 'east', name: '東の水門', point: Object.freeze([2490, 1410]), rotationQuarterTurns: 1 }),
@@ -220,6 +225,21 @@
     Object.freeze({ id: 'mist-resident', role: 'villager', sprite: 'villager-woman', name: '霧都の住民', point: Object.freeze([1045, 760]), patrol: Object.freeze({ axis: 'x', distance: 24, periodMs: 6800, phase: 0.3 }), dialogueId: 'mist-resident' })
   ]);
 
+  const BROTHER_NPCS = Object.freeze([
+    Object.freeze({
+      id: 'brother-veil', brotherStage: 'veil', area: 'mist-citadel', role: 'brother',
+      sprite: 'younger-brother', name: '弟ノア', point: Object.freeze([800, 560]), facing: 'down', dialogueId: 'brother-veil'
+    }),
+    Object.freeze({
+      id: 'brother-capital', brotherStage: 'capital', area: 'castle-town', role: 'brother',
+      sprite: 'younger-brother', name: '弟ノア', point: Object.freeze([820, 620]), facing: 'left', dialogueId: 'brother-capital'
+    }),
+    Object.freeze({
+      id: 'brother-quadra', brotherStage: 'quadra', area: 'crossroads-town', role: 'brother',
+      sprite: 'younger-brother', name: '弟ノア', point: Object.freeze([675, 520]), facing: 'down', dialogueId: 'brother-quadra'
+    })
+  ]);
+
   const SIDE_QUEST_DIALOGUES = Object.freeze({
     'sidequest-board-open': Object.freeze({ id: 'sidequest-board-open', lines: Object.freeze([
       Object.freeze({ speaker: 'クアドラ依頼板', text: '四門水路の復旧で三地方への道が開いた。「紫泥の沼の薬路」「氷灯の回廊」「熔火の避難路」の調査人を募る、とある。' }),
@@ -235,7 +255,9 @@
     'twin-star-vow': Object.freeze({ id: 'twin-star-vow', lines: Object.freeze([
       Object.freeze({ speaker: '地の文', text: '三片の旅日誌を時の順に並べると、頁の星印が一つの光の道を描いた。' }),
       Object.freeze({ speaker: '主人公', text: '父は地図を作る旅で、灯守の薬師ミラと出会い、誰かのもとへ帰る道を知ったんだ。' }),
-      Object.freeze({ speaker: '地の文', text: '最後に双星の紋章が浮かぶ。二人の旅は終わったのではない。同じ場所から始まる一枚の地図になった。' })
+      Object.freeze({ speaker: '地の文', visualId: 'twin-star-vow', text: '青星紋と、同じ大きさの琥珀の星が短い道で結ばれ、「双星紋」が浮かぶ。エルドとミラは主従ではなく、同じ地図を描く二人だった。' }),
+      Object.freeze({ speaker: '父の旅日誌', text: '二人の旅はここで終わらない。共に帰る場所から、新しい一枚の地図が始まる。' }),
+      Object.freeze({ speaker: '主人公', text: '父が僕とノアに、同じ地図を違うように読めと残した理由が少し分かった。違う役目でも、帰る場所を重ねれば一つの道になるんだ。' })
     ]) }),
     'fire-rat-chief-awakening': Object.freeze({ id: 'fire-rat-chief-awakening', onComplete: 'sidequest-midboss-awaken:fire-rat-chief', lines: Object.freeze([
       Object.freeze({ speaker: '地の文', text: '黒曜石の足場を抜けると、熔岩の向こうへ続く道を火鼠の群れが塞いでいる。長の腰には、熱を寄せつけない革の長靴が結ばれている。' }),
@@ -255,7 +277,7 @@
           Object.freeze({ speaker: '地の文', text: `${quest.title}へ続く古道に、父の青い星印が刻まれている。${hazardLine}` })
         ]) })],
         [`${quest.id}-boss-awakening`, Object.freeze({ id: `${quest.id}-boss-awakening`, onComplete: `sidequest-boss-awaken:${quest.id}`, lines: Object.freeze([
-          Object.freeze({ speaker: '地の文', text: `最奥の祭壇には、地図師エルドと灯守の薬師が残した二つの印が並ぶ。その上を異形の力が覆っている。` }),
+          Object.freeze({ speaker: '地の文', text: `最奥の祭壇には、地図師エルドの道筋と灯守の薬師の灯火が一枚の地図に重ねられている。その上を異形の力が覆っている。` }),
           Object.freeze({ speaker: '主人公', text: '父の足跡を隠しているものを退け、ここに結ばれた道を取り戻す。' })
         ]) })],
         [`${quest.id}-boss-stable`, Object.freeze({ id: `${quest.id}-boss-stable`, lines: Object.freeze([
@@ -277,7 +299,7 @@
       onComplete: 'arrival-complete',
       lines: Object.freeze([
         Object.freeze({ speaker: '地の文', visualId: 'voyage', text: '父である地図師エルドは、夕映えの新大陸へ旅立ったまま消息を絶った。主人公を乗せた船は今、その足跡を追って西の海を進んでいる。' }),
-        Object.freeze({ speaker: '主人公', visualId: 'compass', text: '父が残した星の羅針盤……。どれだけ船が揺れても、針と青い星の紋章は新大陸だけを指している。父があの島にいるなら、必ず見つけ出す。' }),
+        Object.freeze({ speaker: '主人公', visualId: 'compass', text: '父が残した星の羅針盤……。どれだけ船が揺れても、針と中央に丸い光を持つ青い八芒星は新大陸だけを指している。父があの島にいるなら、必ず見つけ出す。' }),
         Object.freeze({ speaker: '地の文', visualId: 'voyage', text: 'やがて船は新大陸の西の港へたどり着いた。港の先に見える王都ロプンギアで、まず父の手掛かりを探そう。' })
       ])
     }),
@@ -307,7 +329,7 @@
       onComplete: 'king-audience-complete',
       lines: Object.freeze([
         Object.freeze({ speaker: '王城兵', text: '旅人よ、王の御前である。無礼のないように。' }),
-        Object.freeze({ speaker: 'アルディオン王', text: 'その星の羅針盤……。かつて我が国の地図を作った地図師エルドのものだな。おぬしは、あの者の子か。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: 'その青い八芒星の羅針盤……。かつて我が国の地図を作った地図師エルドのものだな。おぬしは、あの者の子か。' }),
         Object.freeze({ speaker: 'アルディオン王', text: '父の行方について話したい。だが今、この国には見過ごせぬ異変が起きている。' }),
         Object.freeze({ speaker: 'アルディオン王', text: '西の港街道に魔物が集まり、夜ごと紫の光が海岸の古い見張り台から立ちのぼるのだ。' }),
         Object.freeze({ speaker: 'アルディオン王', text: '西の港街道を調べ、異変の原因を突き止めてほしい。見張り台は、エルドも調べていた場所だ。' }),
@@ -325,8 +347,10 @@
       onComplete: 'first-mission-report-complete',
       lines: Object.freeze([
         Object.freeze({ speaker: 'アルディオン王', text: '紫霧の番人を退けたか。西の港街道にも、ようやく人の往来が戻るだろう。' }),
-        Object.freeze({ speaker: 'アルディオン王', text: 'その紋章は、地図師エルドが調査地に残していた印に相違ない。父は確かに、あの見張り台へ立ち寄っている。' }),
-        Object.freeze({ speaker: 'アルディオン王', text: '城の記録を調べておこう。今日はよく休むがよい。最初の任務、見事であった。' })
+        Object.freeze({ speaker: 'アルディオン王', text: 'あれは地図師エルド個人の旅印、「青星紋」に相違ない。父は確かに、あの見張り台へ立ち寄っている。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: '若きエルドは霧で道を失った夜、地図にもない集落の青い玻璃の灯に救われた。そして集落から八方へ伸びる帰り道を測り、孤立を終わらせた。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: '住民が贈った青い玻璃を、どの方角も等しい八芒に仕立てたのが青星紋の始まりだ。八方の先には待つ人がいて、中央の丸い光は必ず帰る場所を表すという。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: '城の記録をさらに調べておこう。今日はよく休むがよい。最初の任務、見事であった。' })
       ])
     }),
     'king-after-first-mission': Object.freeze({
@@ -339,7 +363,7 @@
       id: 'king-crossroads-mission',
       onComplete: 'crossroads-mission-start',
       lines: Object.freeze([
-        Object.freeze({ speaker: 'アルディオン王', text: '見張り台で見つかった方位紋は、四つの街道が交わる交易都市クアドラの紋章でもある。' }),
+        Object.freeze({ speaker: 'アルディオン王', text: '見張り台の金属箱から、エルドの筆でクアドラへ続く街道と、四門水路の古い保守路を描いた地図片が見つかった。' }),
         Object.freeze({ speaker: 'アルディオン王', text: 'この数日、大陸中央のあの街から荷馬車も伝令も来なくなった。交通の要所が沈黙すれば国中が分断される。' }),
         Object.freeze({ speaker: 'アルディオン王', text: '道中では紫泥の沼、古樹の山林、霜降りの谷、黄砂の荒野、熔火の裂谷に異なる魔物が現れる。交差路の街へ向かい、街道が止まった原因を調べてほしい。' }),
         Object.freeze({ speaker: 'アルディオン王', text: '父エルドも、街の地下にある四門水路の古い地図を残している。各地形に合う札を見極めて進むのだ。' })
@@ -359,7 +383,7 @@
     ]) }),
     'crossroads-guide': Object.freeze({ id: 'crossroads-guide', onComplete: 'crossroads-clue:reverse-gates', lines: Object.freeze([
       Object.freeze({ speaker: '水路番の娘', text: '四門水路の方位核は、北の祭壇から四つの水門へ水の力を分ける仕組みなの。でも今は核が脈打つたび、水圧が逆流して街全体を揺らしている。' }),
-      Object.freeze({ speaker: '水路番の娘', text: '中央広間から枝道をたどり、北の祭壇を調べて。父の記録では、祭壇の方位紋が水門すべてを動かす鍵よ。' })
+      Object.freeze({ speaker: '水路番の娘', text: '中央広間から枝道をたどり、北の祭壇を調べて。エルドの記録では、祭壇の制御盤が水門すべてを動かす鍵よ。' })
     ]) }),
     'crossroads-guard': Object.freeze({ id: 'crossroads-guard', onComplete: 'crossroads-clue:underground-bell', lines: Object.freeze([
       Object.freeze({ speaker: '四門衛兵', text: '北門脇の階段が四門水路への入口だ。調査隊は祭壇の手前で、誰もいないはずの石壁から響く金属音を聞いて引き返した。' }),
@@ -369,7 +393,8 @@
       Object.freeze({ speaker: '東西商会の番頭', text: '四つの水門が開き、東西の荷馬車も港からの舟荷も戻ってきた。クアドラの市場が、ようやく息を吹き返したよ。' })
     ]) }),
     'crossroads-guide-restored': Object.freeze({ id: 'crossroads-guide-restored', lines: Object.freeze([
-      Object.freeze({ speaker: '水路番の娘', text: '方位核は正常な速さで回っているわ。地下水路の音も、昔のように穏やかになった。助けてくれてありがとう。' })
+      Object.freeze({ speaker: '水路番の娘', text: '方位核は正常な速さで回っているわ。地下水路の音も、昔のように穏やかになった。助けてくれてありがとう。' }),
+      Object.freeze({ speaker: '水路番の娘', text: 'そういえば、青灰色の外套を着た若い地図読みがあなたを追ってきたわ。エルドの保守路の写しを確かめると、北の霧へ急いでいった。' })
     ]) }),
     'crossroads-guard-restored': Object.freeze({ id: 'crossroads-guard-restored', lines: Object.freeze([
       Object.freeze({ speaker: '四門衛兵', text: '水門はすべて開いた。街道の見回りも再開できる。あなたが取り戻した道を、今度は我々が守ろう。' })
@@ -377,7 +402,7 @@
     'crossroads-altar-awakening': Object.freeze({ id: 'crossroads-altar-awakening', onComplete: 'crossroads-altar-awaken', lines: Object.freeze([
       Object.freeze({ speaker: '地の文', text: '北の祭壇には、四つの水門と中央の方位核を結ぶ古い水路図が刻まれている。' }),
       Object.freeze({ speaker: '主人公', text: '方位核に紫の魔力が絡みつき、水の向きを逆転させている……。せき止められた水圧が、地下水路を暴れさせていたのか。' }),
-      Object.freeze({ speaker: '地の文', text: '星の羅針盤を祭壇へかざすと、四つの水門の紋章が順に輝き、石床の奥から巨大な歯車の音が響いた。' }),
+      Object.freeze({ speaker: '地の文', text: '星の羅針盤を祭壇へかざすと、四つの水門の刻印が順に輝き、石床の奥から巨大な歯車の音が響いた。' }),
       Object.freeze({ speaker: '謎の声', text: '方位核への干渉を検知。水路守護機兵、排除命令を実行する。' })
     ]) }),
     'crossroads-altar-stable': Object.freeze({ id: 'crossroads-altar-stable', lines: Object.freeze([
@@ -386,17 +411,23 @@
     'crossroads-boss-cleared': Object.freeze({ id: 'crossroads-boss-cleared', onComplete: 'crossroads-boss-defeated', lines: Object.freeze([
       Object.freeze({ speaker: '地の文', text: '守護機兵に絡んでいた紫の魔力が消え、地下水路の逆流が止まった。四つの水門が一つずつ開き、澄んだ水が本来の流れを取り戻していく。' }),
       Object.freeze({ speaker: '主人公', text: '流れは元へ戻った。でも、紫の魔力だけが北の霧へ吸い込まれていく……。水路の暴走は、あの場所へ力を送るためだったのか。' }),
-      Object.freeze({ speaker: '地の文', text: '祭壇の裏には、地図師エルドの筆跡で「道は場所ではなく、人と人を結ぶ」と刻まれていた。' })
+      Object.freeze({ speaker: '地の文', text: '祭壇の裏には、地図師エルドの筆跡で「道は場所ではなく、人と人を結ぶ」と刻まれていた。' }),
+      Object.freeze({ speaker: '地の文', visualId: 'brothers-message', text: 'その下で青星紋が淡く光り、隠されていた薄い金属板が開く。書き出しには「我が息子たちへ」とある。' }),
+      Object.freeze({ speaker: '父エルドの記録', text: 'お前たちは、同じ地図をきっと違うように読む。一人が先に道を歩き、もう一人が見落とされた道を拾う。二人の見た景色を重ねた時、青星は本当の行き先を示すだろう。' }),
+      Object.freeze({ speaker: '主人公', text: '息子たち……僕だけじゃない。故郷の書庫で父の記録を調べている弟ノアにも、父はこの言葉を残したんだ。' }),
+      Object.freeze({ speaker: '主人公', text: '危険に巻き込みたくなくて一人で海を渡った。でも父は、最初から僕ら二人が違う道を見つけると信じていたのか。' })
     ]) }),
     'king-crossroads-report': Object.freeze({ id: 'king-crossroads-report', onComplete: 'crossroads-report-complete', lines: Object.freeze([
       Object.freeze({ speaker: 'アルディオン王', text: '四つの門が開き、交易路に人が戻ったと報せが届いた。国を結ぶ道を取り戻した功、見事である。' }),
-      Object.freeze({ speaker: 'アルディオン王', text: 'エルドの言葉も見つけたか。あの者は地図に道だけでなく、その先にいる人々を描こうとしていた。' })
+      Object.freeze({ speaker: 'アルディオン王', text: 'エルドが二人の息子へ残した言葉も見つけたか。あの者は地図に道だけでなく、その先にいる人々を描こうとしていた。' })
     ]) }),
     'king-crossroads-reminder': Object.freeze({ id: 'king-crossroads-reminder', lines: Object.freeze([
       Object.freeze({ speaker: 'アルディオン王', text: '交差路の街クアドラへ向かい、止まった四つの街道を取り戻してくれ。' })
     ]) }),
     'king-after-crossroads': Object.freeze({ id: 'king-after-crossroads', onComplete: 'mist-mission-start', lines: Object.freeze([
       Object.freeze({ speaker: 'アルディオン王', text: '交易路は再び動き始めた。だが水路から逃れた紫の光は、北の城塞都市ヴェイルを覆う霧へ流れ込んだ。' }),
+      Object.freeze({ speaker: 'アルディオン王', text: 'クアドラからもう一つ報せがある。青灰色の外套を着た若い地図読みが、おぬしの弟を名乗り、復旧した街道を北へ向かったそうだ。' }),
+      Object.freeze({ speaker: '主人公', text: 'ノアが新大陸へ……。僕が直した道をたどってきたのか。追い返すより先に、霧の中で見失うわけにはいかない。' }),
       Object.freeze({ speaker: '旅の魔導士リゼ', text: '王命を待つだけでは遅いわ。霧から逃げてきた巡回兵、夜だけ鳴る鐘、仮面を着けた住民。その三つの手掛かりのうち、気になるものから追いましょう。' }),
       Object.freeze({ speaker: '主人公', text: '父の羅針盤も北を指している。誰かに頼まれたからじゃない。あの霧の向こうに何があるのか、自分で確かめたい。' })
     ]) }),
@@ -420,26 +451,50 @@
       Object.freeze({ speaker: '主人公', text: '人々は怪しい儀式をしていたんじゃない。自分たちを守りながら、侵入口を封じていたのか。' })
     ]) }),
     'mist-resident': Object.freeze({ id: 'mist-resident', lines: Object.freeze([
-      Object.freeze({ speaker: '霧都の住民', text: '霧の中では、知っている道ほど疑いなさい。鐘楼へ行くなら、街で二つ以上の証言を結びつけることだ。' })
+      Object.freeze({ speaker: '霧都の住民', text: '霧の中では、知っている道ほど疑いなさい。鐘楼へ行くなら、街で二つ以上の証言を結びつけることだ。' }),
+      Object.freeze({ speaker: '霧都の住民', text: '少し前にも、地図筒を何本も抱えた若者が鐘楼の外壁を調べていた。古い排水路に帰り道を作ると言っていたよ。' })
     ]) }),
-    'mist-tower-entry': Object.freeze({ id: 'mist-tower-entry', lines: Object.freeze([
-      Object.freeze({ speaker: '地の文', text: '二つの証言が重なり、霧の中に鐘楼へ続く道が浮かび上がった。選んだ手掛かりによって、侵入路と協力者が変わる。' })
+    'mist-tower-entry': Object.freeze({ id: 'mist-tower-entry', onComplete: 'brother-rescue-complete', lines: Object.freeze([
+      Object.freeze({ speaker: '地の文', text: '二つの証言が重なり、霧の中に鐘楼へ続く道が浮かび上がった。選んだ手掛かりによって、侵入路と協力者が変わる。' }),
+      Object.freeze({ speaker: '地の文', text: '鐘楼へ踏み込んだ瞬間、背後の床が崩れ、霧が来た道を塗りつぶした。星の羅針盤は激しく回り、帰る方角を失っている。' }),
+      Object.freeze({ speaker: '弟ノア', visualId: 'brother-rescue', text: '兄さん、聞こえる？　父の保守路は正門だけじゃない。排水路の古い巻上げ機を動かせば、そこに帰り道を固定できる！' }),
+      Object.freeze({ speaker: '主人公', text: 'ノア……本当に海を渡ってきたのか。どうしてここまで。' }),
+      Object.freeze({ speaker: '弟ノア', visualId: 'brother-rescue', text: '兄さんが西の街道を直して、四つの水門を開いたから、ここまで来られた。だから今度は、僕が兄さんの帰り道を作る。' }),
+      Object.freeze({ speaker: '弟ノア', text: '巻上げ機は僕が押さえる。番人を倒すのは兄さんの役目だ。帰ったら、勝手に来たことはいくらでも叱られるよ。' })
+    ]) }),
+    'mist-tower-reentry': Object.freeze({ id: 'mist-tower-reentry', lines: Object.freeze([
+      Object.freeze({ speaker: '弟ノア', text: '帰還路は固定してある。霧が濃くなっても、巻上げ機につないだ青い縄をたどれば街へ戻れるよ。' })
     ]) }),
     'mist-bell-awakening': Object.freeze({ id: 'mist-bell-awakening', onComplete: 'mist-bell-awaken', lines: Object.freeze([
       Object.freeze({ speaker: '地の文', text: '鐘楼の最上部で、星の羅針盤がひとりでに回り始めた。霧鐘の内部から、羅針盤と同じ光が応える。' }),
       Object.freeze({ speaker: '主人公', text: '父の道具に反応している……いや、僕自身を待っていたような光だ。' }),
+      Object.freeze({ speaker: '弟ノア', text: '帰還路はまだつながっている。ここは僕が支えるから、兄さんは前だけを見て。' }),
       Object.freeze({ speaker: '謎の声', text: '帰還者を確認。閉ざされた道を守るため、霧鐘の番人を起動する。' })
     ]) }),
     'mist-boss-cleared': Object.freeze({ id: 'mist-boss-cleared', onComplete: 'mist-boss-defeated', lines: Object.freeze([
       Object.freeze({ speaker: '地の文', text: '番人が沈黙すると、鐘は初めて澄んだ音を響かせた。街を覆っていた霧がほどけ、塔と庭園が夕空の下へ姿を現す。' }),
-      Object.freeze({ speaker: '旅の魔導士リゼ', text: 'この番人は侵入者を呼び込んだのではなく、何かを外へ出さないために目覚めたみたい。異変の原因は、もっと奥にある。' })
+      Object.freeze({ speaker: '旅の魔導士リゼ', text: 'この番人は侵入者を呼び込んだのではなく、何かを外へ出さないために目覚めたみたい。異変の原因は、もっと奥にある。' }),
+      Object.freeze({ speaker: '弟ノア', text: '巻上げ機のそばで、父の筆跡がある別の保守図を見つけた。僕は街へ戻って写しを作る。兄さんは王へ報告して。' })
     ]) }),
     'king-mist-report': Object.freeze({ id: 'king-mist-report', onComplete: 'mist-report-complete', lines: Object.freeze([
       Object.freeze({ speaker: 'アルディオン王', text: 'ヴェイルの霧が晴れ、北方との往来が戻った。三つの噂から真実を選び取った判断、見事であった。' }),
+      Object.freeze({ speaker: 'アルディオン王', text: '先に道を歩く兄と、見落とされた保守路を拾う弟。エルドの言葉どおり、二人の見た景色が重なって霧の道を開いたのだな。' }),
       Object.freeze({ speaker: 'アルディオン王', text: '鐘楼がエルドの羅針盤だけでなく、おぬし自身へ反応したことは気に掛かる。次の記録が届くまで、その羅針盤を手放してはならぬ。' })
     ]) }),
     'king-after-mist': Object.freeze({ id: 'king-after-mist', lines: Object.freeze([
-      Object.freeze({ speaker: 'アルディオン王', text: '北の霧は晴れた。だが東の高地では、二つの都市が互いの姿を見失いつつあるという。' })
+      Object.freeze({ speaker: 'アルディオン王', text: '北の霧は晴れた。だが東の高地では、二つの都市が互いの姿を見失いつつあるという。' }),
+      Object.freeze({ speaker: 'アルディオン王', text: 'ノアはクアドラで各地の古地図を重ねている。次の道では、おぬしが進み、弟が別の場所から見落としを拾うことになるだろう。' })
+    ]) }),
+    'brother-veil': Object.freeze({ id: 'brother-veil', lines: Object.freeze([
+      Object.freeze({ speaker: '弟ノア', text: '兄さんが鐘楼へいる間、僕は排水路と巻上げ機を調べる。戦う力はなくても、帰り道なら守れる。' }),
+      Object.freeze({ speaker: '主人公', text: '無茶をしたのはお互い様か。終わったら、どうやって海を渡ったのか全部聞かせてもらう。' })
+    ]) }),
+    'brother-capital': Object.freeze({ id: 'brother-capital', lines: Object.freeze([
+      Object.freeze({ speaker: '弟ノア', text: '王への報告が終わるまで、僕は城の記録庫で父の保守図を照合している。兄さんと同じ道を歩くためじゃない。見落とされた道を拾うために来たんだ。' })
+    ]) }),
+    'brother-quadra': Object.freeze({ id: 'brother-quadra', lines: Object.freeze([
+      Object.freeze({ speaker: '弟ノア', text: 'クアドラなら四方から地図と旅人の話が集まる。僕はここを拠点にするよ。必要な時は別の街にも先回りして、兄さんが見えない側の道を確かめる。' }),
+      Object.freeze({ speaker: '弟ノア', text: '父の青星紋は一人を同じ方角へ縛る印じゃない。違う方向へ進んでも、中央の帰る場所を忘れないための印なんだと思う。' })
     ]) }),
     'first-magic': Object.freeze({
       id: 'first-magic',
@@ -496,7 +551,7 @@
     'watchtower-locked': Object.freeze({
       id: 'watchtower-locked',
       lines: Object.freeze([
-        Object.freeze({ speaker: '地の文', text: '古い見張り台は紫の結界に閉ざされている。結界には四つのくぼみと、中央に魔法を注ぐための紋章がある。' }),
+        Object.freeze({ speaker: '地の文', text: '古い見張り台は紫の結界に閉ざされている。結界には四つのくぼみと、中央に魔法を注ぐための青い受け口がある。' }),
         Object.freeze({ speaker: '地の文', text: '西の港街道を徘徊する魔物から四つの封印片を集め、魔法の力を得る必要がありそうだ。' })
       ])
     }),
@@ -504,7 +559,7 @@
       id: 'watchtower-seal-release',
       onComplete: 'watchtower-seal-release',
       lines: Object.freeze([
-        Object.freeze({ speaker: '地の文', text: '四つの封印片が見張り台のくぼみへ吸い込まれ、星の羅針盤が強く震え始めた。' }),
+        Object.freeze({ speaker: '地の文', text: '四つの封印片が見張り台のくぼみへ吸い込まれ、青い八芒星の羅針盤が強く震え始めた。' }),
         Object.freeze({ speaker: '主人公', text: '羅針盤の光が、紫の霧を押し返している……。封印が解ける！' })
       ])
     }),
@@ -513,7 +568,7 @@
       lines: Object.freeze([
         Object.freeze({ speaker: '地の文', text: '紫霧の番人が崩れ落ち、見張り台を覆っていた霧が晴れていく。' }),
         Object.freeze({ speaker: '主人公', text: '外から何者かが入り込んだ跡はない。ここに眠っていた古い仕組みが、父の羅針盤に反応して目覚めたのか……。' }),
-        Object.freeze({ speaker: '地の文', visualId: 'watchtower-crest', text: '床の金属箱には、父の羅針盤とまったく同じ青い星の紋章が刻まれていた。父は確かにここへ来ていた。' }),
+        Object.freeze({ speaker: '地の文', visualId: 'watchtower-crest', text: '床の金属箱には、父の羅針盤とまったく同じ、等しい八つの光と中央の丸を持つ青い印が刻まれていた。父は確かにここへ来ていた。' }),
         Object.freeze({ speaker: '王都兵', text: '見張り台の霧が晴れたのを見て迎えに来た。王がお待ちだ。報告のため王城へ戻ろう。' })
       ])
     })
@@ -593,6 +648,10 @@
     Object.freeze({ id: 'mist-citadel-exit', area: 'mist-citadel', point: Object.freeze([800, 1040]), radius: 58, label: '北の街道へ戻る', targetArea: 'overworld', spawn: Object.freeze([337, 240]) }),
     Object.freeze({ id: 'mist-bell-tower-door', area: 'mist-citadel', point: Object.freeze([800, 410]), radius: 70, label: '霧の向こうの鐘楼へ入る', targetArea: 'mist-bell-tower', spawn: PAST_AREAS['mist-bell-tower'].spawn, unlockAfter: 'mist-clues', dialogueOnEnter: 'mist-tower-entry' }),
     ...MIST_CITADEL_NPCS.map(npc => Object.freeze({ id: npc.id, area: 'mist-citadel', point: npc.point, radius: 56, label: `${npc.name}と話す`, dialogueId: npc.dialogueId })),
+    ...BROTHER_NPCS.map(npc => Object.freeze({
+      id: npc.id, area: npc.area, point: npc.point, radius: 58,
+      label: `${npc.name}と話す`, dialogueId: npc.dialogueId, brotherStage: npc.brotherStage
+    })),
     ...MIST_BUILDINGS.map(building => Object.freeze({
       id: building.id,
       area: 'mist-citadel',
@@ -620,6 +679,12 @@
     const capitalArrivalSeen = hasCapitalArrivalFlag
       ? Boolean(saved.capitalArrivalSeen)
       : area !== 'overworld' || !['arrival', 'seek-king'].includes(phase);
+    const brotherMessageSeen = Object.hasOwn(saved, 'brotherMessageSeen')
+      ? Boolean(saved.brotherMessageSeen)
+      : BROTHER_MESSAGE_PHASES.includes(phase);
+    const brotherRescueSeen = Object.hasOwn(saved, 'brotherRescueSeen')
+      ? Boolean(saved.brotherRescueSeen)
+      : BROTHER_RESCUE_PHASES.includes(phase);
     return {
       area,
       phase,
@@ -628,6 +693,8 @@
       tutorialRescueSeen: Boolean(saved.tutorialRescueSeen),
       capitalArrivalSeen,
       royalRewardClaimed: Boolean(saved.royalRewardClaimed || !['arrival', 'seek-king'].includes(phase)),
+      brotherMessageSeen: brotherMessageSeen || brotherRescueSeen,
+      brotherRescueSeen,
       crossroadsClues: [...new Set(Array.isArray(saved.crossroadsClues) ? saved.crossroadsClues.filter(id => CROSSROADS_CLUE_IDS.includes(id)) : [])],
       mistClues: [...new Set(Array.isArray(saved.mistClues) ? saved.mistClues.filter(id => MIST_CLUE_IDS.includes(id)) : [])]
     };
@@ -668,15 +735,22 @@
       if (!CROSSROADS_CLUE_IDS.includes(clueId) || state.crossroadsClues.includes(clueId)) return state;
       return { ...state, crossroadsClues: [...state.crossroadsClues, clueId] };
     }
-    if (eventId === 'crossroads-boss-defeated' && state.phase === 'second-mission') return { ...state, phase: 'second-mission-report' };
+    if (eventId === 'crossroads-boss-defeated' && state.phase === 'second-mission') {
+      return { ...state, phase: 'second-mission-report', brotherMessageSeen: true };
+    }
     if (eventId === 'crossroads-report-complete' && state.phase === 'second-mission-report') return { ...state, phase: 'second-mission-complete' };
     if (eventId === 'mist-mission-start' && state.phase === 'second-mission-complete') return { ...state, phase: 'third-mission' };
+    if (eventId === 'brother-rescue-complete' && state.phase === 'third-mission' && !state.brotherRescueSeen) {
+      return { ...state, brotherMessageSeen: true, brotherRescueSeen: true };
+    }
     if (eventId.startsWith('mist-clue:') && state.phase === 'third-mission') {
       const clueId = eventId.slice('mist-clue:'.length);
       if (!MIST_CLUE_IDS.includes(clueId) || state.mistClues.includes(clueId)) return state;
       return { ...state, mistClues: [...state.mistClues, clueId] };
     }
-    if (eventId === 'mist-boss-defeated' && state.phase === 'third-mission') return { ...state, phase: 'third-mission-report' };
+    if (eventId === 'mist-boss-defeated' && state.phase === 'third-mission') {
+      return { ...state, phase: 'third-mission-report', brotherMessageSeen: true, brotherRescueSeen: true };
+    }
     if (eventId === 'mist-report-complete' && state.phase === 'third-mission-report') return { ...state, phase: 'third-mission-complete' };
     return state;
   }
@@ -691,7 +765,7 @@
       const clueCount = state.crossroadsClues.length;
       return clueCount < 2 ? `交差路の街で異変の証言を集める（${clueCount}/2）` : '証言をもとに四門水路の祭壇を調べる';
     }
-    if (state.phase === 'second-mission-report') return '交差路の街が復旧したことを王へ報告する';
+    if (state.phase === 'second-mission-report') return '街の復旧と、父が二人の息子へ残した記録を王へ報告する';
     if (state.phase === 'second-mission-complete') return '王と話し、北の霧へ向かう理由を確かめる';
     if (state.phase === 'third-mission') {
       const clueCount = state.mistClues.length;
@@ -723,8 +797,18 @@
     return isTutorial ? 'tutorial' : 'hidden';
   }
 
+  function storyNpcIsAvailable(state, npc) {
+    if (!npc?.brotherStage) return true;
+    if (!state.brotherMessageSeen || !state.brotherRescueSeen) return false;
+    if (npc.brotherStage === 'veil') return state.phase === 'third-mission';
+    if (npc.brotherStage === 'capital') return state.phase === 'third-mission-report';
+    if (npc.brotherStage === 'quadra') return state.phase === 'third-mission-complete';
+    return false;
+  }
+
   function storyUnlocksInteraction(state, interaction) {
     if (!interaction) return false;
+    if (interaction.brotherStage) return storyNpcIsAvailable(state, interaction);
     if (interaction.unlockAfter === 'king-audience') return storyAllowsEncounters(state);
     if (interaction.unlockAfter === 'first-mission-complete') return ['second-mission', 'second-mission-report', 'second-mission-complete', 'third-mission', 'third-mission-report', 'third-mission-complete'].includes(state.phase);
     if (interaction.unlockAfter === 'crossroads-boss') return ['second-mission-report', 'second-mission-complete', 'third-mission', 'third-mission-report', 'third-mission-complete'].includes(state.phase);
@@ -740,9 +824,12 @@
       return { state, spawn: null, dialogue: null, serviceId: null, actionId: null };
     }
     if (interaction.targetArea) {
+      const dialogueId = interaction.id === 'mist-bell-tower-door' && state.brotherRescueSeen
+        ? 'mist-tower-reentry'
+        : interaction.dialogueOnEnter;
       const dialogue = interaction.id === 'capital-gate' && state.capitalArrivalSeen
         ? null
-        : STORY_DIALOGUES[interaction.dialogueOnEnter] || null;
+        : STORY_DIALOGUES[dialogueId] || null;
       return {
         state: { ...state, area: interaction.targetArea },
         spawn: interaction.spawn,
@@ -880,6 +967,8 @@
         nextStory.phase = 'first-mission';
         nextStory.crossroadsClues = [];
         nextStory.mistClues = [];
+        nextStory.brotherMessageSeen = false;
+        nextStory.brotherRescueSeen = false;
         nextCampaign.bossDefeated = false;
         nextCampaign.crossroadsBossDefeated = false;
         nextCampaign.mistBossDefeated = false;
@@ -892,6 +981,8 @@
       nextCampaign.bossDefeated = true;
       nextCampaign.watchtowerReached = true;
       nextCampaign.crossroadsBossDefeated = Boolean(completed);
+      nextStory.brotherMessageSeen = Boolean(completed);
+      nextStory.brotherRescueSeen = false;
       if (!completed) {
         nextCampaign.mistBossDefeated = false;
         nextStory.crossroadsClues = [];
@@ -904,6 +995,8 @@
       nextCampaign.bossDefeated = true;
       nextCampaign.crossroadsBossDefeated = true;
       nextCampaign.mistBossDefeated = Boolean(completed);
+      nextStory.brotherMessageSeen = true;
+      nextStory.brotherRescueSeen = Boolean(completed);
       if (!completed) nextStory.mistClues = [];
       nextStory.phase = completed ? 'third-mission-complete' : 'third-mission';
       return { story: nextStory, campaign: nextCampaign };
@@ -912,6 +1005,7 @@
   }
 
   return {
+    BROTHER_NPCS,
     CASTLE_COLLISION_RECTS,
     CASTLE_NPCS,
     CROSSROADS_BUILDINGS,
@@ -943,6 +1037,7 @@
     setDebugQuestCompletion,
     storyAllowsEncounters,
     storyEncounterMode,
+    storyNpcIsAvailable,
     storyUnlocksInteraction,
     storyObjective
   };

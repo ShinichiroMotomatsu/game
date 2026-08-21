@@ -4,6 +4,7 @@ const fs = require('node:fs');
 
 const {
   CASTLE_NPCS,
+  BROTHER_NPCS,
   CASTLE_COLLISION_RECTS,
   CROSSROADS_BUILDINGS,
   CROSSROADS_DUNGEON_LAYOUT,
@@ -30,10 +31,87 @@ const {
   mistInvestigationResult,
   storyAllowsEncounters,
   storyEncounterMode,
+  storyNpcIsAvailable,
   setDebugQuestCompletion,
   storyUnlocksInteraction,
   storyObjective
 } = require('../v2-past-story.js');
+
+test('crest lore names only the Blue Star and Twin Star and explains the eight equal rays', () => {
+  const allDialogue = Object.values(STORY_DIALOGUES)
+    .flatMap(dialogue => dialogue.lines)
+    .map(line => line.text)
+    .join('\n');
+  const origin = STORY_DIALOGUES['king-mission-complete'].lines.map(line => line.text).join('');
+
+  assert.doesNotMatch(allDialogue, /方位紋|市章/);
+  assert.match(origin, /青星紋/);
+  assert.match(origin, /八方|八芒/);
+  assert.match(origin, /青い玻璃|青いガラス/);
+  assert.match(origin, /帰る場所|帰り道/);
+  assert.match(STORY_DIALOGUES['twin-star-vow'].lines.map(line => line.text).join(''), /双星紋/);
+  assert.ok(STORY_DIALOGUES['twin-star-vow'].lines.some(line => line.visualId === 'twin-star-vow'));
+});
+
+test('the younger brother is concealed until the four-gate message addresses both sons', () => {
+  const beforeRevealIds = [
+    'arrival', 'capital-arrival', 'capital-rescue', 'king-audience', 'king-mission-complete',
+    'king-crossroads-mission', 'crossroads-arrival', 'crossroads-altar-awakening'
+  ];
+  const beforeReveal = beforeRevealIds
+    .flatMap(id => STORY_DIALOGUES[id].lines)
+    .map(line => line.text)
+    .join('');
+  const reveal = STORY_DIALOGUES['crossroads-boss-cleared'].lines;
+
+  assert.doesNotMatch(beforeReveal, /弟|兄弟|息子たち|ノア/);
+  assert.match(reveal.map(line => line.text).join(''), /息子たち|弟|ノア/);
+  assert.ok(reveal.some(line => line.visualId === 'brothers-message'));
+});
+
+test('the brother follows restored roads, rescues the hero, then moves between towns as a recurring NPC', () => {
+  for (const npc of BROTHER_NPCS) {
+    assert.equal(canStandInPastArea(npc.area, npc.point[0], npc.point[1], 6), true, `${npc.id} must stand on walkable ground`);
+    assert.ok(PAST_INTERACTIONS.some(interaction => interaction.id === npc.id && interaction.area === npc.area));
+  }
+  let story = createPastStory({ phase: 'second-mission', area: 'crossroads-dungeon' });
+  story = completeStoryEvent(story, 'crossroads-boss-defeated');
+  assert.equal(story.brotherMessageSeen, true);
+
+  story = completeStoryEvent(story, 'crossroads-report-complete');
+  story = completeStoryEvent(story, 'mist-mission-start');
+  assert.equal(story.brotherRescueSeen, false);
+  assert.match(STORY_DIALOGUES['mist-tower-entry'].lines.map(line => line.text).join(''), /兄さん|弟|ノア|帰り道/);
+  assert.ok(STORY_DIALOGUES['mist-tower-entry'].lines.some(line => line.visualId === 'brother-rescue'));
+
+  story = completeStoryEvent(story, 'brother-rescue-complete');
+  assert.equal(story.brotherRescueSeen, true);
+  assert.equal(storyNpcIsAvailable(story, BROTHER_NPCS.find(npc => npc.area === 'mist-citadel')), true);
+
+  story = completeStoryEvent(story, 'mist-boss-defeated');
+  assert.equal(storyNpcIsAvailable({ ...story, area: 'castle-town' }, BROTHER_NPCS.find(npc => npc.area === 'castle-town')), true);
+  story = completeStoryEvent(story, 'mist-report-complete');
+  assert.equal(storyNpcIsAvailable({ ...story, area: 'crossroads-town' }, BROTHER_NPCS.find(npc => npc.area === 'crossroads-town')), true);
+});
+
+test('legacy saves past the relevant chapters migrate brother milestones without replaying reveals', () => {
+  const afterWaterway = createPastStory({ phase: 'second-mission-report' });
+  const afterTower = createPastStory({ phase: 'third-mission-report' });
+  const explicitPending = createPastStory({
+    phase: 'third-mission', brotherMessageSeen: true, brotherRescueSeen: false
+  });
+  const inconsistentLegacySave = createPastStory({
+    phase: 'third-mission', brotherMessageSeen: false, brotherRescueSeen: true
+  });
+
+  assert.equal(afterWaterway.brotherMessageSeen, true);
+  assert.equal(afterWaterway.brotherRescueSeen, false);
+  assert.equal(afterTower.brotherMessageSeen, true);
+  assert.equal(afterTower.brotherRescueSeen, true);
+  assert.equal(explicitPending.brotherRescueSeen, false);
+  assert.equal(inconsistentLegacySave.brotherMessageSeen, true);
+  assert.equal(inconsistentLegacySave.brotherRescueSeen, true);
+});
 
 test('chapter one is driven by the hero mystery and answers one question while opening another', () => {
   const arrival = STORY_DIALOGUES['capital-rescue'].lines.map(line => line.text).join('');
@@ -599,8 +677,8 @@ test('the overworld consistently filters enemies and routes the tutorial battle 
 
 test('the tutorial story and runtime scripts use fresh browser cache versions', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
-  assert.match(html, /v2-past-story\.js\?edition=15/);
-  assert.match(html, /v2\.js\?edition=19/);
+  assert.match(html, /v2-past-story\.js\?edition=16/);
+  assert.match(html, /v2\.js\?edition=21/);
 });
 
 test('the western road contains two visible card discoveries', () => {

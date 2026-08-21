@@ -98,7 +98,7 @@
     Object.freeze({
       id: 'sunken-shrine', title: '紫泥に沈む祠', recommendedLevel: 6, unlockAfter: 'crossroads-boss',
       dungeonId: 'poison-sanctum', entranceInteractionId: 'sunken-shrine-entrance',
-      overworldPoint: Object.freeze([145, 500]), journalOrder: 1,
+      overworldPoint: Object.freeze([635, 995]), journalOrder: 1,
       bossEncounterId: 'sidequest-sunken-shrine-boss', bossEnemyId: 'miasma-root',
       rewardCardId: 'purify', rewardKeyItemId: 'swamp-ward-charm',
       journalLines: Object.freeze([
@@ -110,7 +110,7 @@
     Object.freeze({
       id: 'ice-lantern', title: '氷灯の回廊', recommendedLevel: 9, unlockAfter: 'crossroads-boss',
       dungeonId: 'ice-lantern-cavern', entranceInteractionId: 'ice-lantern-entrance',
-      overworldPoint: Object.freeze([293, 416]), journalOrder: 2,
+      overworldPoint: Object.freeze([165, 85]), journalOrder: 2,
       bossEncounterId: 'sidequest-ice-lantern-boss', bossEnemyId: 'glacier-beast',
       rewardCardId: 'sunfire', rewardEquipmentId: 'lampkeeper-cloak',
       journalLines: Object.freeze([
@@ -122,12 +122,12 @@
     Object.freeze({
       id: 'molten-crown', title: '熔火の王冠', recommendedLevel: 14, unlockAfter: 'crossroads-boss',
       dungeonId: 'molten-crown-caldera', entranceInteractionId: 'molten-crown-entrance',
-      overworldPoint: Object.freeze([405, 338]), journalOrder: 3,
+      overworldPoint: Object.freeze([1325, 110]), journalOrder: 3,
       bossEncounterId: 'sidequest-molten-crown-boss', bossEnemyId: 'crown-drake',
       rewardCardId: 'starflare', rewardEquipmentId: 'twin-star-sword',
       journalLines: Object.freeze([
         '争っていた二つの集落を救うため、地図師エルドと灯守の薬師ミラは、双方が使える一つの避難路を完成させた。',
-        '熔岩が冷えた夜、二人は互いの星を刻んだ「双星の羅針盤」を作り、これからの道を共に歩く誓いで結ばれた。',
+        '熔岩が冷えた夜、二人は青と琥珀の旅の証を一つの留め金に納め、これからの道を共に歩く誓いで結ばれた。',
         '最後の頁には「道の終わりではなく、共に帰る場所から新しい地図は始まる」とある。'
       ])
     })

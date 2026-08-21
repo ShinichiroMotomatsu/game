@@ -55,8 +55,8 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const css = fs.readFileSync('v2.css', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
-  assert.match(html, /v2\.js\?edition=19/);
-  assert.match(html, /v2\.css\?edition=13/);
+  assert.match(html, /v2\.js\?edition=21/);
+  assert.match(html, /v2\.css\?edition=15/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);
   assert.match(runtime, /shell\.addEventListener\('pointerdown'/);
@@ -112,6 +112,27 @@ test('settings expose compact authenticated cloud save controls', () => {
   assert.match(runtime, /detectSessionInUrl:\s*true/);
   assert.match(runtime, /resendConfirmation/);
   assert.doesNotMatch(runtime, /innerHTML\s*=/);
+});
+
+test('a compact main-quest compass stays attached to the map on desktop and mobile', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const css = fs.readFileSync('v2.css', 'utf8');
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const mapStart = html.indexOf('<aside class="v2-map">');
+  const mapMarkup = html.slice(mapStart, html.indexOf('</aside>', mapStart) + 8);
+  const storyModule = html.indexOf('v2-past-story.js?edition=16');
+  const compassModule = html.indexOf('v2-quest-compass.js?edition=1');
+  const runtimeScript = html.indexOf('v2.js?edition=21');
+
+  assert.match(mapMarkup, /id="v2-quest-compass"[^>]*aria-live="polite"/);
+  assert.match(mapMarkup, /id="v2-quest-compass-needle"/);
+  assert.match(mapMarkup, /id="v2-quest-compass-target"/);
+  assert.match(css, /#v2-shell\[data-theme="past"\] \.v2-quest-compass[^}]*display:\s*grid/s);
+  assert.match(css, /@media \(max-width: 700px\)[\s\S]*\.v2-quest-compass-dial[^}]*width:\s*34px/s);
+  assert.match(runtime, /mainQuestCompassTarget/);
+  assert.match(runtime, /questCompassBearing/);
+  assert.match(runtime, /function updateQuestCompass\(/);
+  assert.ok(storyModule > 0 && storyModule < compassModule && compassModule < runtimeScript);
 });
 
 test('battle cards use a large high-contrast type band and redraw any selected opening cards together', () => {

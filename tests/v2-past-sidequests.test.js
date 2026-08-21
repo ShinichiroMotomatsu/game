@@ -49,6 +49,26 @@ function pastRoadPointIsWalkable(x, y, radius = 6) {
   });
 }
 
+function mapLayout() {
+  const sandbox = { window: {} };
+  vm.runInNewContext(fs.readFileSync('assets/v2/map-layout-data.js', 'utf8'), sandbox);
+  return sandbox.window.V2_MAP_LAYOUT;
+}
+
+function pointDistance(left, right) {
+  return Math.hypot(left[0] - right[0], left[1] - right[1]);
+}
+
+function pointToSegmentDistance(point, start, end) {
+  const segmentX = end[0] - start[0];
+  const segmentY = end[1] - start[1];
+  const lengthSquared = segmentX ** 2 + segmentY ** 2;
+  const projection = lengthSquared
+    ? Math.max(0, Math.min(1, ((point[0] - start[0]) * segmentX + (point[1] - start[1]) * segmentY) / lengthSquared))
+    : 0;
+  return pointDistance(point, [start[0] + segmentX * projection, start[1] + segmentY * projection]);
+}
+
 function reachableDungeonTiles(dungeonId, keyItems = []) {
   const dungeon = SIDE_DUNGEONS[dungeonId];
   const start = dungeon.spawn.map(value => Math.floor(value / dungeon.tileSize));
@@ -140,6 +160,44 @@ test('all three sidequest entrances sit fully inside the authored overworld road
   for (const quest of SIDE_QUESTS) {
     assert.equal(pastRoadPointIsWalkable(...quest.overworldPoint), true, `${quest.id} road access`);
   }
+});
+
+test('sidequest entrances are spread across remote edges instead of clustering on the main route', () => {
+  const points = SIDE_QUESTS.map(quest => quest.overworldPoint);
+  const pairDistances = points.flatMap((point, index) => points.slice(index + 1).map(other => pointDistance(point, other)));
+  const horizontalSpread = Math.max(...points.map(point => point[0])) - Math.min(...points.map(point => point[0]));
+  const verticalSpread = Math.max(...points.map(point => point[1])) - Math.min(...points.map(point => point[1]));
+
+  assert.ok(Math.min(...pairDistances) >= 900, `closest entrances are only ${Math.min(...pairDistances).toFixed(1)}px apart`);
+  assert.ok(horizontalSpread >= 1100, `horizontal spread is only ${horizontalSpread}px`);
+  assert.ok(verticalSpread >= 850, `vertical spread is only ${verticalSpread}px`);
+});
+
+test('every sidequest entrance stays away from landmarks and the main quest travel spine', () => {
+  const landmarks = mapLayout().landmarks.map(landmark => landmark.anchor);
+  const mainQuestPoints = [[70, 540], [307, 503], [145, 515], [205, 460], [416, 354], [337, 240]];
+  const mainRouteSegments = [
+    [[70, 540], [307, 503]],
+    [[70, 540], [145, 515]],
+    [[307, 503], [416, 354]],
+    [[416, 354], [337, 240]]
+  ];
+
+  for (const quest of SIDE_QUESTS) {
+    const landmarkDistance = Math.min(...landmarks.map(point => pointDistance(quest.overworldPoint, point)));
+    const mainPointDistance = Math.min(...mainQuestPoints.map(point => pointDistance(quest.overworldPoint, point)));
+    const routeDistance = Math.min(...mainRouteSegments.map(([start, end]) => pointToSegmentDistance(quest.overworldPoint, start, end)));
+    assert.ok(landmarkDistance >= 220, `${quest.id} is only ${landmarkDistance.toFixed(1)}px from a landmark`);
+    assert.ok(mainPointDistance >= 220, `${quest.id} is only ${mainPointDistance.toFixed(1)}px from a main quest point`);
+    assert.ok(routeDistance >= 200, `${quest.id} is only ${routeDistance.toFixed(1)}px from the main route`);
+  }
+});
+
+test('each sidequest entrance occupies the remote edge of its matching terrain', () => {
+  const byId = Object.fromEntries(SIDE_QUESTS.map(quest => [quest.id, quest.overworldPoint]));
+  assert.ok(byId['ice-lantern'][0] < 200 && byId['ice-lantern'][1] < 150, 'ice entrance should be at the northern ice-road end');
+  assert.ok(byId['sunken-shrine'][0] > 550 && byId['sunken-shrine'][0] < 700 && byId['sunken-shrine'][1] > 900, 'poison entrance should be at the remote southern swamp road');
+  assert.ok(byId['molten-crown'][0] > 1250 && byId['molten-crown'][1] < 200, 'lava entrance should be at the northeastern volcanic road end');
 });
 
 test('poison, cold, braziers, and lava resolve as readable terrain rules', () => {
@@ -269,7 +327,7 @@ test('the quest board and three entrances are integrated into the explorable sto
 test('the browser runtime loads and handles sidequest exploration rather than exposing data only', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
-  assert.match(html, /v2-past-sidequests\.js\?edition=/);
+  assert.match(html, /v2-past-sidequests\.js\?edition=3/);
   assert.match(runtime, /window\.V2_PAST_SIDEQUESTS/);
   assert.match(runtime, /drawSideQuestDungeon/);
   assert.match(runtime, /updateSideDungeonEnemies/);

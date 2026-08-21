@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">青星紋</title>
+  <desc id="desc">等しい八方向と中央の帰る場所を表す、地図師エルドの旅印</desc>
+  <defs>
+    <linearGradient id="blue-glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#54c6ff"/><stop offset="1" stop-color="#0c3797"/>
+    </linearGradient>
+    <path id="blue-ray" d="M256 58 L281 202 L256 244 L231 202 Z" fill="url(#blue-glass)" stroke="#d9a440" stroke-width="11" stroke-linejoin="round"/>
+  </defs>
+  <g data-crest="blue-star" data-rays="8" data-equal-rays="true" data-meaning="return-place">
+    <use href="#blue-ray" transform="rotate(0 256 256)" />
+    <use href="#blue-ray" transform="rotate(45 256 256)" />
+    <use href="#blue-ray" transform="rotate(90 256 256)" />
+    <use href="#blue-ray" transform="rotate(135 256 256)" />
+    <use href="#blue-ray" transform="rotate(180 256 256)" />
+    <use href="#blue-ray" transform="rotate(225 256 256)" />
+    <use href="#blue-ray" transform="rotate(270 256 256)" />
+    <use href="#blue-ray" transform="rotate(315 256 256)" />
+    <circle cx="256" cy="256" r="38" fill="#d9a440" stroke="#44270c" stroke-width="8"/>
+    <circle cx="256" cy="256" r="25" fill="url(#blue-glass)"/>
+  </g>
+</svg>

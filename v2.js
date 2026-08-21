@@ -33,6 +33,10 @@
   const storyExp = document.querySelector('#v2-story-exp');
   const openBagButton = document.querySelector('#v2-open-bag');
   const storyObjectiveLabel = document.querySelector('#v2-story-objective');
+  const questCompass = document.querySelector('#v2-quest-compass');
+  const questCompassNeedle = document.querySelector('#v2-quest-compass-needle');
+  const questCompassTarget = document.querySelector('#v2-quest-compass-target');
+  const questCompassDistance = document.querySelector('#v2-quest-compass-distance');
   const interactionPrompt = document.querySelector('#v2-interaction-prompt');
   const dialogueOverlay = document.querySelector('#v2-dialogue');
   const dialogueSpeaker = document.querySelector('#v2-dialogue-speaker');
@@ -70,11 +74,12 @@
   const pastCampaignApi = window.V2_PAST_CAMPAIGN;
   const pastSceneApi = window.V2_PAST_SCENES;
   const pastStoryApi = window.V2_PAST_STORY;
+  const questCompassApi = window.V2_QUEST_COMPASS;
   const dialogueApi = window.V2_DIALOGUE;
   const saveApi = window.V2_SAVE;
   const inputApi = window.V2_INPUT;
   const mapLayout = window.V2_MAP_LAYOUT;
-  if (!landmarkGeometry || !editionApi || !assetApi || !battleApi || !pastWorldApi || !pastSideQuestApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !dialogueApi || !saveApi || !inputApi || !mapLayout) {
+  if (!landmarkGeometry || !editionApi || !assetApi || !battleApi || !pastWorldApi || !pastSideQuestApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !questCompassApi || !dialogueApi || !saveApi || !inputApi || !mapLayout) {
     loading.textContent = 'GAME MODULE ERROR';
     throw new Error('Game geometry, edition, or map layout data is missing.');
   }
@@ -113,6 +118,7 @@
   } = pastSideQuestApi;
   const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
+  const { mainQuestCompassTarget, questCompassBearing } = questCompassApi;
   const { NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, PAST_STORY_VISUALS, npcPoseAt } = pastSceneApi;
   const { createTypewriterLine, revealTypewriterLine, tickTypewriterLine, typewriterText } = dialogueApi;
   const {
@@ -145,6 +151,7 @@
     useItem
   } = pastCampaignApi;
   const {
+    BROTHER_NPCS,
     CASTLE_NPCS,
     CROSSROADS_BUILDINGS,
     CROSSROADS_DUNGEON_LAYOUT,
@@ -169,6 +176,7 @@
     setDebugQuestCompletion,
     storyAllowsEncounters,
     storyEncounterMode,
+    storyNpcIsAvailable,
     storyUnlocksInteraction,
     storyObjective
   } = pastStoryApi;
@@ -477,14 +485,14 @@
         ...playerAssets,
         sceneAssetKey('castle-town-ground'),
         sceneAssetKey('castle-town-buildings'),
-        ...new Set(TOWN_NPCS.map(npc => npcAssetKey(npc.sprite)))
+        ...new Set([...TOWN_NPCS, ...BROTHER_NPCS.filter(npc => npc.area === 'castle-town' && storyNpcIsAvailable(storyState, npc))].map(npc => npcAssetKey(npc.sprite)))
       ];
     }
     if (activeAreaId() === 'crossroads-town') {
       return [
         ...playerAssets,
         sceneAssetKey('crossroads-town'),
-        ...new Set(CROSSROADS_NPCS.map(npc => npcAssetKey(npc.sprite)))
+        ...new Set([...CROSSROADS_NPCS, ...BROTHER_NPCS.filter(npc => npc.area === 'crossroads-town' && storyNpcIsAvailable(storyState, npc))].map(npc => npcAssetKey(npc.sprite)))
       ];
     }
     if (activeAreaId() === 'crossroads-dungeon') {
@@ -502,12 +510,13 @@
       return [
         ...playerAssets,
         sceneAssetKey('mist-citadel'),
-        ...new Set(MIST_CITADEL_NPCS.map(npc => npcAssetKey(npc.sprite)))
+        ...new Set([...MIST_CITADEL_NPCS, ...BROTHER_NPCS.filter(npc => npc.area === 'mist-citadel' && storyNpcIsAvailable(storyState, npc))].map(npc => npcAssetKey(npc.sprite)))
       ];
     }
     if (activeAreaId() === 'mist-bell-tower') {
       return [
         ...playerAssets,
+        ...(!storyState.brotherRescueSeen ? [npcAssetKey('younger-brother')] : []),
         eventAssetKey('card-chest-frost'),
         eventAssetKey('card-chest-mend')
       ];
@@ -641,6 +650,43 @@
 
   function activeAreaId() {
     return currentEdition === 'past' ? storyState.area : 'overworld';
+  }
+
+  function updateQuestCompass() {
+    const target = currentEdition === 'past'
+      ? mainQuestCompassTarget(storyState, campaignState)
+      : null;
+    if (!target || target.area !== activeAreaId()) {
+      questCompass.hidden = true;
+      questCompass.removeAttribute('data-proximity');
+      return;
+    }
+
+    const coordinateScale = activeAreaId() === 'overworld' ? maskScale : 1;
+    const reading = questCompassBearing(player, target.point, coordinateScale);
+    if (!reading) {
+      questCompass.hidden = true;
+      return;
+    }
+
+    const mapDistance = reading.distance / coordinateScale;
+    const arrivalRadius = Math.max(48, Number(target.radius) || 0);
+    const proximity = mapDistance <= arrivalRadius
+      ? { id: 'near', label: '目的地付近' }
+      : mapDistance < 180
+        ? { id: 'soon', label: 'もうすぐ' }
+        : mapDistance < 420
+          ? { id: 'ahead', label: 'この先' }
+          : { id: 'far', label: '遠方' };
+
+    questCompass.hidden = false;
+    questCompass.dataset.proximity = proximity.id;
+    questCompass.dataset.bearing = String(Math.round(reading.bearing));
+    questCompassNeedle.style.transform = `rotate(${reading.bearing.toFixed(2)}deg)`;
+    if (questCompassTarget.textContent !== target.label) questCompassTarget.textContent = target.label;
+    if (questCompassDistance.textContent !== proximity.label) questCompassDistance.textContent = proximity.label;
+    const accessibleLabel = `メインクエストの羅針盤。${target.label}は${proximity.label}。`;
+    if (questCompass.getAttribute('aria-label') !== accessibleLabel) questCompass.setAttribute('aria-label', accessibleLabel);
   }
 
   function activeWorldSize() {
@@ -791,6 +837,10 @@
     storyVisualCrest.hidden = !visual.crestId;
     if (visual.crestId) storyVisualCrest.src = `${PAST_EVENT_ASSETS[visual.crestId].path}?story=1`;
     else storyVisualCrest.removeAttribute('src');
+    if (visual.npcId) {
+      storyVisualObject.hidden = false;
+      storyVisualEvent.src = `${NPC_SPRITE_ASSETS[visual.npcId]}?story=1`;
+    }
   }
 
   function playWatchtowerEffect(kind) {
@@ -1263,13 +1313,14 @@
       const investigation = mistInvestigationResult(storyState);
       result.dialogue = {
         ...result.dialogue,
-        lines: [
-          ...result.dialogue.lines,
+        lines: result.dialogue.id === 'mist-tower-entry' ? [
+          result.dialogue.lines[0],
           {
             speaker: '地の文',
             text: `${investigation.approach}。${investigation.ally}が霧の外から道を示す。番人には${investigation.bossWeakness}の力が有効だろう。`
-          }
-        ]
+          },
+          ...result.dialogue.lines.slice(1)
+        ] : result.dialogue.lines
       };
     }
     if (result.state.area !== storyState.area) transitionStoryArea(result);
@@ -2453,10 +2504,11 @@
 
   function localNpcs() {
     if (currentEdition !== 'past') return [];
-    if (activeAreaId() === 'castle-town') return TOWN_NPCS;
+    const brothers = BROTHER_NPCS.filter(npc => npc.area === activeAreaId() && storyNpcIsAvailable(storyState, npc));
+    if (activeAreaId() === 'castle-town') return [...TOWN_NPCS, ...brothers];
     if (activeAreaId() === 'castle') return CASTLE_NPCS;
-    if (activeAreaId() === 'crossroads-town') return CROSSROADS_NPCS;
-    if (activeAreaId() === 'mist-citadel') return MIST_CITADEL_NPCS;
+    if (activeAreaId() === 'crossroads-town') return [...CROSSROADS_NPCS, ...brothers];
+    if (activeAreaId() === 'mist-citadel') return [...MIST_CITADEL_NPCS, ...brothers];
     return [];
   }
 
@@ -2909,6 +2961,7 @@
   }
 
   function drawMini() {
+    updateQuestCompass();
     mctx.clearRect(0, 0, 210, 145);
     const areaId = activeAreaId();
     if (currentEdition === 'past' && areaId !== 'overworld') {
@@ -3307,7 +3360,7 @@
         ...activeBattle,
         player: { ...activeBattle.player, block: 4 },
         enemy: { ...activeBattle.enemy, weakness },
-        log: [`${investigation.ally}の援護で侵入に成功。${investigation.bossWeakness}属性が霧鐘へ響く！`]
+        log: [`弟ノアが帰還路を支え、${investigation.ally}が援護する。${investigation.bossWeakness}属性が霧鐘へ響く！`]
       };
     }
     if (tutorialRescue) {
