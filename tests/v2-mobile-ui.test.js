@@ -55,8 +55,8 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const css = fs.readFileSync('v2.css', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
-  assert.match(html, /v2\.js\?edition=20/);
-  assert.match(html, /v2\.css\?edition=14/);
+  assert.match(html, /v2\.js\?edition=21/);
+  assert.match(html, /v2\.css\?edition=15/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);
   assert.match(runtime, /shell\.addEventListener\('pointerdown'/);
@@ -120,9 +120,9 @@ test('a compact main-quest compass stays attached to the map on desktop and mobi
   const runtime = fs.readFileSync('v2.js', 'utf8');
   const mapStart = html.indexOf('<aside class="v2-map">');
   const mapMarkup = html.slice(mapStart, html.indexOf('</aside>', mapStart) + 8);
-  const storyModule = html.indexOf('v2-past-story.js?edition=15');
+  const storyModule = html.indexOf('v2-past-story.js?edition=16');
   const compassModule = html.indexOf('v2-quest-compass.js?edition=1');
-  const runtimeScript = html.indexOf('v2.js?edition=20');
+  const runtimeScript = html.indexOf('v2.js?edition=21');
 
   assert.match(mapMarkup, /id="v2-quest-compass"[^>]*aria-live="polite"/);
   assert.match(mapMarkup, /id="v2-quest-compass-needle"/);

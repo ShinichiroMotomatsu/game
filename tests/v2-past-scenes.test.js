@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const {
   NPC_PATROL_SPEED_SCALE,
   NPC_SPRITE_ASSETS,
+  PAST_CREST_DESIGNS,
   PAST_EVENT_ASSETS,
   PAST_SCENE_ASSETS,
   PAST_STORY_VISUALS,
@@ -42,9 +43,10 @@ test('watergate artwork is square and explicitly safe to rotate into all four di
 
 test('overworld event people and structures use transparent raster assets', () => {
   assert.deepEqual(Object.keys(PAST_EVENT_ASSETS).sort(), [
+    'blue-star-crest',
     'capital-gate', 'card-chest-frost', 'card-chest-mend',
     'compass-altar-corrupted', 'compass-altar-restored', 'father-compass', 'magic-tutor', 'old-watchtower',
-    'star-crest',
+    'twin-star-crest',
     'watergate-closed', 'watergate-open'
   ]);
   for (const asset of Object.values(PAST_EVENT_ASSETS)) {
@@ -53,12 +55,35 @@ test('overworld event people and structures use transparent raster assets', () =
   }
 });
 
-test('the compass close-up and watchtower discovery reuse one exact star crest layer', () => {
+test('the only named crests are a direction-neutral blue star and an equal paired twin star', () => {
+  assert.deepEqual(Object.keys(PAST_CREST_DESIGNS).sort(), ['blue-star', 'twin-star']);
+  assert.deepEqual(PAST_CREST_DESIGNS['blue-star'], {
+    id: 'blue-star', name: '青星紋', rayCount: 8, equalRays: true,
+    centerMeaning: '帰る場所', owner: 'エルド', colors: ['blue-glass', 'brass'],
+    sourcePath: 'assets/v2/past-events/crest-sources/blue-star-crest.svg'
+  });
+  assert.deepEqual(PAST_CREST_DESIGNS['twin-star'].stars, [
+    { owner: 'エルド', color: 'blue-glass' },
+    { owner: 'ミラ', color: 'amber-glass' }
+  ]);
+  assert.equal(PAST_CREST_DESIGNS['twin-star'].equalStars, true);
+  assert.equal(PAST_CREST_DESIGNS['twin-star'].connectedByRoad, true);
+
+  for (const design of Object.values(PAST_CREST_DESIGNS)) {
+    assert.equal(fs.existsSync(design.sourcePath), true, `${design.sourcePath} is missing`);
+    assert.match(design.sourcePath, /crest-sources\/.+\.svg$/);
+  }
+});
+
+test('the compass close-up and watchtower discovery reuse the exact blue star while the vow uses the twin star', () => {
   assert.equal(PAST_STORY_VISUALS.compass.sceneId, 'voyage-intro');
   assert.equal(PAST_STORY_VISUALS.compass.eventId, 'father-compass');
-  assert.equal(PAST_STORY_VISUALS.compass.crestId, 'star-crest');
+  assert.equal(PAST_STORY_VISUALS.compass.crestId, 'blue-star-crest');
   assert.equal(PAST_STORY_VISUALS['watchtower-crest'].sceneId, 'watchtower-discovery');
   assert.equal(PAST_STORY_VISUALS['watchtower-crest'].crestId, PAST_STORY_VISUALS.compass.crestId);
+  assert.equal(PAST_STORY_VISUALS['brothers-message'].crestId, 'blue-star-crest');
+  assert.equal(PAST_STORY_VISUALS['twin-star-vow'].crestId, 'twin-star-crest');
+  assert.equal(PAST_STORY_VISUALS['brother-rescue'].npcId, 'younger-brother');
 });
 
 test('waterway props load only when the dungeon is active', () => {
@@ -73,6 +98,8 @@ test('waterway props load only when the dungeon is active', () => {
   assert.match(dungeon, /compass-altar-corrupted/);
   assert.match(dungeon, /compass-altar-restored/);
   assert.match(resolver, /sceneAssetKey\('mist-citadel'\)/);
+  const tower = resolver.slice(resolver.indexOf("activeAreaId() === 'mist-bell-tower'"));
+  assert.match(tower, /npcAssetKey\('younger-brother'\)/);
 });
 
 test('the crossroads town stays raster-backed while its dungeon is generated from tiles', () => {
@@ -87,7 +114,7 @@ test('the crossroads town stays raster-backed while its dungeon is generated fro
 
 test('townsfolk, soldiers, and the king use dedicated raster sprites', () => {
   assert.deepEqual(new Set(Object.keys(NPC_SPRITE_ASSETS)), new Set([
-    'villager-man', 'villager-woman', 'soldier', 'king'
+    'villager-man', 'villager-woman', 'soldier', 'king', 'younger-brother'
   ]));
   for (const path of Object.values(NPC_SPRITE_ASSETS)) {
     assert.equal(fs.existsSync(path), true, `${path} is missing`);

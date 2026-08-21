@@ -327,7 +327,7 @@ test('the quest board and three entrances are integrated into the explorable sto
 test('the browser runtime loads and handles sidequest exploration rather than exposing data only', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
-  assert.match(html, /v2-past-sidequests\.js\?edition=2/);
+  assert.match(html, /v2-past-sidequests\.js\?edition=3/);
   assert.match(runtime, /window\.V2_PAST_SIDEQUESTS/);
   assert.match(runtime, /drawSideQuestDungeon/);
   assert.match(runtime, /updateSideDungeonEnemies/);

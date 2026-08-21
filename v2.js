@@ -151,6 +151,7 @@
     useItem
   } = pastCampaignApi;
   const {
+    BROTHER_NPCS,
     CASTLE_NPCS,
     CROSSROADS_BUILDINGS,
     CROSSROADS_DUNGEON_LAYOUT,
@@ -175,6 +176,7 @@
     setDebugQuestCompletion,
     storyAllowsEncounters,
     storyEncounterMode,
+    storyNpcIsAvailable,
     storyUnlocksInteraction,
     storyObjective
   } = pastStoryApi;
@@ -483,14 +485,14 @@
         ...playerAssets,
         sceneAssetKey('castle-town-ground'),
         sceneAssetKey('castle-town-buildings'),
-        ...new Set(TOWN_NPCS.map(npc => npcAssetKey(npc.sprite)))
+        ...new Set([...TOWN_NPCS, ...BROTHER_NPCS.filter(npc => npc.area === 'castle-town' && storyNpcIsAvailable(storyState, npc))].map(npc => npcAssetKey(npc.sprite)))
       ];
     }
     if (activeAreaId() === 'crossroads-town') {
       return [
         ...playerAssets,
         sceneAssetKey('crossroads-town'),
-        ...new Set(CROSSROADS_NPCS.map(npc => npcAssetKey(npc.sprite)))
+        ...new Set([...CROSSROADS_NPCS, ...BROTHER_NPCS.filter(npc => npc.area === 'crossroads-town' && storyNpcIsAvailable(storyState, npc))].map(npc => npcAssetKey(npc.sprite)))
       ];
     }
     if (activeAreaId() === 'crossroads-dungeon') {
@@ -508,12 +510,13 @@
       return [
         ...playerAssets,
         sceneAssetKey('mist-citadel'),
-        ...new Set(MIST_CITADEL_NPCS.map(npc => npcAssetKey(npc.sprite)))
+        ...new Set([...MIST_CITADEL_NPCS, ...BROTHER_NPCS.filter(npc => npc.area === 'mist-citadel' && storyNpcIsAvailable(storyState, npc))].map(npc => npcAssetKey(npc.sprite)))
       ];
     }
     if (activeAreaId() === 'mist-bell-tower') {
       return [
         ...playerAssets,
+        ...(!storyState.brotherRescueSeen ? [npcAssetKey('younger-brother')] : []),
         eventAssetKey('card-chest-frost'),
         eventAssetKey('card-chest-mend')
       ];
@@ -834,6 +837,10 @@
     storyVisualCrest.hidden = !visual.crestId;
     if (visual.crestId) storyVisualCrest.src = `${PAST_EVENT_ASSETS[visual.crestId].path}?story=1`;
     else storyVisualCrest.removeAttribute('src');
+    if (visual.npcId) {
+      storyVisualObject.hidden = false;
+      storyVisualEvent.src = `${NPC_SPRITE_ASSETS[visual.npcId]}?story=1`;
+    }
   }
 
   function playWatchtowerEffect(kind) {
@@ -1306,13 +1313,14 @@
       const investigation = mistInvestigationResult(storyState);
       result.dialogue = {
         ...result.dialogue,
-        lines: [
-          ...result.dialogue.lines,
+        lines: result.dialogue.id === 'mist-tower-entry' ? [
+          result.dialogue.lines[0],
           {
             speaker: '地の文',
             text: `${investigation.approach}。${investigation.ally}が霧の外から道を示す。番人には${investigation.bossWeakness}の力が有効だろう。`
-          }
-        ]
+          },
+          ...result.dialogue.lines.slice(1)
+        ] : result.dialogue.lines
       };
     }
     if (result.state.area !== storyState.area) transitionStoryArea(result);
@@ -2496,10 +2504,11 @@
 
   function localNpcs() {
     if (currentEdition !== 'past') return [];
-    if (activeAreaId() === 'castle-town') return TOWN_NPCS;
+    const brothers = BROTHER_NPCS.filter(npc => npc.area === activeAreaId() && storyNpcIsAvailable(storyState, npc));
+    if (activeAreaId() === 'castle-town') return [...TOWN_NPCS, ...brothers];
     if (activeAreaId() === 'castle') return CASTLE_NPCS;
-    if (activeAreaId() === 'crossroads-town') return CROSSROADS_NPCS;
-    if (activeAreaId() === 'mist-citadel') return MIST_CITADEL_NPCS;
+    if (activeAreaId() === 'crossroads-town') return [...CROSSROADS_NPCS, ...brothers];
+    if (activeAreaId() === 'mist-citadel') return [...MIST_CITADEL_NPCS, ...brothers];
     return [];
   }
 
@@ -3351,7 +3360,7 @@
         ...activeBattle,
         player: { ...activeBattle.player, block: 4 },
         enemy: { ...activeBattle.enemy, weakness },
-        log: [`${investigation.ally}の援護で侵入に成功。${investigation.bossWeakness}属性が霧鐘へ響く！`]
+        log: [`弟ノアが帰還路を支え、${investigation.ally}が援護する。${investigation.bossWeakness}属性が霧鐘へ響く！`]
       };
     }
     if (tutorialRescue) {

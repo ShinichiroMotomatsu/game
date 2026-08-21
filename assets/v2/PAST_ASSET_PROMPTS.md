@@ -73,19 +73,23 @@ Scene/backdrop: perfectly flat solid pure green RGB(0,255,0), HEX #00FF00 chroma
 Constraints: background is one uniform #00FF00 with no shadows, gradients, texture, floor, reflection or lighting variation; no use of green in the enemies; no cast shadows; no smoke extending into another cell; no characters besides the three specified enemies; no text, labels, grid lines, UI, watermark or logos.
 ```
 
-## 父の羅針盤と星の紋章
+## 父の羅針盤と二つの紋
 
-`star-crest.png`
+紋の正本は `past-events/crest-sources/` のSVG、ゲーム用画像は同名のPNG。`tools/build-v2-crests.py` で両方を同じ幾何情報から再生成する。
 
-```text
-Use case: stylized-concept
-Asset type: reusable transparent JRPG story emblem overlay
-Primary request: Create exactly one distinctive ancient navigation crest: an eight-point star with four elongated cardinal points, an inner compass ring, and a small diamond at the center. It must read immediately as both a star emblem and a compass motif.
-Style: hand-painted classic 16-bit/32-bit era JRPG upgraded to high resolution, antique gold and brass with subtle blue-white magical inlay, crisp clean silhouette, suitable for a polished fantasy RPG.
-Composition: perfectly centered, front-facing, symmetrical, square canvas, generous transparent padding around the emblem.
-Lighting: neutral asset lighting, restrained inner magical glow only.
-Constraints: genuinely transparent background; no frame; no plaque; no text; no letters; no numbers; no runes; no watermark; no external cast shadow; no additional objects. The same file will be reused on a compass dial and on a stone seal, so keep the emblem isolated and highly legible.
-```
+### 青星紋 (`blue-star-crest.png`)
+
+- 地図師エルド個人の旅印。
+- 北を強調しない、等しい長さの八芒星。八方の先に待つ人がいることを表す。
+- 中央の丸い青玻璃は「必ず帰る場所」。外周リング、方位目盛、市章要素は置かない。
+- 一枚の青玻璃に細い真鍮縁。父の羅針盤、見張り台、エルド本人が残した記録だけに使う。
+
+### 双星紋 (`twin-star-crest.png`)
+
+- エルドと灯守ミラの共同記録だけに使う。
+- 青星紋と同形・同寸の琥珀星を右下に置き、二つの中央を短い真鍮の道で結ぶ。
+- 青星が上位、琥珀星が従属という構図にしない。琥珀星を単独の別紋として命名しない。
+- 三つの旅日誌をそろえた時に初めて「双星紋」の名と全体像を表示する。
 
 `father-compass.png`
 
@@ -98,6 +102,12 @@ Composition: centered square asset, compass fills about 78% of the canvas, lid o
 Lighting: soft neutral studio lighting, clear edges, restrained warm highlights.
 Constraints: genuinely transparent background; no hands; no person; no table; no scenery; no text; no letters; no numbers; no watermark; no star emblem; no compass rose in the empty dial center.
 ```
+
+### 弟ノア (`past-scenes/younger-brother.png`)
+
+- 主人公より少し若い黒髪の地図読み。青灰色の旅装、地図筒、巻いた古地図、小さな背負い袋を持つ。
+- 武器や独自の紋は持たず、「戦う者」ではなく見落とされた帰り道を拾う役割が一目で分かる姿。
+- 既存の町人と同じ正面向きの高解像度JRPG人物画。透明背景で、マップ上では約52px高へ縮小する。
 
 ## 導入航海と見張り台の発見シーン
 

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="512" viewBox="0 0 640 512" role="img" aria-labelledby="title desc">
+  <title id="title">双星紋</title>
+  <desc id="desc">エルドとミラの等しい二つの星を一本の道で結んだ共同の旅印</desc>
+  <defs>
+    <linearGradient id="blue-glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#54c6ff"/><stop offset="1" stop-color="#0c3797"/></linearGradient>
+    <linearGradient id="amber-glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd56f"/><stop offset="1" stop-color="#aa4914"/></linearGradient>
+  </defs>
+  <path d="M205 190 Q320 256 435 322" fill="none" stroke="#44270c" stroke-width="24" stroke-linecap="round" data-meaning="road-between-two-people"/>
+  <path d="M205 190 Q320 256 435 322" fill="none" stroke="#d9a440" stroke-width="13" stroke-linecap="round"/>
+  <g data-owner="エルド" data-color="blue-glass">
+    <polygon points="205.00,42.00 226.81,137.34 309.65,85.35 257.66,168.19 353.00,190.00 257.66,211.81 309.65,294.65 226.81,242.66 205.00,338.00 183.19,242.66 100.35,294.65 152.34,211.81 57.00,190.00 152.34,168.19 100.35,85.35 183.19,137.34" fill="url(#blue-glass)" stroke="#d9a440" stroke-width="10" stroke-linejoin="round"/>
+    <circle cx="205" cy="190" r="27" fill="url(#blue-glass)" stroke="#d9a440" stroke-width="9"/>
+  </g>
+  <g data-owner="ミラ" data-color="amber-glass">
+    <polygon points="435.00,174.00 456.81,269.34 539.65,217.35 487.66,300.19 583.00,322.00 487.66,343.81 539.65,426.65 456.81,374.66 435.00,470.00 413.19,374.66 330.35,426.65 382.34,343.81 287.00,322.00 382.34,300.19 330.35,217.35 413.19,269.34" fill="url(#amber-glass)" stroke="#d9a440" stroke-width="10" stroke-linejoin="round"/>
+    <circle cx="435" cy="322" r="27" fill="url(#amber-glass)" stroke="#d9a440" stroke-width="9"/>
+  </g>
+</svg>
