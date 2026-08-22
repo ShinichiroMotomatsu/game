@@ -47,10 +47,45 @@ test('crest lore names only the Blue Star and Twin Star and explains the eight e
   assert.doesNotMatch(allDialogue, /方位紋|市章/);
   assert.match(origin, /青星紋/);
   assert.match(origin, /八方|八芒/);
-  assert.match(origin, /青い玻璃|青いガラス/);
+  assert.match(origin, /ステラライト/);
   assert.match(origin, /帰る場所|帰り道/);
   assert.match(STORY_DIALOGUES['twin-star-vow'].lines.map(line => line.text).join(''), /双星紋/);
   assert.ok(STORY_DIALOGUES['twin-star-vow'].lines.some(line => line.visualId === 'twin-star-vow'));
+});
+
+test('early chapters use Stellalite and Return Portal terminology without spoiling the ending', () => {
+  const implementedDialogue = Object.values(STORY_DIALOGUES)
+    .flatMap(dialogue => dialogue.lines)
+    .map(line => line.text)
+    .join('\n');
+
+  assert.match(implementedDialogue, /ステラライト/);
+  assert.match(implementedDialogue, /リターンポータル/);
+  assert.doesNotMatch(implementedDialogue, /星玻璃|帰路網/);
+  assert.doesNotMatch(implementedDialogue, /エルドが魔王|魔王の器|ラスボス/);
+});
+
+test('the opening records Eld and Mira first voyage and the two-year second expedition timeline', () => {
+  const arrival = STORY_DIALOGUES.arrival.lines.map(line => line.text).join('');
+
+  assert.match(arrival, /ミラ/);
+  assert.match(arrival, /二十三年|23年/);
+  assert.match(arrival, /二十年|20年/);
+  assert.match(arrival, /二年前|2年前/);
+  assert.match(arrival, /全体地図/);
+  assert.match(arrival, /家族|託/);
+});
+
+test('Eld surveys ancient facilities while local specialists perform repairs', () => {
+  const waterway = [
+    ...STORY_DIALOGUES['crossroads-boss-cleared'].lines,
+    ...STORY_DIALOGUES['king-crossroads-report'].lines,
+    ...STORY_DIALOGUES['king-after-crossroads'].lines
+  ].map(line => line.text).join('');
+
+  assert.match(waterway, /水路番|職人/);
+  assert.match(waterway, /調査|測量|記録/);
+  assert.doesNotMatch(waterway, /エルドが.{0,12}(?:修理|修復|直した)/);
 });
 
 test('the younger brother is concealed until the four-gate message addresses both sons', () => {
@@ -677,8 +712,8 @@ test('the overworld consistently filters enemies and routes the tutorial battle 
 
 test('the tutorial story and runtime scripts use fresh browser cache versions', () => {
   const html = fs.readFileSync('v2.html', 'utf8');
-  assert.match(html, /v2-past-story\.js\?edition=16/);
-  assert.match(html, /v2\.js\?edition=21/);
+  assert.match(html, /v2-past-story\.js\?edition=17/);
+  assert.match(html, /v2\.js\?edition=22/);
 });
 
 test('the western road contains two visible card discoveries', () => {

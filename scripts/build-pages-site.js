@@ -6,7 +6,8 @@ const ROOT_FILES = ['index.html', 'launcher.css', 'v2.html', 'v2.css'];
 const ASSET_FILES = [
   'assets/v2/map-layout-data.js',
   'assets/v2/road-collision-data.js',
-  'assets/v2/road-collision-past-data.js'
+  'assets/v2/road-collision-past-data.js',
+  'assets/v2/roppongi-roads-past-evening.png'
 ];
 const ASSET_DIRECTORIES = [
   'assets/v2/day-runtime-tiles',

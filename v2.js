@@ -3,6 +3,17 @@
   const ctx = canvas.getContext('2d');
   const mini = document.querySelector('#v2-mini');
   const mctx = mini.getContext('2d');
+  const miniOpenButton = document.querySelector('#v2-mini-open');
+  const openAtlasButton = document.querySelector('#v2-open-atlas');
+  const atlasOverlay = document.querySelector('#v2-atlas');
+  const atlasClose = document.querySelector('#v2-atlas-close');
+  const atlasCanvas = document.querySelector('#v2-atlas-canvas');
+  const atlasContext = atlasCanvas.getContext('2d');
+  const atlasNodeName = document.querySelector('#v2-atlas-node-name');
+  const atlasNodeNote = document.querySelector('#v2-atlas-node-note');
+  const atlasNodeList = document.querySelector('#v2-atlas-node-list');
+  const atlasTravelNote = document.querySelector('#v2-atlas-travel-note');
+  const atlasTravel = document.querySelector('#v2-atlas-travel');
   const loading = document.querySelector('#v2-loading');
   const collisionStatus = document.querySelector('#v2-collision-status');
   const collisionToggle = document.querySelector('#v2-toggle-collision');
@@ -62,6 +73,7 @@
   const shopConfirmAccept = document.querySelector('#v2-shop-confirm-accept');
   const shopConfirmCancel = document.querySelector('#v2-shop-confirm-cancel');
   const restTransition = document.querySelector('#v2-rest-transition');
+  const portalTransition = document.querySelector('#v2-portal-transition');
   const inheritedRestart = document.querySelector('#v2-inherited-restart');
   const dragGuide = document.querySelector('#v2-drag-guide');
   const dragGuideKnob = dragGuide.querySelector('span');
@@ -75,11 +87,12 @@
   const pastSceneApi = window.V2_PAST_SCENES;
   const pastStoryApi = window.V2_PAST_STORY;
   const questCompassApi = window.V2_QUEST_COMPASS;
+  const returnPortalApi = window.V2_RETURN_PORTALS;
   const dialogueApi = window.V2_DIALOGUE;
   const saveApi = window.V2_SAVE;
   const inputApi = window.V2_INPUT;
   const mapLayout = window.V2_MAP_LAYOUT;
-  if (!landmarkGeometry || !editionApi || !assetApi || !battleApi || !pastWorldApi || !pastSideQuestApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !questCompassApi || !dialogueApi || !saveApi || !inputApi || !mapLayout) {
+  if (!landmarkGeometry || !editionApi || !assetApi || !battleApi || !pastWorldApi || !pastSideQuestApi || !pastCampaignApi || !pastSceneApi || !pastStoryApi || !questCompassApi || !returnPortalApi || !dialogueApi || !saveApi || !inputApi || !mapLayout) {
     loading.textContent = 'GAME MODULE ERROR';
     throw new Error('Game geometry, edition, or map layout data is missing.');
   }
@@ -119,6 +132,13 @@
   const { consumePastRestart } = saveApi;
   const { dragMovementVector } = inputApi;
   const { mainQuestCompassTarget, questCompassBearing } = questCompassApi;
+  const {
+    atlasNodeAtCanvasPoint,
+    createReturnPortalAtlas,
+    enemyIsLocallyObservable,
+    nearbyReturnPortal,
+    returnPortalRoute
+  } = returnPortalApi;
   const { NPC_SPRITE_ASSETS, PAST_EVENT_ASSETS, PAST_SCENE_ASSETS, PAST_STORY_VISUALS, npcPoseAt } = pastSceneApi;
   const { createTypewriterLine, revealTypewriterLine, tickTypewriterLine, typewriterText } = dialogueApi;
   const {
@@ -246,6 +266,11 @@
     image.decoding = 'async';
     return image;
   } });
+  const atlasBackgroundKey = 'past:atlas-overview';
+  const atlasBackgroundImage = assetLoader.register(
+    atlasBackgroundKey,
+    'assets/v2/roppongi-roads-past-evening.png?edition=7'
+  );
   const editionTiles = new Map();
   const facingNames = ['down', 'left', 'right', 'up'];
   const editionSprites = new Map();
@@ -386,6 +411,12 @@
   let pendingSaleProductId = null;
   let serviceEntryPosition = null;
   let restTransitioning = false;
+  let portalTransitioning = false;
+  let selectedAtlasNodeId = null;
+  let atlasOriginNodeId = null;
+  let atlasReturnFocus = null;
+  let returnPortalAtlasCacheKey = '';
+  let returnPortalAtlasCache = null;
   let activeLocationKey = 'modern-overworld';
   const locationPositions = new Map([
     ['modern-overworld', [roppongiCrossing.point[0] * maskScale, roppongiCrossing.point[1] * maskScale]],
@@ -568,6 +599,7 @@
   }
 
   function setEdition(value, updateUrl = true) {
+    closeAtlas(false);
     locationPositions.set(activeLocationKey, [player.x, player.y]);
     currentEdition = normalizeEdition(value);
     activeLocationKey = locationKey(currentEdition, storyState.area);
@@ -608,6 +640,12 @@
     storyStatus.classList.toggle('is-collapsed', !visible);
     storyStatus.setAttribute('aria-hidden', String(!visible));
     infoToggle.hidden = currentEdition !== 'past';
+    openAtlasButton.hidden = currentEdition !== 'past';
+    miniOpenButton.disabled = currentEdition !== 'past';
+    miniOpenButton.setAttribute(
+      'aria-label',
+      currentEdition === 'past' ? 'エルドの全体地図を開く' : '現代編のミニマップ'
+    );
     infoToggle.setAttribute('aria-expanded', String(visible));
     infoToggle.setAttribute('aria-label', visible ? '情報パネルを隠す' : '情報パネルを表示');
   }
@@ -730,6 +768,242 @@
     storyStatus.dataset.roadVictories = String(campaignState.roadVictories);
     storyStatus.dataset.bossDefeated = String(campaignState.bossDefeated);
     updateQuestDebugControls();
+    if (atlasOverlay.getAttribute('aria-hidden') === 'false') renderAtlas();
+  }
+
+  function atlasMapPointForArea(atlas, areaId) {
+    if (areaId === 'overworld') return [player.x / maskScale, player.y / maskScale];
+    const directNode = atlas.nodes.find(node => node.area === areaId);
+    if (directNode) return directNode.overworldPoint;
+    const parentNodeIds = {
+      castle: 'capital',
+      'crossroads-dungeon': 'quadra',
+      'mist-bell-tower': 'veil'
+    };
+    const parentNode = atlas.nodes.find(node => node.id === parentNodeIds[areaId]);
+    if (parentNode) return parentNode.overworldPoint;
+    const sideQuest = SIDE_QUESTS.find(quest => quest.dungeonId === areaId);
+    return sideQuest ? sideQuest.overworldPoint : null;
+  }
+
+  function atlasMapPointForObjective(atlas) {
+    const target = mainQuestCompassTarget(storyState, campaignState);
+    if (!target) return null;
+    if (target.area === 'overworld') return target.point;
+    const node = atlas.nodes.find(candidate => candidate.area === target.area)
+      || atlas.nodes.find(candidate => ({ castle: 'capital', 'crossroads-dungeon': 'quadra', 'mist-bell-tower': 'veil' })[target.area] === candidate.id);
+    return node?.overworldPoint || SIDE_QUESTS.find(quest => quest.dungeonId === target.area)?.overworldPoint || null;
+  }
+
+  function atlasProjectedPoint(point) {
+    return [
+      point[0] / mapLayout.width * atlasCanvas.width,
+      point[1] / mapLayout.height * atlasCanvas.height
+    ];
+  }
+
+  function drawAtlasDiamond(point, radius, fill, stroke = '#e8f8ff') {
+    const [x, y] = atlasProjectedPoint(point);
+    atlasContext.beginPath();
+    atlasContext.moveTo(x, y - radius);
+    atlasContext.lineTo(x + radius, y);
+    atlasContext.lineTo(x, y + radius);
+    atlasContext.lineTo(x - radius, y);
+    atlasContext.closePath();
+    atlasContext.fillStyle = fill;
+    atlasContext.fill();
+    atlasContext.strokeStyle = stroke;
+    atlasContext.lineWidth = 1.5;
+    atlasContext.stroke();
+  }
+
+  function currentReturnPortalAtlas() {
+    const cacheKey = [
+      storyState.phase,
+      campaignState.bossDefeated ? 1 : 0,
+      campaignState.crossroadsBossDefeated ? 1 : 0,
+      campaignState.mistBossDefeated ? 1 : 0
+    ].join('|');
+    if (returnPortalAtlasCacheKey !== cacheKey || !returnPortalAtlasCache) {
+      returnPortalAtlasCacheKey = cacheKey;
+      returnPortalAtlasCache = createReturnPortalAtlas(storyState, campaignState);
+    }
+    return returnPortalAtlasCache;
+  }
+
+  function renderAtlas() {
+    const atlas = currentReturnPortalAtlas();
+    const currentSelection = atlas.nodes.find(node => node.id === selectedAtlasNodeId);
+    if (!currentSelection) {
+      selectedAtlasNodeId = atlas.nodes.find(node => node.discovered)?.id || atlas.nodes[0]?.id || null;
+    }
+    const selectedNode = atlas.nodes.find(node => node.id === selectedAtlasNodeId) || null;
+    const currentPoint = atlasMapPointForArea(atlas, activeAreaId());
+    const objectivePoint = atlasMapPointForObjective(atlas);
+    const originNode = nearbyReturnPortal(atlas, activeAreaId(), [player.x, player.y]);
+    atlasOriginNodeId = originNode?.id || null;
+
+    atlasContext.clearRect(0, 0, atlasCanvas.width, atlasCanvas.height);
+    atlasContext.fillStyle = '#111b21';
+    atlasContext.fillRect(0, 0, atlasCanvas.width, atlasCanvas.height);
+    if (imageIsLoaded(atlasBackgroundImage)) {
+      atlasContext.drawImage(atlasBackgroundImage, 0, 0, atlasCanvas.width, atlasCanvas.height);
+    }
+    atlasContext.fillStyle = '#0c1724a8';
+    atlasContext.fillRect(0, 0, atlasCanvas.width, atlasCanvas.height);
+    atlasContext.strokeStyle = '#d5c08388';
+    atlasContext.lineWidth = 2;
+    atlasContext.strokeRect(7, 7, atlasCanvas.width - 14, atlasCanvas.height - 14);
+
+    for (const link of atlas.links) {
+      const from = atlas.nodes.find(node => node.id === link.from);
+      const to = atlas.nodes.find(node => node.id === link.to);
+      const [fromX, fromY] = atlasProjectedPoint(from.overworldPoint);
+      const [toX, toY] = atlasProjectedPoint(to.overworldPoint);
+      atlasContext.save();
+      atlasContext.beginPath();
+      atlasContext.moveTo(fromX, fromY);
+      atlasContext.lineTo(toX, toY);
+      atlasContext.strokeStyle = link.restored ? '#68dbff' : link.status === 'hypothesis' ? '#d6cda07d' : '#8d979b';
+      atlasContext.lineWidth = link.restored ? 5 : 3;
+      if (!link.restored) atlasContext.setLineDash(link.status === 'hypothesis' ? [7, 9] : [3, 6]);
+      atlasContext.shadowColor = link.restored ? '#3bbfe9' : 'transparent';
+      atlasContext.shadowBlur = link.restored ? 9 : 0;
+      atlasContext.stroke();
+      atlasContext.restore();
+    }
+
+    for (const marker of atlas.markers) {
+      drawAtlasDiamond(marker.overworldPoint, 7, '#347ed7', '#cce9ff');
+    }
+
+    const statusColors = { restored: '#54dafa', offline: '#8b9599', corrupted: '#a85cce', unknown: '#151a20' };
+    for (const node of atlas.nodes) {
+      const [x, y] = atlasProjectedPoint(node.overworldPoint);
+      atlasContext.save();
+      atlasContext.beginPath();
+      atlasContext.arc(x, y, node.id === selectedAtlasNodeId ? 12 : 9, 0, Math.PI * 2);
+      atlasContext.fillStyle = statusColors[node.status] || '#777';
+      atlasContext.fill();
+      atlasContext.strokeStyle = node.id === selectedAtlasNodeId ? '#ffe49a' : '#eff8f8';
+      atlasContext.lineWidth = node.id === selectedAtlasNodeId ? 4 : 2;
+      if (node.status === 'unknown') atlasContext.setLineDash([3, 3]);
+      atlasContext.shadowColor = node.restored ? '#4bd8ff' : node.status === 'corrupted' ? '#b05bdd' : 'transparent';
+      atlasContext.shadowBlur = node.restored || node.status === 'corrupted' ? 13 : 0;
+      atlasContext.stroke();
+      atlasContext.restore();
+    }
+
+    if (objectivePoint) {
+      const [x, y] = atlasProjectedPoint(objectivePoint);
+      const pulse = 10 + Math.sin(performance.now() / 260) * 2;
+      atlasContext.strokeStyle = '#ffd35f';
+      atlasContext.lineWidth = 3;
+      atlasContext.beginPath();
+      atlasContext.arc(x, y, pulse, 0, Math.PI * 2);
+      atlasContext.stroke();
+    }
+    if (currentPoint) {
+      const [x, y] = atlasProjectedPoint(currentPoint);
+      atlasContext.fillStyle = '#fff';
+      atlasContext.strokeStyle = '#df554e';
+      atlasContext.lineWidth = 3;
+      atlasContext.beginPath();
+      atlasContext.arc(x, y, 6, 0, Math.PI * 2);
+      atlasContext.fill();
+      atlasContext.stroke();
+    }
+
+    const statusLabels = { restored: '復旧済み', offline: '停止中', corrupted: '異常', unknown: '推定地点' };
+    atlasNodeList.replaceChildren(...atlas.nodes.map(node => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.status = node.status;
+      button.dataset.nodeId = node.id;
+      button.setAttribute('aria-pressed', String(node.id === selectedAtlasNodeId));
+      button.textContent = `${node.displayName}　${statusLabels[node.status]}`;
+      button.addEventListener('click', () => {
+        selectedAtlasNodeId = node.id;
+        renderAtlas();
+      });
+      return button;
+    }));
+
+    atlasNodeName.textContent = selectedNode?.displayName || '地図上の地点を選択';
+    atlasNodeNote.textContent = selectedNode
+      ? `${statusLabels[selectedNode.status]}。${selectedNode.note}`
+      : '実線は復旧した経路、点線はエルドが推定した未確認経路です。';
+    const route = selectedNode && originNode ? returnPortalRoute(atlas, originNode.id, selectedNode.id) : null;
+    const canTravel = Boolean(route);
+    atlasTravel.disabled = !canTravel;
+    if (!originNode) {
+      atlasTravelNote.textContent = '移動するには、街にある復旧済みのリターンポータルの上で地図を開いてください。';
+    } else if (selectedNode?.id === originNode.id) {
+      atlasTravelNote.textContent = `現在地は${originNode.name}です。別の復旧済み地点を選んでください。`;
+    } else if (!selectedNode?.restored) {
+      atlasTravelNote.textContent = 'この地点のリターンポータルは、まだ利用できません。';
+    } else if (!route) {
+      atlasTravelNote.textContent = 'この地点までの経路はまだ復旧していません。';
+    } else {
+      atlasTravelNote.textContent = `${route.map(id => atlas.nodes.find(node => node.id === id)?.name).join(' → ')}を通って移動します。`;
+    }
+    atlasTravel.textContent = selectedNode ? `${selectedNode.displayName}へ移動` : 'この地点へ移動';
+  }
+
+  function closeAtlas(restoreFocus = true) {
+    if (atlasOverlay.getAttribute('aria-hidden') === 'true') return;
+    atlasOverlay.setAttribute('aria-hidden', 'true');
+    selectedAtlasNodeId = null;
+    atlasOriginNodeId = null;
+    keys.clear();
+    resetMapDrag();
+    if (restoreFocus && atlasReturnFocus instanceof HTMLElement) atlasReturnFocus.focus();
+    atlasReturnFocus = null;
+  }
+
+  async function openAtlas(preferredNodeId = null) {
+    if (currentEdition !== 'past' || activeBattle || encounterTransitioning || activeStoryDialogue || activeServiceId || restTransitioning || portalTransitioning || watchtowerEffectActive) return;
+    atlasReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    selectedAtlasNodeId = preferredNodeId;
+    setSettingsOpen(false);
+    keys.clear();
+    resetMapDrag();
+    updateInteractionPrompt(null);
+    atlasOverlay.setAttribute('aria-hidden', 'false');
+    renderAtlas();
+    atlasClose.focus();
+    try {
+      await assetLoader.loadMany([atlasBackgroundKey]);
+      if (atlasOverlay.getAttribute('aria-hidden') === 'false') renderAtlas();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function travelByReturnPortal() {
+    if (portalTransitioning || atlasOverlay.getAttribute('aria-hidden') === 'true') return;
+    const atlas = currentReturnPortalAtlas();
+    const origin = atlas.nodes.find(node => node.id === atlasOriginNodeId);
+    const destination = atlas.nodes.find(node => node.id === selectedAtlasNodeId);
+    const route = origin && destination ? returnPortalRoute(atlas, origin.id, destination.id) : null;
+    if (!route) {
+      renderAtlas();
+      return;
+    }
+    portalTransitioning = true;
+    closeAtlas(false);
+    portalTransition.setAttribute('aria-hidden', 'false');
+    void portalTransition.offsetWidth;
+    portalTransition.classList.add('is-active');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    await waitForTransition(reducedMotion ? 20 : 520);
+    transitionStoryArea({ state: { ...storyState, area: destination.area }, spawn: destination.arrivalPoint });
+    await waitForTransition(reducedMotion ? 20 : 260);
+    portalTransition.classList.remove('is-active');
+    await waitForTransition(reducedMotion ? 20 : 500);
+    portalTransition.setAttribute('aria-hidden', 'true');
+    portalTransitioning = false;
+    canvas.focus();
   }
 
   function updateQuestDebugControls() {
@@ -1168,7 +1442,7 @@
   }
 
   function openService(serviceId) {
-    if (currentEdition !== 'past' || activeBattle || activeStoryDialogue) return;
+    if (currentEdition !== 'past' || activeBattle || activeStoryDialogue || atlasOverlay.getAttribute('aria-hidden') === 'false') return;
     closeSaleConfirmation();
     activeServiceId = serviceId;
     activeServiceArea = activeAreaId();
@@ -1231,7 +1505,8 @@
     storyStatus.dataset.area = activeAreaId();
     storyStatus.dataset.playerX = (player.x / coordinateScale).toFixed(1);
     storyStatus.dataset.playerY = (player.y / coordinateScale).toFixed(1);
-    const visible = currentEdition === 'past' && Boolean(interaction) && !activeStoryDialogue && !activeBattle && !activeServiceId;
+    const visible = currentEdition === 'past' && Boolean(interaction) && !activeStoryDialogue && !activeBattle && !activeServiceId
+      && atlasOverlay.getAttribute('aria-hidden') === 'true' && !portalTransitioning;
     const touchLayout = window.matchMedia('(pointer: coarse), (max-width: 700px)').matches;
     interactionPrompt.textContent = visible ? `${touchLayout ? '' : 'E / Enter　'}${interaction.label}` : '';
     interactionPrompt.setAttribute('aria-hidden', String(!visible));
@@ -1241,6 +1516,10 @@
 
   function pastInteractionAvailable(interaction) {
     if (!storyUnlocksInteraction(storyState, interaction)) return false;
+    if (interaction.actionId?.startsWith('return-portal:')) {
+      const portalId = interaction.actionId.split(':')[1];
+      return Boolean(currentReturnPortalAtlas().nodes.find(node => node.id === portalId)?.restored);
+    }
     if (interaction.actionId === 'sidequest-board') return campaignState.crossroadsBossDefeated;
     if (interaction.sideQuestId && interaction.id === SIDE_QUESTS.find(quest => quest.id === interaction.sideQuestId)?.entranceInteractionId) {
       return ['active', 'completed'].includes(sideQuestStatus(campaignState.sideQuests, interaction.sideQuestId, campaignState.crossroadsBossDefeated));
@@ -1307,8 +1586,12 @@
   }
 
   function performStoryInteraction() {
-    if (currentEdition !== 'past' || !activeInteraction || activeStoryDialogue || activeBattle || activeServiceId || watchtowerEffectActive) return;
+    if (currentEdition !== 'past' || !activeInteraction || activeStoryDialogue || activeBattle || activeServiceId || portalTransitioning || watchtowerEffectActive) return;
     const result = activatePastInteraction(storyState, activeInteraction.id);
+    if (result.actionId?.startsWith('return-portal:')) {
+      openAtlas(result.actionId.split(':')[1]);
+      return;
+    }
     if (activeInteraction.id === 'mist-bell-tower-door' && result.dialogue) {
       const investigation = mistInvestigationResult(storyState);
       result.dialogue = {
@@ -1487,6 +1770,11 @@
       event.preventDefault();
     }
     const key = event.key.toLowerCase();
+    if (atlasOverlay.getAttribute('aria-hidden') === 'false') {
+      if (key === 'escape') closeAtlas();
+      event.preventDefault();
+      return;
+    }
     if (key === 'escape' && settingsPanel.getAttribute('aria-hidden') === 'false') {
       setSettingsOpen(false);
       event.preventDefault();
@@ -1516,6 +1804,25 @@
   });
   settingsClose.addEventListener('click', () => setSettingsOpen(false));
   infoToggle.addEventListener('click', () => setStoryPanelVisible(!storyPanelVisible));
+  openAtlasButton.addEventListener('click', () => openAtlas());
+  miniOpenButton.addEventListener('click', () => openAtlas());
+  atlasClose.addEventListener('click', () => closeAtlas());
+  atlasTravel.addEventListener('click', travelByReturnPortal);
+  atlasOverlay.addEventListener('click', event => {
+    if (event.target === atlasOverlay) closeAtlas();
+  });
+  atlasCanvas.addEventListener('click', event => {
+    const bounds = atlasCanvas.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    const atlas = currentReturnPortalAtlas();
+    const node = atlasNodeAtCanvasPoint(atlas, [
+      (event.clientX - bounds.left) * atlasCanvas.width / bounds.width,
+      (event.clientY - bounds.top) * atlasCanvas.height / bounds.height
+    ], atlasCanvas, { width: mapLayout.width, height: mapLayout.height }, 28);
+    if (!node) return;
+    selectedAtlasNodeId = node.id;
+    renderAtlas();
+  });
   collisionToggle.addEventListener('click', () => setCollisionDisplay(!showCollision));
   inheritedRestart.addEventListener('click', () => {
     const confirmed = window.confirm('レベル・経験値・装備・カードを引き継ぎ、物語と宝箱を最初から始めますか？');
@@ -1580,7 +1887,7 @@
     }
   }
 
-  const mapDragBlockedSelector = '.v2-floating-controls, .v2-settings, .v2-help, .v2-map, .v2-landmark-info, .v2-story-status, .v2-interaction-prompt, .v2-dialogue, .v2-shop, .v2-battle, .v2-rest-transition, .v2-controls, .v2-attribution, #v2-loading, button, a, input, select, textarea';
+  const mapDragBlockedSelector = '.v2-floating-controls, .v2-settings, .v2-help, .v2-map, .v2-landmark-info, .v2-story-status, .v2-interaction-prompt, .v2-dialogue, .v2-shop, .v2-battle, .v2-rest-transition, .v2-portal-transition, .v2-atlas, .v2-controls, .v2-attribution, #v2-loading, button, a, input, select, textarea';
 
   function isMapDragOrigin(event) {
     return event.target instanceof Element && !event.target.closest(mapDragBlockedSelector);
@@ -1590,7 +1897,8 @@
     if (
       event.isPrimary === false || event.button > 0 || !isMapDragOrigin(event) ||
       settingsPanel.getAttribute('aria-hidden') === 'false' || activeBattle || encounterTransitioning ||
-      activeStoryDialogue || activeServiceId || restTransitioning || watchtowerEffectActive
+      activeStoryDialogue || activeServiceId || restTransitioning || portalTransitioning ||
+      atlasOverlay.getAttribute('aria-hidden') === 'false' || watchtowerEffectActive
     ) return;
     event.preventDefault();
     resetMapDrag();
@@ -1755,7 +2063,7 @@
   }
 
   function update(dt) {
-    if (!ready || activeBattle || encounterTransitioning || activeStoryDialogue || activeServiceId || restTransitioning || watchtowerEffectActive) return;
+    if (!ready || activeBattle || encounterTransitioning || activeStoryDialogue || activeServiceId || restTransitioning || portalTransitioning || atlasOverlay.getAttribute('aria-hidden') === 'false' || watchtowerEffectActive) return;
     let dx = 0;
     let dy = 0;
     if (keys.has('w') || keys.has('arrowup')) dy--;
@@ -2548,8 +2856,59 @@
     ctx.restore();
   }
 
+  function activeLocalReturnPortal() {
+    if (currentEdition !== 'past' || activeAreaId() === 'overworld') return null;
+    return currentReturnPortalAtlas().nodes.find(node => node.restored && node.area === activeAreaId()) || null;
+  }
+
+  function drawLocalReturnPortal(node) {
+    if (!node) return;
+    const now = performance.now();
+    const pulse = 1 + Math.sin(now / 320) * 0.07;
+    ctx.save();
+    ctx.translate(node.localPoint[0], node.localPoint[1]);
+    ctx.scale(pulse, pulse * 0.46);
+    const glow = ctx.createRadialGradient(0, 0, 7, 0, 0, 66);
+    glow.addColorStop(0, '#d6f8ffcc');
+    glow.addColorStop(0.28, '#50d1f699');
+    glow.addColorStop(0.7, '#21789c44');
+    glow.addColorStop(1, '#0b537000');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 66, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8eeaff';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#42c9ef';
+    ctx.shadowBlur = 16;
+    ctx.beginPath();
+    ctx.arc(0, 0, 43, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.rotate(Math.PI / 4);
+    ctx.strokeStyle = '#e5f9ffcc';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-22, -22, 44, 44);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(node.localPoint[0], node.localPoint[1] - 43);
+    ctx.fillStyle = '#08151de8';
+    roundedRectanglePath(ctx, -67, -14, 134, 27, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#5ecfee';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#dff8ff';
+    ctx.font = '700 11px Georgia, "Yu Mincho", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('リターンポータル', 0, 0);
+    ctx.restore();
+  }
+
   function drawLocalCharacters() {
     const now = performance.now();
+    drawLocalReturnPortal(activeLocalReturnPortal());
     const characters = [
       ...localNpcs().map(npc => {
         const pose = npcPoseAt(npc, now);
@@ -3010,6 +3369,7 @@
         mctx.fillStyle = '#dc6258';
         for (const enemy of sideDungeonEnemies) {
           if (!enemy.active) continue;
+          if (!enemyIsLocallyObservable(player, enemy, 360)) continue;
           mctx.beginPath();
           mctx.arc(enemy.x, enemy.y, 18, 0, Math.PI * 2);
           mctx.fill();
@@ -3072,6 +3432,7 @@
       mctx.fillStyle = '#e65f58';
       for (const enemy of pastEnemies) {
         if (!enemy.active || storyEncounterMode(storyState, enemy.id) === 'hidden') continue;
+        if (!enemyIsLocallyObservable(player, enemy, 260 * maskScale)) continue;
         mctx.beginPath();
         mctx.arc(enemy.x / world.w * 210, enemy.y / world.h * 145, 2.5, 0, Math.PI * 2);
         mctx.fill();
@@ -3360,7 +3721,7 @@
         ...activeBattle,
         player: { ...activeBattle.player, block: 4 },
         enemy: { ...activeBattle.enemy, weakness },
-        log: [`弟ノアが帰還路を支え、${investigation.ally}が援護する。${investigation.bossWeakness}属性が霧鐘へ響く！`]
+        log: [`弟ノアが退路を支え、${investigation.ally}が援護する。${investigation.bossWeakness}属性が霧鐘へ響く！`]
       };
     }
     if (tutorialRescue) {

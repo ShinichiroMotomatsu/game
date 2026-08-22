@@ -55,8 +55,8 @@ test('the map accepts pointer dragging as a touch joystick on iPhone-sized scree
   const css = fs.readFileSync('v2.css', 'utf8');
   const runtime = fs.readFileSync('v2.js', 'utf8');
   assert.match(html, /v2-input\.js\?edition=3/);
-  assert.match(html, /v2\.js\?edition=21/);
-  assert.match(html, /v2\.css\?edition=15/);
+  assert.match(html, /v2\.js\?edition=22/);
+  assert.match(html, /v2\.css\?edition=16/);
   assert.match(html, /id="v2-drag-guide"/);
   assert.match(css, /#v2-shell[^}]*touch-action:\s*none/s);
   assert.match(runtime, /shell\.addEventListener\('pointerdown'/);
@@ -120,9 +120,9 @@ test('a compact main-quest compass stays attached to the map on desktop and mobi
   const runtime = fs.readFileSync('v2.js', 'utf8');
   const mapStart = html.indexOf('<aside class="v2-map">');
   const mapMarkup = html.slice(mapStart, html.indexOf('</aside>', mapStart) + 8);
-  const storyModule = html.indexOf('v2-past-story.js?edition=16');
+  const storyModule = html.indexOf('v2-past-story.js?edition=17');
   const compassModule = html.indexOf('v2-quest-compass.js?edition=1');
-  const runtimeScript = html.indexOf('v2.js?edition=21');
+  const runtimeScript = html.indexOf('v2.js?edition=22');
 
   assert.match(mapMarkup, /id="v2-quest-compass"[^>]*aria-live="polite"/);
   assert.match(mapMarkup, /id="v2-quest-compass-needle"/);
@@ -133,6 +133,47 @@ test('a compact main-quest compass stays attached to the map on desktop and mobi
   assert.match(runtime, /questCompassBearing/);
   assert.match(runtime, /function updateQuestCompass\(/);
   assert.ok(storyModule > 0 && storyModule < compassModule && compassModule < runtimeScript);
+});
+
+test('Eld overview map opens from both the information panel and tappable minimap', () => {
+  const html = fs.readFileSync('v2.html', 'utf8');
+  const css = fs.readFileSync('v2.css', 'utf8');
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const portalModule = html.indexOf('v2-return-portals.js?edition=1');
+  const runtimeScript = html.indexOf('v2.js?edition=');
+
+  assert.match(html, /id="v2-open-atlas"/);
+  assert.match(html, /id="v2-mini-open"/);
+  assert.match(html, /id="v2-atlas"[^>]*aria-hidden="true"/);
+  assert.match(html, /id="v2-atlas-canvas"/);
+  assert.match(html, /id="v2-atlas-travel"/);
+  assert.match(css, /\.v2-atlas\s*\{[^}]*position:\s*fixed/s);
+  assert.match(css, /@media \(max-width: 700px\)[\s\S]*\.v2-atlas-panel[^}]*width:\s*100%/s);
+  assert.match(runtime, /function openAtlas\(/);
+  assert.match(runtime, /function renderAtlas\(/);
+  assert.match(runtime, /function travelByReturnPortal\(/);
+  assert.match(runtime, /openAtlasButton\.addEventListener\('click'/);
+  assert.match(runtime, /miniOpenButton\.addEventListener\('click'/);
+  assert.ok(portalModule > 0 && portalModule < runtimeScript);
+});
+
+test('the atlas never tracks every roaming monster and only local enemies reach the minimap', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const atlasRenderer = runtime.match(/function renderAtlas\(\)[\s\S]*?\n  function closeAtlas/)?.[0] || '';
+  const minimapRenderer = runtime.slice(runtime.indexOf('function drawMini'), runtime.indexOf('function render()'));
+
+  assert.doesNotMatch(atlasRenderer, /pastEnemies/);
+  assert.match(minimapRenderer, /enemyIsLocallyObservable/);
+});
+
+test('the overview map loads one compact source instead of all four high-resolution field tiles', () => {
+  const runtime = fs.readFileSync('v2.js', 'utf8');
+  const atlasOpener = runtime.match(/async function openAtlas[\s\S]*?\n  async function travelByReturnPortal/)?.[0] || '';
+
+  assert.match(runtime, /atlasBackgroundKey/);
+  assert.match(runtime, /roppongi-roads-past-evening\.png/);
+  assert.match(atlasOpener, /assetLoader\.loadMany\(\[atlasBackgroundKey\]\)/);
+  assert.doesNotMatch(atlasOpener, /editionTiles\.get\('past'\)\.map/);
 });
 
 test('battle cards use a large high-contrast type band and redraw any selected opening cards together', () => {
