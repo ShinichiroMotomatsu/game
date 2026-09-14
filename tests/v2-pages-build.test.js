@@ -13,6 +13,11 @@ test('Pages build contains the playable game without authoring source assets', (
     buildPagesSite(output);
     for (const required of [
       'index.html',
+      'family.html',
+      'family.css',
+      'family-game.js',
+      'family-art.js',
+      'family.js',
       'v2.html',
       'v2.js',
       'v2-return-portals.js',
@@ -52,7 +57,7 @@ test('Pages build contains the playable game without authoring source assets', (
       'assets/v2/landmarks/roppongi-hills-source.png'
     ]) assert.equal(fs.existsSync(path.join(output, forbidden)), false, forbidden);
 
-    for (const htmlFile of ['index.html', 'v2.html']) {
+    for (const htmlFile of ['index.html', 'v2.html', 'family.html']) {
       const html = fs.readFileSync(path.join(output, htmlFile), 'utf8');
       const references = Array.from(html.matchAll(/(?:src|href)="([^"]+)"/g), match => match[1]);
       for (const reference of references) {
