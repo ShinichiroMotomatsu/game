@@ -2,6 +2,7 @@
   "name": "roppongi-rpg-prototype",
   "private": true,
   "scripts": {
+    "dev:family": "node scripts/serve-family.js",
     "build:supabase-client": "node scripts/build-supabase-client.js",
     "test": "node --test",
     "test:coverage": "node --experimental-test-coverage --test"

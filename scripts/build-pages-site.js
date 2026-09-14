@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
-const ROOT_FILES = ['index.html', 'launcher.css', 'v2.html', 'v2.css'];
+const ROOT_FILES = ['index.html', 'launcher.css', 'v2.html', 'v2.css', 'family.html', 'family.css', 'family-game.js', 'family-art.js', 'family.js'];
 const ASSET_FILES = [
   'assets/v2/map-layout-data.js',
   'assets/v2/road-collision-data.js',
